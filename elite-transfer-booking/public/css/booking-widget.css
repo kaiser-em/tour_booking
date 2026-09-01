@@ -1,0 +1,1061 @@
+/* --- DESIGN SYSTEM PREMIUM --- */
+.etb-booking-widget {
+    --etb-primary: #052021;
+    --etb-accent: #E65A15;
+    --etb-bg: #F8F9FA;
+    --etb-white: #FFFFFF;
+    --etb-text: #172326;
+    --etb-muted: #5F6B6B;
+    --etb-border: #cccccc/*#E2E8F0*/;
+    --etb-radius-sm: 8px;
+    --etb-radius-md: 12px;
+    --etb-radius-lg: 20px;
+    --etb-shadow: 0 10px 30px rgba(5, 32, 33, 0.05);
+    
+    border: 1px solid var(--etb-border);
+    width: 100% !important; /* Assure le responsive et l'adaptation au parent */
+    max-width: 500px;
+    min-width: 400px;
+    margin: 40px auto;
+    background: var(--etb-white);
+    padding: 18px;
+    border-radius: var(--etb-radius-lg);
+    box-shadow: var(--etb-shadow);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--etb-text);
+    line-height: 1.5;
+    box-sizing: border-box;
+    overflow: hidden !important; /* Empêche le contenu d'éclater le cadre */
+    clear: both !important;
+
+}
+
+.etb-booking-widget * { box-sizing: border-box; }
+
+.etb-booking-widget * {
+    font-family: inherit;
+    line-height: 1.5;
+    color: inherit;
+}
+
+/* Exception : restaurer la police dashicons, écrasée par le reset ci-dessus */
+.etb-booking-widget .dashicons {
+    font-family: dashicons !important;
+}
+
+/* --- SECTIONS & TITRES --- */
+.etb-section { margin-bottom: 60px;  position: relative; }
+
+/* Verrouillage contre les styles de thème/builder sur <section> */
+.etb-booking-widget .etb-section {
+    display: block !important;
+    float: none !important;
+    width: 100% !important;
+}
+.etb-section-title {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.4;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--etb-primary);
+    margin: 0 0 24px 0;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+}
+
+.etb-section-title .dashicons,
+.etb-section-title svg,
+.etb-section-title i { 
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 18px !important; 
+    width: 18px !important; 
+    height: 18px !important; 
+    line-height: 1 !important;
+    color: var(--etb-primary) !important; 
+    position: static !important; /* Annote l'icône dans le flux du texte, empêche le saut à droite */
+    float: none !important;
+    margin: 0 !important;
+    transform: none !important;
+}
+
+/* --- CAROUSEL VÉHICULES (FOCUS) --- */
+
+.etb-carousel-container {
+    position: relative;
+    width: 100%;
+    min-height: 400px;
+    display: flex;
+    align-items: center;
+    justify-content: center; /* Centre le track */
+    
+    perspective: 1000px;
+}
+
+
+/* --- BOUTONS NAVIGATION PREMIUM (À ajouter) --- */
+.etb-carousel-nav {
+    appearance: none;
+    -webkit-appearance: none;
+    font-family: inherit;
+    font-size: 16px;
+    line-height: 1;
+    text-transform: none;
+    box-shadow: none;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 48px;
+    height: 48px;
+    background: var(--etb-primary);
+    color: white;
+    border: 2px solid var(--etb-white);
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.etb-carousel-nav.prev { left: 0; }
+.etb-carousel-nav.next { right: 0; }
+
+.etb-carousel-nav:hover {
+    background: var(--etb-accent);
+    transform: translateY(-50%) scale(1.1);
+}
+
+/* Modifier uniquement ce sélecteur */
+
+.etb-carousel-track {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transform-style: preserve-3d;
+}
+
+.etb-vehicle-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    position: absolute;
+    width: 230px;
+    min-height: 380px;
+    background: var(--etb-primary);
+    border-radius: var(--etb-radius-md);
+    border:1px solid var(--etb-border);
+    padding: 15px;
+    color: #fff;
+     transition: transform 0.45s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.45s ease, box-shadow 0.45s ease !important;
+    cursor: pointer;
+    text-align: left;
+    backface-visibility: hidden;
+}
+
+
+
+/* Véhicule Actif */
+.etb-vehicle-card.etb-active {
+    background: var(--etb-primary);
+    z-index: 10;
+    opacity: 1;
+    transform: scale(1.1);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+}
+.etb-vehicle-image {
+    width: 100%;
+    height: 140px;
+    object-fit: contain;
+    margin-bottom: 16px;
+}
+
+.etb-vehicle-card h3 {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.3;
+    margin: 0 0 8px 0;
+    color: #fff;
+}
+
+.etb-vehicle-price {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--etb-accent);
+    margin-bottom: 20px;
+}
+
+.etb-vehicle-specs {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    font-size: 12px;
+    border-top: 1px solid var(--etb-border);
+    padding-top: 16px;
+    opacity: 0.8;
+}
+
+.etb-vehicle-card.etb-active .etb-vehicle-specs { border-color: rgba(255,255,255,0.15); }
+
+
+/* --- ÉTAPE 2 : QUANTITÉ SUR LES CARTES --- */
+.etb-vehicle-qty {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.etb-vehicle-qty span { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.7; }
+.etb-qty-control.mini { 
+    background: rgba(255, 255, 255, 0.5);
+      
+     border-radius: full;
+    border: 1px solid var(--etb-border); }
+.etb-qty-control.mini .etb-qty-btn { 
+    width: 26px; height: 26px; 
+    background: transparent;
+    color: #212121; 
+    /*border: 1px solid rgba(255, 255, 255, 0.2); */
+}
+.etb-qty-control.mini .etb-qty-btn:hover { background: var(--etb-accent); border-color: var(--etb-accent); }
+.etb-qty-control.mini input { 
+    color: #212121; 
+    width:28px; 
+    font-size: 14px; 
+    font-weight: bold;
+
+ }
+
+
+
+
+
+/* --- CONTRÔLES QUANTITÉ (PASSAGERS & OPTIONS) --- */
+.etb-qty-control {
+    display: flex;
+    align-items: center;
+    background: var(--etb-bg);
+    border: 1px solid var(--etb-border);
+    border-radius: 50px;
+    width: fit-content;
+}
+
+.etb-qty-btn {
+    appearance: none;
+    -webkit-appearance: none;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1;
+    text-transform: none;
+    letter-spacing: normal;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--etb-primary);
+    font-weight: bold;
+    cursor: pointer;
+    
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.etb-qty-btn:hover { background: var(--etb-accent); color: white; }
+
+.etb-qty-btn:focus {outline: none; box-shadow: none;}
+.etb-qty-btn:active { outline: none;box-shadow: none;}
+
+.etb-qty-control input {
+    width: 32px;
+    text-align: center;
+    border: none;
+    background: transparent;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--etb-primary);
+}
+
+/* --- SUPPRESSION DES FLÈCHES NATIVES DU NAVIGATEUR SUR LES INPUTS NUMBER --- */
+/* Chrome, Safari, Edge (WebKit/Blink) */
+.etb-booking-widget input[type="number"]::-webkit-outer-spin-button,
+.etb-booking-widget input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* Firefox */
+.etb-booking-widget input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+
+/* --- GRILLE PASSAGERS --- */
+.etb-pax-grid,
+.etb-grid-2 {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important; /* Force la réduction des colonnes */
+    gap: 16px;
+    width: 100% !important;
+}
+
+.etb-pax-grid > *,
+.etb-grid-2 > * {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/*--OPTIONS - D1 ---*/
+
+.etb-pax-card {
+    background: var(--etb-white);
+    border: 1.2px solid var(--etb-border);
+    padding: 10px 16px; /* Légère réduction du padding pour éviter la saturation */
+    border-radius: var(--etb-radius-md);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+}
+
+.etb-pax-info strong { display: block; font-size: 15px; color: var(--etb-primary); font-weight:800}
+.etb-pax-info span { font-size: 13px; color: var(--etb-muted); font-weight:bold; }
+
+/* --- LAYOUT 2 LIGNES POUR LES CARTES OPTIONS --- */
+.etb-pax-card.etb-extra-item {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 14px;
+    min-height: 88px;
+}
+
+.etb-option-row-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.etb-option-row-top strong {
+    font-size: 15px;
+    color: var(--etb-primary);
+    font-weight: 800;
+}
+
+.etb-option-row-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.etb-icon-badge {
+    width: 25px;
+    height: 25px;
+    min-width: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.etb-icon-badge .dashicons {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: var(--etb-primary);
+}
+
+
+
+.etb-extra-item {
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Style de la carte quand l'option est sélectionnée */
+.etb-extra-item.etb-selected {
+    border-color: var(--etb-accent);
+    background-color: rgba(230, 90, 21, 0.03);
+    box-shadow: 0 5px 15px rgba(230, 90, 21, 0.1);
+}
+
+/* Rond de coche pour le clic simple (options sans quantité) */
+.etb-toggle-check {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid var(--etb-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: transparent; /* Coche invisible par défaut */
+    transition: all 0.3s;
+
+}
+
+.etb-selected .etb-toggle-check {
+
+    background: var(--etb-accent);
+    border-color: var(--etb-accent);
+    color: #fff; /* Coche blanche quand sélectionné */
+}
+
+
+
+
+
+
+/* Style pour le texte "Offert" */
+.etb-price-tag {
+    font-weight: 600;
+    font-size: 12px !important;
+}
+.etb-selected .etb-price-tag { color: var(--etb-accent); }
+
+
+
+/* --- POINT DE DÉPART --- */
+.etb-field-select-wrapper { 
+    position: relative !important; 
+    width: 100% !important; 
+    display: flex !important;
+    align-items: center !important;
+}
+
+.etb-select {
+    width: 100% !important;
+    height: 52px !important;
+    padding: 0 20px 0 45px !important; /* Maintient la marge à gauche pour l'icône */
+    border: 1px solid var(--etb-border) !important;
+    border-radius: var(--etb-radius-md) !important;
+    background-color: var(--etb-white) !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    font-size: 14px !important;
+    line-height: 1.4 !important;
+    box-shadow: none !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    cursor: pointer !important;
+    margin: 0 !important;
+}
+
+.etb-field-select-wrapper .dashicons-location,
+.etb-field-select-wrapper svg,
+.etb-field-select-wrapper i {
+    position: absolute !important;
+    left: 16px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    color: var(--etb-primary) !important;
+    z-index: 2 !important;
+    pointer-events: none !important; /* Permet de cliquer sur le menu déroulant à travers l'icône */
+    float: none !important;
+    margin: 0 !important;
+}
+/* --- GRILLE OPTIONS --- */
+.etb-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+/* --- FORMULAIRE CLIENT --- */
+.etb-field { margin-bottom: 16px; }
+.etb-field-full { grid-column: span 2; }
+
+.etb-field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--etb-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* --- ICÔNES DANS LES CHAMPS "VOS INFORMATIONS" --- */
+.etb-field-icon-wrapper {
+    position: relative;
+}
+
+.etb-field-icon-wrapper .dashicons {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--etb-muted);
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    pointer-events: none;
+}
+
+.etb-field .etb-field-icon-wrapper input {
+    padding-left: 44px;
+}
+
+/* --- STYLE CUSTOM DATE / HEURE (Chrome, Edge, Safari) --- */
+
+.etb-field-icon-wrapper input[type="date"]::-webkit-calendar-picker-indicator,
+.etb-field-icon-wrapper input[type="time"]::-webkit-calendar-picker-indicator {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    margin: 0;
+}
+
+/* Firefox : pas de pseudo-élément équivalent, on garde le rendu natif
+   mais on aligne au moins la police/couleur avec le reste du formulaire */
+@-moz-document url-prefix() {
+    .etb-field-icon-wrapper input[type="date"],
+    .etb-field-icon-wrapper input[type="time"] {
+        color: var(--etb-primary);
+    }
+}
+
+
+.etb-field input, .etb-field textarea {
+    appearance: none;
+    -webkit-appearance: none;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.4;
+    box-shadow: none;
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: var(--etb-radius-sm);
+    font-size: 14px;
+    font-weight: bold;
+    transition: border-color 0.2s;
+}
+
+.etb-field input, .etb-field textarea, .etb-select {
+    border: 1px solid #D1D5DB;
+    background: #FFFFFF;
+    color: var(--etb-primary);
+    font-weight: 500;
+}
+
+
+.etb-field input:focus, .etb-select:focus {
+    
+    box-shadow: 0 0 0 4px rgba(230, 90, 21, 0.1);
+}
+/* --- RÉCAPITULATIF PREMIUM --- */
+.etb-summary-card {
+    background: var(--etb-primary);
+    color: var(--etb-white);
+    padding: 32px;
+    border-radius: var(--etb-radius-md);
+    margin-top: 24px;
+}
+
+.etb-summary-details { border-bottom: 1px dashed rgba(255,255,255,0.2); padding-bottom: 20px; margin-bottom: 20px; }
+.etb-summary-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; opacity: 0.9; }
+
+.etb-summary-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.etb-summary-total span:first-child { font-size: 13px; font-weight: 700; text-transform: uppercase; opacity: 0.7; }
+.etb-total-amount { 
+    font-size: 44px; 
+    font-weight: 900; 
+    color: var(--etb-accent);
+    letter-spacing: -1px;
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+
+}
+
+#etb-total-val{
+    font-size: 44px; 
+    font-weight: 900; 
+    opacity: 100%;
+}
+
+
+
+/* --- BOUTON FINAL --- */
+.etb-submit-button {
+    appearance: none;
+    -webkit-appearance: none;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.4;
+    box-shadow: none;
+    width: 100%;
+    background: var(--etb-accent);
+    color: white;
+    border: none;
+    padding: 20px;
+    border-radius: var(--etb-radius-md);
+    font-size: 15px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 24px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+
+
+.etb-submit-button:hover { background: #d1541f; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(230, 90, 21, 0.3); }
+
+/* --- MESSAGE D'ERREUR DE VALIDATION (Phase 6) --- */
+.etb-error-message {
+    color: #B3261E;
+    background: rgba(179, 38, 30, 0.08);
+    border: 1px solid rgba(179, 38, 30, 0.3);
+    border-radius: var(--etb-radius-sm);
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 16px;
+}
+
+/* --- BOUTON DÉSACTIVÉ --- */
+.etb-submit-button:disabled,
+.etb-submit-button.etb-disabled {
+    background: #B0B8B7;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+}
+
+.etb-submit-button:disabled:hover,
+.etb-submit-button.etb-disabled:hover {
+    background: #B0B8B7;
+    transform: none;
+    box-shadow: none;
+}
+
+
+
+/* Badge de sélection orange */
+.etb-selection-check {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: var(--etb-accent);
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0; /* Caché par défaut */
+    transform: scale(0);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 5;
+}
+
+/* État de la carte quand Quantité > 0 */
+.etb-vehicle-card.etb-selected {
+    border: 2px solid var(--etb-accent) !important;
+    box-shadow: 0 0 20px rgba(230, 90, 21, 0.3);
+}
+
+.etb-vehicle-card.etb-selected .etb-selection-check {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* On s'assure que le badge est bien visible même sur les cartes inactives */
+.etb-vehicle-card.etb-selected {
+    opacity: 1 !important; /* Plus visible que les autres inactives */
+    background-color: #003427;
+
+}
+
+.etb-booking-widget .etb-summary-card strong {
+    color: inherit !important;
+}
+
+.etb-booking-widget .etb-vehicle-card h3 {
+    color: #fff !important;
+}
+
+
+/* --- CORRECTION DU CENTRAGE DES BADGES CHECK --- */
+
+.etb-selection-check,
+.etb-toggle-check {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    line-height: 1 !important;
+    padding: 0 !important;
+    text-align: center !important;
+}
+
+/* Annule les décalages de ligne sur l'icône interne (Dashicons, SVG ou caractère UTF-8) */
+.etb-selection-check *,
+.etb-toggle-check *,
+.etb-selection-check::before,
+.etb-toggle-check::before {
+    line-height: 1 !important;
+    height: auto !important;
+    width: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: inline-block !important;
+    vertical-align: middle !important;
+}
+
+
+
+/* --- PROTECTION ANTI-Surcharge DU THÈME PARENT --- */
+.etb-booking-widget .etb-section-title * {
+    position: static !important;
+    float: none !important;
+}
+
+/* ==========================================================================
+   STYLE DU CODE PROMO (booking-form.php)
+   ========================================================================== */
+
+/* Conteneur flex pour aligner le champ et le bouton côte à côte */
+.etb-field .etb-promo-wrapper {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    position: relative !important;
+    width: 100% !important;
+}
+
+/* Replacer l'icône étiquette à l'intérieur du champ de texte */
+.etb-promo-wrapper > .dashicons-tag,
+.etb-promo-wrapper > .dashicons {
+    position: absolute !important;
+    left: 14px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    color: var(--etb-muted, #6b7280) !important;
+    font-size: 18px !important;
+    width: 18px !important;
+    height: 18px !important;
+    line-height: 1 !important;
+    pointer-events: none !important;
+    z-index: 2 !important;
+    margin: 0 !important;
+    float: none !important;
+}
+
+/* Champ de saisie #etb-promo-input */
+#etb-promo-input {
+    flex: 1 !important;
+    height: 48px !important;
+    padding: 0 16px 0 42px !important; /* Dégage l'espace pour l'icône à gauche */
+    border: 1px solid var(--etb-border, #d1d5db) !important;
+    border-radius: var(--etb-radius-md, 8px) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    color: var(--etb-primary, #111827) !important;
+    background-color: var(--etb-white, #ffffff) !important;
+    box-shadow: none !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    text-transform: uppercase !important;
+    margin: 0 !important;
+}
+
+#etb-promo-input::placeholder {
+    text-transform: none !important;
+    font-weight: 400 !important;
+    color: #9ca3af !important;
+}
+
+/* Bouton #etb-apply-promo-btn */
+#etb-apply-promo-btn {
+    flex-shrink: 0 !important;
+    height: 48px !important;
+    padding: 0 20px !important;
+    background: var(--etb-primary, #111827) !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: var(--etb-radius-md, 8px) !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    transition: background-color 0.2s ease !important;
+    margin: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+#etb-apply-promo-btn:hover {
+    background: var(--etb-accent, #2563eb) !important;
+}
+
+/* Message de feedback #etb-promo-message */
+#etb-promo-message {
+    margin-top: 6px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+}
+
+/* Forcer l'élément plein écran dans la grille à 2 colonnes */
+.etb-grid-2 .etb-field-full {
+    grid-column: 1 / -1 !important;
+}
+
+
+/* ==========================================================================
+   CORRECTION 1 : TEXTE DE CAPACITÉ SOUS LE CARROUSEL
+   ========================================================================== */
+
+.etb-capacity-info,
+#etb-capacity-display {
+    display: block !important;
+    width: 100% !important;
+    text-align: center !important;
+    margin: 20px auto 0 auto !important;
+    padding: 0 !important;
+    clear: both !important;
+    position: relative !important;
+    left: 0 !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: var(--etb-muted) !important;
+}
+
+
+/* ==========================================================================
+   CORRECTION 2 : ALIGNEMENT DU SÉLECTEUR "POINT DE DÉPART" ET SON ICÔNE
+   ========================================================================== */
+
+/* Conteneur du sélecteur */
+.etb-field-select-wrapper {
+    position: relative !important;
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+/* Replacer l'icône au centre vertical du champ */
+.etb-field-select-wrapper .dashicons-location,
+.etb-field-select-wrapper .dashicons {
+    position: absolute !important;
+    left: 14px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    z-index: 5 !important;
+    pointer-events: none !important;
+    line-height: 1 !important;
+    height: 18px !important;
+    width: 18px !important;
+}
+
+/* Centrer le texte à l'intérieur du champ select */
+.etb-field-select-wrapper select.etb-select {
+    width: 100% !important;
+    height: 50px !important;
+    line-height: 1.3 !important;
+    padding: 12px 35px 12px 42px !important; /* Marge à gauche pour l'icône */
+    display: block !important;
+    box-sizing: border-box !important;
+    vertical-align: middle !important;
+}
+
+/* ==========================================================================
+   NOUVEAUTÉ ETB V2 : BOUTON / CASE LIEU DE DÉPOSE (DROP-OFF)
+   ========================================================================== */
+
+.etb-dropoff-toggle-wrapper {
+    margin-top: 20px !important;
+    margin-bottom: 8px !important;
+}
+
+.etb-toggle-dropoff-label {
+    display: inline-flex !important;
+    align-items: center !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    gap: 12px !important;
+}
+
+/* Masquer la case à cocher native */
+.etb-toggle-dropoff-label input[type="checkbox"] {
+    display: none !important;
+}
+
+/* Boîte personnalisée harmonisée avec le design */
+.etb-custom-box {
+    width: 24px !important;
+    height: 24px !important;
+    min-width: 24px !important;
+    border: 2px solid var(--etb-border) !important;
+    border-radius: var(--etb-radius-sm, 6px) !important;
+    background: var(--etb-white, #fff) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: all 0.2s ease-in-out !important;
+    box-sizing: border-box !important;
+}
+
+/* Icône Dashicon */
+.etb-custom-box .dashicons {
+    font-size: 16px !important;
+    width: 16px !important;
+    height: 16px !important;
+    line-height: 1 !important;
+    color: #ffffff !important;
+    opacity: 0 !important;
+    transform: scale(0.5) !important;
+    transition: all 0.15s ease-in-out !important;
+}
+
+/* Texte du label */
+.etb-dropoff-label-text {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    color: var(--etb-primary) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+}
+
+/* État coché (Checked) -> Fond avec la couleur Accent (Orange) */
+.etb-toggle-dropoff-label input[type="checkbox"]:checked + .etb-custom-box {
+    background: var(--etb-accent) !important;
+    border-color: var(--etb-accent) !important;
+}
+
+.etb-toggle-dropoff-label input[type="checkbox"]:checked + .etb-custom-box .dashicons {
+    opacity: 1 !important;
+    transform: scale(1) !important;
+}
+
+/* Conteneur du textarea Drop-off */
+#etb-dropoff-container {
+    margin-top: 15px !important;
+    border-left: 3px solid var(--etb-accent) !important;
+    padding-left: 15px !important;
+}
+
+/* ==========================================================================
+   NOUVEAUTÉ V2 : EN-TÊTE DE PRIX & CAPACITÉ (SIDEBAR)
+   ========================================================================== */
+
+/* Masqué par défaut avec transition fluide */
+.etb-sidebar-price-card {
+    max-height: 0 !important;
+    opacity: 0 !important;
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    border-bottom: 1px solid transparent !important;
+    transform: translateY(-8px) !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
+    transition: max-height 0.35s cubic-bezier(0.25, 1, 0.5, 1),
+                opacity 0.28s ease,
+                transform 0.35s cubic-bezier(0.25, 1, 0.5, 1),
+                margin-bottom 0.35s cubic-bezier(0.25, 1, 0.5, 1),
+                padding-bottom 0.35s cubic-bezier(0.25, 1, 0.5, 1),
+                border-color 0.35s ease !important;
+}
+
+/* Apparition fluide dès qu'un véhicule est sélectionné */
+.etb-sidebar-price-card.etb-visible {
+    max-height: 130px !important;
+    opacity: 1 !important;
+    margin-bottom: 24px !important;
+    padding-bottom: 18px !important;
+    border-bottom-color: var(--etb-border, #E2E8F0) !important;
+    transform: translateY(0) !important;
+    pointer-events: auto !important;
+}
+
+.etb-sidebar-label {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.08em !important;
+    color: var(--etb-muted, #5F6B6B) !important;
+    display: block !important;
+}
+
+.etb-sidebar-amount-row {
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 6px !important;
+    margin: 4px 0 !important;
+}
+
+.etb-sidebar-currency {
+    font-size: 28px !important;
+    font-weight: 900 !important;
+    color: var(--etb-accent, #E65A15) !important;
+}
+
+.etb-sidebar-val {
+    font-size: 44px !important;
+    font-weight: 900 !important;
+    color: var(--etb-accent, #E65A15) !important;
+    letter-spacing: -1px !important;
+    line-height: 1 !important;
+}
+
+.etb-sidebar-pax-notice {
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: var(--etb-text, #172326) !important;
+    margin: 6px 0 0 0 !important;
+}
+
+.etb-sidebar-pax-notice strong {
+    font-weight: 700 !important;
+    color: var(--etb-primary, #052021) !important;
+}
+
+
+/* --- RESPONSIVE --- */
+@media (max-width: 768px) {
+    .etb-booking-widget { padding: 24px; margin: 20px; }
+    .etb-pax-grid, .etb-grid-2 { 
+        grid-template-columns: 1fr; 
+
+    }
+    .etb-field-full { grid-column: span 1; }
+    .etb-carousel-track { flex-direction: column; }
+    .etb-vehicle-card { flex: 1 1 100%; width: 85%; transform: scale(1) !important; opacity: 1 !important; }
+
+    /* Espace réservé aux boutons prev/next pour qu'ils ne recouvrent plus la carte */
+    .etb-carousel-container {
+        padding: 0 44px;
+    }
+}

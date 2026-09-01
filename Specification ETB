@@ -1,0 +1,394 @@
+# 📘 DOCUMENTATION TECHNIQUE & FONCTIONNELLE OFFICIELLE
+## Écosystème : Elite Transfer Booking (ETB) & Circuit Options
+
+---
+
+## SOMMAIRE
+1. [Vue d'Ensemble & Objectifs](#1-vue-densemble--objectifs)
+2. [Architecture Globale & Philosophie](#2-architecture-globale--philosophie)
+3. [Arborescence Complète des Fichiers](#3-arborescence-complète-des-fichiers)
+4. [Modèle de Données & Base de Données (CPT & Métas)](#4-modèle-de-données--base-de-données-cpt--métas)
+5. [Le Moteur de Tarification (Pricing Engine)](#5-le-moteur-de-tarification-pricing-engine)
+6. [Passerelle de Communication Inter-Plugins](#6-passerelle-de-communication-inter-plugins)
+7. [Expérience Utilisateur (Frontend) & Layout Split](#7-expérience-utilisateur-frontend--layout-split)
+8. [Workflow AJAX & Pipeline de Réservation](#8-workflow-ajax--pipeline-de-réservation)
+9. [Administration Back-Office WordPress](#9-administration-back-office-wordpress)
+10. [Système de Notifications E-mail](#10-système-de-notifications-e-mail)
+11. [Roadmap & Évolutions Futures](#11-roadmap--évolutions-futures)
+
+---
+
+## 1. VUE D'ENSEMBLE & OBJECTIFS
+
+L'écosystème est composé de **deux extensions WordPress autonomes et interconnectées** conçues pour les agences de transport privé, d'excursions et de circuits touristiques avec chauffeur :
+
+1. **`elite-transfer-booking` (ETB)** : Le moteur central de réservation et de calcul tarifaire (gestion de la flotte de véhicules, des passagers, des bagages, des options/extras, des codes promo et de l'encaissement/soumission).
+2. **`circuit-options`** : Le gestionnaire de circuits et d'itinéraires (gestion des circuits touristiques, des villes de départ multiples, des durées dynamiques, des suppléments de zone, du programme/timeline et des inclusions).
+
+### Objectifs Clés :
+* **Découplage modulaire** : Les deux plugins communiquent via des API internes (Filtres WordPress et Événements JavaScript personnalisés), sans dépendance rigide.
+* **Sécurité & Source de Vérité** : Le navigateur frontend n'est **jamais** considéré comme source de vérité pour les calculs financiers. Tous les totaux, durées et suppléments sont recalculés et vérifiés côté serveur PHP lors de la soumission.
+* **UX Moderne "Split Layout"** : Une interface utilisateur fluide inspirée des standards du secteur (sélection de véhicules en grille responsive supérieure, colonne de gauche dédiée aux détails du circuit, et colonne de droite sticky pour la réservation).
+
+---
+
+## 2. ARCHITECTURE GLOBALE & PHILOSOPHIE
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                          PAGE DU CIRCUIT                                         │
+│                                                                                                  │
+│  ┌────────────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ PLUGIN : CIRCUIT OPTIONS (Haut de page)                                                    │  │
+│  │ [ Grille Horizontale des Véhicules ETB ] ──► (Sélection, Quantité, Animation Fluide)       │  │
+│  └──────────────────────────────────────────────┬─────────────────────────────────────────────┘  │
+│                                                 │ Dispatche : 'etb:circuit_changed'               │
+│                                                 ▼                                                │
+│  ┌──────────────────────────────────────────────┬─────────────────────────────────────────────┐  │
+│  │ COLONNE GAUCHE (Circuit Options)             │ COLONNE DROITE : PLUGIN ETB (Sidebar)       │  │
+│  │ • Onglets Villes (Cannes, Monaco...)         │ • En-tête dynamique "À PARTIR DE € [PRIX]"  │  │
+│  │ • 4 Badges Clés (Durée, Langue, Type...)     │ • Compteur "passager maximum : [X]"         │  │
+│  │ • Programme / Timeline (Étapes horaires)     │ • Passagers (Adultes / Enfants)             │  │
+│  │ • Inclus / Non Inclus                        │ • Prise en charge & Dépose (Drop-off)       │  │
+│  │                                              │ • Options / Extras & Codes Promo            │  │
+│  │                                              │ • Bouton [ RÉSERVER MAINTENANT ]            │  │
+│  └──────────────────────────────────────────────┴──────────────────────┬──────────────────────┘  │
+│                                                                        │ Requête AJAX            │
+│                                                                        ▼                         │
+│  ┌────────────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ SERVEUR WORDPRESS (PHP)                                                                    │  │
+│  │ 1. Vérification du Nonce de sécurité                                                       │  │
+│  │ 2. Filtres WP : 'etb_circuit_duration_hours' & 'etb_circuit_additional_price'              │  │
+│  │ 3. Pricing Engine : (Taux horaire × Durée × Quantité) + Suppléments + Extras - Promo      │  │
+│  │ 4. Création du CPT 'tour_booking' & Sauvegarde des métadonnées                            │  │
+│  │ 5. Expédition des e-mails HTML (Client + Administrateur)                                   │  │
+│  └────────────────────────────────────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 3. ARBORESCENCE COMPLÈTE DES FICHIERS
+
+### A. Plugin 1 : `elite-transfer-booking`
+Dossier : `wp-content/plugins/elite-transfer-booking/`
+
+```text
+elite-transfer-booking/
+│
+├── elite-transfer-booking.php       # Point d'entrée, constantes globales, bootstrap
+│
+├── includes/                        # Logique Métier & Backend
+│   ├── class-ajax.php               # Endpoints AJAX (soumission & validation promo)
+│   ├── class-cpt-manager.php        # Déclaration des CPTs (tour_booking, tour_vehicle, tour_extra, tour_promo)
+│   ├── class-etb-meta-manager.php   # Gestion des metaboxes admin (champs véhicules, fiche réservation)
+│   ├── class-etb-pricing-engine.php # Moteur mathématique de tarification serveur
+│   ├── class-etb-settings.php       # Page d'options globales (Devise, e-mail admin)
+│   └── class-etb-shortcode.php      # Enregistrement du shortcode [tour_booking]
+│
+├── public/                          # Assets Frontend
+│   ├── css/
+│   │   └── booking-widget.css       # Design System du formulaire, sidebar, en-têtes et responsive
+│   └── js/
+│       └── booking-widget.js        # Logique réactive (calculs temps réel, validation, interactions)
+│
+└── templates/                       # Vues HTML
+    └── booking-form.php             # Template du formulaire latéral droit
+```
+
+### B. Plugin 2 : `circuit-options`
+Dossier : `wp-content/plugins/circuit-options/`
+
+```text
+circuit-options/
+│
+├── circuit-options.php              # Point d'entrée, chargement des classes et assets
+│
+├── includes/                        # Logique Métier & Passerelle
+│   ├── class-co-cpt.php             # Enregistrement du CPT "circuit"
+│   ├── class-co-meta-box.php        # Interface back-office d'édition des circuits et onglets
+│   ├── class-co-hooks.php           # Pont serveur (Filtres WP de durée, prix et libellés)
+│   └── class-co-shortcode.php       # Shortcode [circuit_view id="..."] et injection template
+│
+├── admin/                           # Assets Back-Office
+│   ├── css/
+│   │   └── co-admin.css             # Style du gestionnaire d'onglets et répéteur dans l'admin
+│   └── js/
+│       └── co-admin.js              # Script admin (Ajout dynamique d'options et étapes timeline)
+│
+├── public/                          # Assets Frontend
+│   ├── css/
+│   │   └── co-public.css            # Styles de la grille véhicules, timeline, onglets et 2 colonnes
+│   └── js/
+│       └── co-public.js             # Synchronisation live des onglets et émission d'événements vers ETB
+│
+└── templates/                       # Vues HTML
+    └── circuit-view.php             # Layout d'assemblage (Grille haute + Détails gauche + ETB droite)
+```
+
+---
+
+## 4. MODÈLE DE DONNÉES & BASE DE DONNÉES (CPT & MÉTAS)
+
+Le système exploite la table native `wp_posts` et la table de métadonnées `wp_postmeta`.
+
+### Table des Custom Post Types
+
+| CPT | Slug / Identifiant | Plugin Propriétaire | Rôle |
+| :--- | :--- | :--- | :--- |
+| **Circuit** | `circuit` | `circuit-options` | Fiche d'un tour touristique complet. |
+| **Réservation** | `tour_booking` | `elite-transfer-booking` | Dossier d'une commande / réservation passée. |
+| **Véhicule** | `tour_vehicle` | `elite-transfer-booking` | Fiche d'un véhicule de la flotte (capacités, tarif horaire). |
+| **Option / Extra**| `tour_extra` | `elite-transfer-booking` | Service additionnel (Siège bébé, Champagne, Guide...). |
+| **Code Promo** | `tour_promo` | `elite-transfer-booking` | Coupon de réduction (pourcentage ou montant fixe). |
+| **Point de départ**| `tour_pickup` | `elite-transfer-booking` | *(Legacy - Masqué du menu, conservé pour rétrocompatibilité)*. |
+
+---
+
+### Schéma Détaillé des Métadonnées (`wp_postmeta`)
+
+#### 1. Pour le CPT `circuit` :
+* **`_circuit_options_data`** *(Array sérialisé)* : Contient la totalité des options de départ configurées pour le circuit sous forme de dictionnaire clé/valeur :
+```php
+[
+    'opt_wynyfatcn' => [
+        'city_name'        => 'Cannes',         // (string) Nom de la ville / onglet
+        'duration_hours'   => 4.0,              // (float) Durée en heures
+        'departure_time'   => '09:00',          // (string) Heure conseillée (format HH:MM)
+        'additional_price' => 0.0,              // (float) Supplément tarifaire de zone
+        'badge_1'          => '⏱ 4h d\'excursion',// (string) Badge 1
+        'badge_2'          => '📍 Départ hôtel', // (string) Badge 2
+        'badge_3'          => '👥 Visite privée',// (string) Badge 3
+        'badge_4'          => '🗣 Guide français',// (string) Badge 4
+        'timeline'         => [                 // (array) Étapes du programme
+            [ 'time' => '09:00', 'title' => 'Prise en charge', 'desc' => 'Départ de votre hôtel...' ],
+            [ 'time' => '10:00', 'title' => 'Le Suquet',       'desc' => 'Visite de la vieille ville...' ]
+        ],
+        'inclusions'       => "Véhicule et chauffeur\nEau à bord", // (string) Ligne par ligne
+        'exclusions'       => "Repas\nBoissons extras"             // (string) Ligne par ligne
+    ],
+    'opt_monaco123' => [ ... ]
+]
+```
+
+#### 2. Pour le CPT `tour_vehicle` :
+* `_etb_hourly_rate` *(float)* : Taux horaire du véhicule (€/h).
+* `_etb_base_price` *(float)* : *(Legacy fallback)* Ancien tarif de base conservé pour rétrocompatibilité.
+* `_etb_max_pax` *(int)* : Capacité maximale en passagers.
+* `_etb_max_baggage` *(int)* : Capacité maximale en bagages.
+* `_etb_allowed_extras` *(array)* : IDs des extras autorisés pour ce véhicule.
+
+#### 3. Pour le CPT `tour_booking` :
+* `_etb_customer_name` *(string)* : Nom complet du client.
+* `_etb_customer_email` *(string)* : Adresse e-mail du client.
+* `_etb_booking_date` *(string)* : Date de la prestation (`YYYY-MM-DD`).
+* `_etb_booking_time` *(string)* : Heure de prise en charge (`HH:MM`).
+* `_etb_pickup_address` *(string)* : Adresse précise de prise en charge saisie.
+* `_etb_dropoff_info` *(string)* : Adresse de dépose (ou vide si identique au départ).
+* `_etb_adults` *(int)* : Nombre d'adultes.
+* `_etb_children` *(int)* : Nombre d'enfants.
+* `_etb_luggage` *(int)* : Nombre total de bagages.
+* `_etb_vehicles` *(array)* : Tableau associatif `[ vehicle_id => quantite ]`.
+* `_etb_extras` *(array)* : Tableau associatif `[ extra_id => quantite_ou_1 ]`.
+* `_etb_circuit_id` *(int)* : ID du post `circuit` lié (0 si transfert standard).
+* `_etb_circuit_option_id` *(string)* : ID de l'option choisie (`opt_...`).
+* `_etb_duration_hours` *(float)* : Durée exacte facturée au moment de la réservation.
+* `_etb_total_price` *(float)* : Montant total final de la commande.
+* `_etb_pricing_details` *(array)* : Snapshot complet de la décomposition du prix.
+* `_etb_promo_code` *(string)* : Code promo utilisé.
+* `_etb_discount_amount` *(float)* : Montant de la remise déduite.
+* `_etb_status` *(string)* : `pending`, `confirmed`, `completed`, `cancelled`.
+
+---
+
+## 5. LE MOTEUR DE TARIFICATION (PRICING ENGINE)
+
+Classe : `ETB_Pricing_Engine` (`includes/class-etb-pricing-engine.php`)
+
+### La Formule Mathématique V2 :
+$$\text{Total} = \left( \sum (\text{Taux Horaire Véhicule} \times \text{Durée en Heures} \times \text{Quantité}) \right) + \text{Supplément Circuit} + \text{Total Extras} - \text{Remise Promo}$$
+
+### Algorithme de Calcul Serveur :
+
+```text
+Entrée : Tableau de données validées ($_POST)
+  │
+  ├── 1. Récupération de l'Option & du Circuit :
+  │      $duration_hours = apply_filters('etb_circuit_duration_hours', 1.0, $option_id, $circuit_id);
+  │      $circuit_additional_price = apply_filters('etb_circuit_additional_price', 0.0, $option_id, $circuit_id);
+  │
+  ├── 2. Calcul du sous-total Véhicules :
+  │      Pour chaque véhicule (vehicle_id => qty) :
+  │        hourly_rate = get_post_meta(vehicle_id, '_etb_hourly_rate') (ou _etb_base_price si 0)
+  │        subtotal_vehicules += (hourly_rate * duration_hours * qty)
+  │
+  ├── 3. Calcul des Extras :
+  │      Pour chaque option (extra_id => qty) :
+  │        Si 'fixed'         : extras_total += extra_price
+  │        Si 'per_quantity'  : extras_total += (extra_price * qty)
+  │
+  ├── 4. Sous-Total Brut :
+  │      $subtotal = $subtotal_vehicules + $circuit_additional_price + $extras_total;
+  │
+  ├── 5. Application Code Promo (CPT tour_promo) :
+  │      Si pourcentage : discount_amount = subtotal * (valeur / 100)
+  │      Si montant fixe : discount_amount = valeur
+  │
+  └── 6. Total Net Final :
+         $grand_total = max(0, $subtotal - $discount_amount);
+```
+
+---
+
+## 6. PASSERELLE DE COMMUNICATION INTER-PLUGINS
+
+Les deux plugins conservent leur autonomie grâce à deux canaux de communication :
+
+### A. Canal Serveur (Filtres WordPress)
+Implémenté dans `CO_Hooks_Bridge` (`circuit-options/includes/class-co-hooks.php`) :
+
+1. **`etb_circuit_duration_hours`** :
+   ```php
+   // Prototype
+   apply_filters( 'etb_circuit_duration_hours', float $default_duration, string $option_id, int $circuit_id );
+   ```
+   *Rôle :* Renvoie la durée exacte en heures de l'option (ex: `6.5`). Si le plugin Circuit Options est inactif ou si aucun `option_id` n'est transmis, renvoie `1.0`.
+
+2. **`etb_circuit_additional_price`** :
+   ```php
+   // Prototype
+   apply_filters( 'etb_circuit_additional_price', float $default_price, string $option_id, int $circuit_id );
+   ```
+   *Rôle :* Renvoie le supplément tarifaire de la ville (ex: `25.0`). Renvoie `0.0` si non configuré.
+
+3. **`etb_circuit_option_label`** :
+   ```php
+   // Prototype
+   apply_filters( 'etb_circuit_option_label', string $default_label, string $option_id, int $circuit_id );
+   ```
+   *Rôle :* Construit dynamiquement le libellé human-readable pour l'administration et les e-mails : **`[Titre du Circuit] — Départ : [Ville] ([Durée]h)`**.
+
+---
+
+### B. Canal Frontend (Événements JavaScript)
+Implémenté dans `co-public.js` et `booking-widget.js` :
+
+1. **Événement `etb:circuit_changed`** :
+   Déclenché par `circuit-options` lors du clic sur un onglet de ville de départ :
+   ```javascript
+   window.dispatchEvent(new CustomEvent('etb:circuit_changed', {
+       detail: {
+           optionId: 'opt_wynyfatcn',
+           duration: 4.5,
+           additionalPrice: 20.0,
+           cityName: 'Monaco'
+       }
+   }));
+   ```
+2. **Réception par ETB** :
+   `booking-widget.js` écoute l'événement, met à jour son état interne (`state.circuit`), réajuste l'heure de départ par défaut (`input[name="etb_time"]`), et réexécute `updateSummary()` pour actualiser instantanément tous les montants à l'écran.
+
+---
+
+## 7. EXPÉRIENCE UTILISATEUR (FRONTEND) & LAYOUT SPLIT
+
+### Structure Visuelle de la Page Circuit :
+
+```text
+[ 1. GRILLE HAUTE : VÉHICULES (Pleine Largeur) ]
+  ├── Carte 1 (S class)      ├── Carte 2 (Sprinter)     ├── Carte 3 (V class)
+  │   - Image 105px (repos)  │   - Image 70px (active)  │   - Image 105px
+  │   - 79 € /h              │   - 72 € /h              │   - 50 € /h
+  │   - Qte masquée          │   - Coche orange active  │   - Qte masquée
+  │                          │   - Quantité [- 1 +]     │
+
+[ 2. LAYOUT PRINCIPAL 2 COLONNES (Grille 1.4fr / 1fr) ]
+  ├── COLONNE GAUCHE (Détails)                ├── COLONNE DROITE (Widget Sticky)
+  │   ├── Onglets : [ Cannes ] [ Monaco ]     │   ├── En-tête : À PARTIR DE € 487 (Animé)
+  │   ├── 4 Badges Récapitulatifs             │   │   passagers maximum : 20
+  │   ├── Programme (Timeline pointillée)     │   ├── Nombre de passagers (Adultes/Enfants)
+  │   │   - 09:00 Prise en charge             │   ├── Adresse de prise en charge (Texte libre)
+  │   │   - 10:00 Visite                      │   ├── Case : Lieu de dépose différent [x]
+  │   └── Inclus (✓) / Non Inclus (✕)         │   ├── Options supplémentaires (Extras)
+  │                                           │   ├── Date, Heure, Nom, Email, Note
+  │                                           │   └── Bouton [ RÉSERVER MAINTENANT ]
+```
+
+### Mécanique des Cartes Véhicules (Animation Continue) :
+* **État non sélectionné (`qty = 0`)** : L'image du véhicule s'agrandit (`105px`) pour occuper l'espace harmonieusement. Le sélecteur de quantité est replié (`max-height: 0`, `opacity: 0`).
+* **Clic sur la carte (Sélection)** : La carte passe à `qty = 1`, la bordure s'illumine en orange (`#E65A15`), la coche orange **✓** apparaît, l'image rétrécit doucement à `70px` pendant que le sélecteur `[- 1 +]` glisse en place (`max-height: 42px`, `opacity: 1`).
+* **Courbe de Bézier unifiée** : `cubic-bezier(0.25, 1, 0.5, 1)` appliquée simultanément sur la hauteur de l'image et la hauteur de la quantité pour garantir **zéro saut de texte**.
+* **Désélection** : Clic sur la coche orange ou réduction à `0` via le bouton `-` $\rightarrow$ la carte se referme avec la même fluidité.
+
+---
+
+## 8. WORKFLOW AJAX & PIPELINE DE RÉSERVATION
+
+### 1. Collecte & Sérialisation :
+Lors du clic sur "Réserver maintenant", le script JS collecte l'ensemble des champs du DOM (`#co-circuit-app` et `#etb-booking-app`) dans un objet `FormData` natif :
+* `etb_circuit_id` & `etb_option_id` (Champs cachés injectés)
+* `etb_car_qty[ID]` (Quantités des véhicules)
+* `etb_adults`, `etb_children`, `etb_total_luggage`
+* `etb_pickup_address` & `etb_dropoff_info`
+* `etb_extra_[ID]` (Quantités ou coches des extras)
+* `etb_name`, `etb_email`, `etb_date`, `etb_time`, `etb_promo`, `etb_note`
+* `nonce` (`etb_booking_nonce`) & `action: etb_submit_booking`
+
+### 2. Validation Serveur Stricte (`class-ajax.php`) :
+1. **Sécurité** : `check_ajax_referer('etb_booking_nonce', 'nonce')`.
+2. **Champs obligatoires** : Nom, Email valide, Date, Heure, Adresse de prise en charge, Véhicules (`array_sum > 0`), Passagers (`adults >= 1`).
+3. **Contrôle anti-antériorité** : Rejet si `strtotime(date) < strtotime(today)`.
+4. **Validation des capacités réelles** :
+   $$\text{Total Passagers} \le \sum (\text{Max Pax Véhicule} \times \text{Quantité})$$
+   $$\text{Total Bagages} \le \sum (\text{Max Bagages Véhicule} \times \text{Quantité})$$
+5. **Calcul & Enregistrement** : Exécution du `ETB_Pricing_Engine`, insertion du post `tour_booking` en statut `pending`, et écriture de toutes les métas.
+
+---
+
+## 9. ADMINISTRATION BACK-OFFICE WORDPRESS
+
+### A. Gestion des Circuits (`wp-admin` > Circuits & Tours)
+* **Éditeur d'onglets de départ multiples** : Interface répéteur dynamique permettant d'ajouter une infinité de villes de départ sans recharger la page.
+* **Champs par option** : Ville, Durée en heures, Heure conseillée, Supplément tarifaire, 4 Badges, Répéteur d'étapes de programme (Horaire + Titre + Description), Listes Inclus / Non Inclus.
+
+### B. Gestion des Réservations (`wp-admin` > Tour Booking)
+* **Tableau de bord nettoyé** : Menu épuré (retrait de "Add Post" et "Points de départ" obsolètes).
+* **Fiche détaillée du dossier de réservation** :
+  * Encadré Statut (`⏳ En attente`, `✅ Confirmée`, `🏁 Terminée`, `❌ Annulée`) avec envoi automatique d'e-mail au client lors d'un changement de statut.
+  * Carte **Trajet & Passagers** enrichie affichant en bleu clair : **`Prestation : Nom du Circuit — Départ : [Ville] ([Durée]h)`**.
+  * Décomposition financière complète (Véhicules, Durée, Extras, Remise promo, Montant Total).
+
+---
+
+## 10. SYSTÈME DE NOTIFICATIONS E-MAIL
+
+Les e-mails sont expédiés au format HTML responsive (`wp_mail`) avec gestion de `Reply-To` direct vers le client.
+
+### Événements déclencheurs :
+1. **Nouvelle Réservation (Immédiat)** :
+   * **Au Client** : Accusé de réception avec numéro de dossier `#XXX`, rappel de la prestation (`Circuit — Ville (Durée)`), date, heure, adresses départ/dépose, liste des véhicules et montant estimé.
+   * **À l'Administrateur** : Alerte de nouvelle commande avec lien direct vers la fiche d'administration dans WordPress.
+2. **Changement de Statut (Depuis le Back-Office)** :
+   * Envoi d'un e-mail personnalisé au client lors du passage à `Confirmée`, `Terminée` ou `Annulée`.
+
+---
+
+## 11. ROADMAP & ÉVOLUTIONS FUTURES
+
+Le socle technique a été conçu pour accueillir les extensions suivantes :
+
+### 1. Liaison avec une Application Externe (Mobile / Chauffeur / Dispatch)
+* **API REST Dédiée** : Déclaration d'endpoints `/wp-json/etb/v1/` (`GET /circuits`, `GET /vehicles`, `POST /bookings`, `PATCH /bookings/{id}`).
+* **Webhooks Sortants** : Notification HTTP POST temps réel à chaque création de réservation vers un CRM, Zapier, Make, ou un serveur de dispatch chauffeurs.
+* **Flux iCal / Agenda** : Synchronisation bidirectionnelle `.ics` pour bloquer les courses directement dans Google Calendar ou les agendas smartphones des chauffeurs.
+
+### 2. Intégration Cartographique & Autocomplétion (Phase 3)
+* **Solutions prévues** : Leaflet + OpenStreetMap ou API Geoapify.
+* **Fonctionnalités** : Autocomplétion intelligente des adresses dans les champs de prise en charge et de dépose, géocodage (latitude/longitude), et affichage optionnel du tracé sur une carte interactive.
+
+### 3. Passerelles de Paiement en Ligne
+* Intégration de formulaires de paiement sécurisé direct (Stripe Elements / PayPal SDK / WooCommerce Bridge) pour valider automatiquement les réservations après paiement d'un acompte ou de la totalité.
+
+---
+
+*Document de référence technique maintenu pour l'écosystème **Elite Transfer Booking & Circuit Options**.*

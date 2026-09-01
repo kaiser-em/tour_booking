@@ -1,0 +1,203 @@
+/* ==========================================================================
+   PANNEAU D'ADMINISTRATION : CIRCUIT OPTIONS
+   ========================================================================== */
+
+.co-admin-wrapper {
+    background: #ffffff;
+    border: 1px solid #c3c4c7;
+    border-radius: 8px;
+    margin: 15px 0;
+    overflow: hidden;
+}
+
+/* Barre d'onglets (Villes de départ A, B, C...) */
+.co-tabs-nav {
+    display: flex;
+    align-items: center;
+    background: #f0f0f1;
+    border-bottom: 2px solid #dcdcde;
+    padding: 10px 15px 0 15px;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.co-tab-btn {
+    appearance: none;
+    background: #ffffff;
+    border: 1px solid #c3c4c7;
+    border-bottom: none;
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #3c434a;
+    border-radius: 6px 6px 0 0;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    margin-bottom: -2px;
+}
+
+.co-tab-btn:hover {
+    background: #f6f7f7;
+    color: #2271b1;
+}
+
+.co-tab-btn.active {
+    background: #052021;
+    color: #ffffff;
+    border-color: #052021;
+    border-bottom: 2px solid #052021;
+}
+
+.co-add-tab-btn {
+    background: #2271b1;
+    color: #ffffff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.co-add-tab-btn:hover {
+    background: #135e96;
+}
+
+/* Contenu des options */
+.co-tab-panes {
+    padding: 20px;
+}
+
+.co-pane {
+    display: none;
+}
+
+.co-pane.active {
+    display: block;
+}
+
+/* Grilles & Cartes de réglages */
+.co-section-card {
+    background: #f8f9fa;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 18px;
+    margin-bottom: 20px;
+}
+
+.co-section-card h4 {
+    margin: 0 0 15px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 14px;
+    color: #052021;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.co-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+}
+
+.co-grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+
+.co-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.co-field {
+    margin-bottom: 12px;
+}
+
+.co-field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 5px;
+    color: #1e293b;
+}
+
+.co-field input,
+.co-field select,
+.co-field textarea {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Programme / Timeline Repeater */
+.co-timeline-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #ffffff;
+    margin-bottom: 12px;
+}
+
+.co-timeline-table th {
+    background: #f1f5f9;
+    padding: 8px 12px;
+    text-align: left;
+    font-size: 12px;
+    border: 1px solid #e2e8f0;
+}
+
+.co-timeline-table td {
+    padding: 8px 10px;
+    border: 1px solid #e2e8f0;
+    vertical-align: top;
+}
+
+.co-btn-danger {
+    background: #d63638;
+    color: #ffffff;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+.co-btn-danger:hover {
+    background: #b32d2e;
+}
+
+.co-btn-add-step {
+    background: #f0f0f1;
+    border: 1px dashed #8c8f94;
+    color: #2271b1;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.co-btn-add-step:hover {
+    background: #e5e5e5;
+}
+
+.co-pane-header-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px dashed #e2e8f0;
+}
