@@ -81,8 +81,8 @@ $currency = $gen_settings['currency'] ?? '€';
         
         <!-- NOUVEAUTÉ ETB V2 : Drop-off (Lieu de dépose) -->
         <div class="etb-field etb-field-full etb-dropoff-toggle-wrapper">
-            <label class="etb-toggle-dropoff-label" for="etb-diff-dropoff-cb">
-                <input type="checkbox" id="etb-diff-dropoff-cb">
+            <label id='etb-dropoff-label' class="etb-toggle-dropoff-label" for="etb-diff-dropoff-cb">
+                <input type="checkbox" id="etb-diff-dropoff-cb" class='hidden-input'>
                 <span class="etb-custom-box">
                     <span class="dashicons dashicons-yes"></span>
                 </span>
@@ -92,8 +92,8 @@ $currency = $gen_settings['currency'] ?? '€';
         
         <div class="etb-field etb-field-full" id="etb-dropoff-container" style="display: none;">
             <label>Lieu de dépose précis (Adresse ou Nom de l'hôtel) *</label>
-            <div class="etb-field-icon-wrapper">
-                <span class="dashicons dashicons-location-alt"></span>
+            <div id="etb-dropoff-div" class="etb-field-icon-wrapper">
+                
                 <textarea name="etb_dropoff_info" id="etb-dropoff-info" rows="2" placeholder="Ex: Hôtel Colbert, Antananarivo..."></textarea>
             </div>
         </div>
@@ -185,11 +185,11 @@ $currency = $gen_settings['currency'] ?? '€';
             <?php endif; ?>
             
             <?php if ( $form_settings['show_date'] !== '0' ) : ?>
-                <div class="etb-field">
+                <div id="etb-time-field" class="etb-field">
                     <label>Date souhaitée *</label>
                     <div class="etb-field-icon-wrapper">
-                        <span class="dashicons dashicons-calendar-alt"></span>
-                        <input type="date" name="etb_date">
+                        
+                        <input id="etb-time-field" type="date" name="etb_date">
                     </div>
                     <p class="etb-error-message" id="etb-date-error" style="display:none;">
                         ⚠ Veuillez sélectionner une date.
@@ -197,11 +197,11 @@ $currency = $gen_settings['currency'] ?? '€';
                 </div>
             <?php endif; ?>
             <?php if ( $form_settings['show_time'] !== '0' ) : ?>
-                <div class="etb-field">
+                <div  class="etb-field">
                     <label>Heure de départ *</label>
                         <div class="etb-field-icon-wrapper">
-                            <span class="dashicons dashicons-clock"></span>
-                            <input type="time" name="etb_time">
+                        
+                            <input id="etb-time-field" type="time" name="etb_time">
                         </div>
                         <p class="etb-error-message" id="etb-time-error" style="display:none;">
                             ⚠ Veuillez sélectionner une heure de départ.
@@ -250,13 +250,13 @@ $currency = $gen_settings['currency'] ?? '€';
 
     <!-- SECTION 6 : RÉCAPITULATIF SOMBRE -->
     <div class="etb-summary-card">
-        <h2 class="etb-section-title" style="color: white; border: none;">Récapitulatif</h2>
+        <h2 id="etb-summary-title" class="etb-section-title" style="color: white; border: none;">Récapitulatif</h2>
         <div id="etb-summary-text">
             <!-- Rempli dynamiquement par JS -->
             <p style="opacity: 0.7;">Sélectionnez vos options pour voir le détail.</p>
         </div>
         
-        <div class="etb-summary-total">
+        <div class="etb-summary-total" id='etb-total'>
             <span>TOTAL ESTIMÉ</span>
             <div class="etb-total-amount"><span id="etb-total-val">0</span> <?php echo esc_html( $currency ); ?></div>
         </div>

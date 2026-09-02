@@ -68,7 +68,7 @@ class ETB_Settings {
             'show_vehicle'   => 'Véhicule',
             'show_adults'    => 'Adultes',
             'show_children'  => 'Enfants',
-            'show_pickup'    => 'Point de départ',
+            'show_pickup'    => 'Point de Pickup',
             'show_extras'    => 'Options supplémentaires',
             'show_name'      => 'Nom complet',
             'show_email'     => 'Email',

@@ -38,7 +38,7 @@ if ( ! defined( 'ABSPATH' ) ) {
                     <?php if ( $img_url ) : ?>
                         <img src="<?php echo esc_url( $img_url ); ?>" class="etb-vehicle-image" alt="<?php echo esc_attr( $vehicle->post_title ); ?>">
                     <?php endif; ?>
-                    <h3><?php echo esc_html( $vehicle->post_title ); ?></h3>
+                    <h3 class="etb-vehicle-name"><?php echo esc_html( $vehicle->post_title ); ?></h3>
                     <p class="etb-vehicle-price"><?php echo esc_html( $display_price ); ?> € /h</p>
                     <div class="etb-vehicle-specs">
                         <span>👤 <?php echo esc_html( $max_pax ); ?> Pers. max</span>

@@ -4,20 +4,54 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 class ETB_CPT_Manager {
 
     public function __construct() {
-        // Accrochage des filtres pour personnaliser le tableau des réservations
         add_filter( 'manage_tour_booking_posts_columns', array( $this, 'set_booking_columns' ) );
         add_action( 'manage_tour_booking_posts_custom_column', array( $this, 'render_booking_columns' ), 10, 2 );
-
-        // Nettoyage des sous-menus inutiles
         add_action( 'admin_menu', array( $this, 'cleanup_admin_submenus' ), 999 );
     }
 
     public function register_all_cpts() {
+        $this->register_circuit_cpt(); // <-- Intégration unifiée Circuit Options
         $this->register_vehicle_cpt();
         $this->register_extra_cpt();
         $this->register_pickup_cpt();
         $this->register_booking_cpt();
         $this->register_promo_cpt();
+    }
+
+    private function register_circuit_cpt() {
+        $labels = array(
+            'name'               => 'Circuits & Tours',
+            'singular_name'      => 'Circuit',
+            'menu_name'          => 'Circuits & Tours',
+            'name_admin_bar'     => 'Circuit',
+            'add_new'            => 'Ajouter un Circuit',
+            'add_new_item'       => 'Ajouter un nouveau Circuit',
+            'new_item'           => 'Nouveau Circuit',
+            'edit_item'          => 'Modifier le Circuit',
+            'view_item'          => 'Voir le Circuit',
+            'all_items'          => 'Circuits & Tours',
+            'search_items'       => 'Rechercher un Circuit',
+            'not_found'          => 'Aucun circuit trouvé',
+            'not_found_in_trash' => 'Aucun circuit trouvé dans la corbeille',
+        );
+
+        $args = array(
+            'labels'             => $labels,
+            'public'             => true,
+            'publicly_queryable' => true,
+            'show_ui'            => true,
+            'show_in_menu'       => 'edit.php?post_type=tour_booking', // Rattaché au menu Tour Booking
+            'query_var'          => true,
+            'rewrite'            => array( 'slug' => 'circuits', 'with_front' => false ),
+            'capability_type'    => 'post',
+            'has_archive'        => true,
+            'hierarchical'       => false,
+            'menu_icon'          => 'dashicons-palmtree',
+            'supports'           => array( 'title', 'editor', 'thumbnail', 'excerpt' ),
+            'show_in_rest'       => true,
+        );
+
+        register_post_type( 'circuit', $args );
     }
 
     private function register_vehicle_cpt() {
@@ -27,7 +61,7 @@ class ETB_CPT_Manager {
             'menu_icon'    => 'dashicons-car',
             'supports'     => array( 'title', 'thumbnail' ),
             'has_archive'  => false,
-            'show_in_menu' => 'edit.php?post_type=tour_booking', // <-- Rattaché au menu parent
+            'show_in_menu' => 'edit.php?post_type=tour_booking',
         ));
     }
 
@@ -38,7 +72,7 @@ class ETB_CPT_Manager {
             'show_ui'      => true,
             'menu_icon'    => 'dashicons-plus-alt',
             'supports'     => array( 'title' ),
-            'show_in_menu' => 'edit.php?post_type=tour_booking', // <-- Rattaché au menu parent
+            'show_in_menu' => 'edit.php?post_type=tour_booking',
         ));
     }
 
@@ -49,7 +83,7 @@ class ETB_CPT_Manager {
             'show_ui'      => true,
             'menu_icon'    => 'dashicons-location',
             'supports'     => array( 'title' ),
-            'show_in_menu' => false, // <-- Masqué du menu d'administration
+            'show_in_menu' => false, // Masqué
         ));
     }
 
@@ -59,7 +93,7 @@ class ETB_CPT_Manager {
                 'name'          => 'Réservations', 
                 'singular_name' => 'Réservation',
                 'menu_name'     => 'Tour Booking',
-                'all_items'     => 'Toutes les Réservations', // Libellé propre du 1er sous-menu
+                'all_items'     => 'Toutes les Réservations',
             ),
             'public'    => false,
             'show_ui'   => true,
@@ -79,9 +113,6 @@ class ETB_CPT_Manager {
         ));
     }
 
-    /**
-     * Définition des en-têtes de colonnes dans la liste des réservations
-     */
     public function set_booking_columns( $columns ) {
         return array(
             'cb'       => $columns['cb'],
@@ -94,9 +125,6 @@ class ETB_CPT_Manager {
         );
     }
 
-    /**
-     * Rendu du contenu de chaque colonne personnalisée
-     */
     public function render_booking_columns( $column, $post_id ) {
         switch ( $column ) {
             case 'customer':
@@ -109,10 +137,11 @@ class ETB_CPT_Manager {
                 break;
 
             case 'trip':
-                $date      = get_post_meta( $post_id, '_etb_booking_date', true );
-                $time      = get_post_meta( $post_id, '_etb_booking_time', true );
-                $pickup_id = get_post_meta( $post_id, '_etb_pickup_id', true );
-                $pickup    = $pickup_id ? get_the_title( $pickup_id ) : '';
+                $date           = get_post_meta( $post_id, '_etb_booking_date', true );
+                $time           = get_post_meta( $post_id, '_etb_booking_time', true );
+                $pickup_address = get_post_meta( $post_id, '_etb_pickup_address', true );
+                $pickup_id      = get_post_meta( $post_id, '_etb_pickup_id', true );
+                $pickup         = $pickup_address ?: ( $pickup_id ? get_the_title( $pickup_id ) : '' );
                 
                 if ( $date ) {
                     echo '📅 <strong>' . esc_html( $date ) . ( $time ? ' à ' . esc_html( $time ) : '' ) . '</strong><br>';
@@ -141,12 +170,7 @@ class ETB_CPT_Manager {
         }
     }
 
-
-    /**
-     * Supprime le sous-menu inutile "Add Post"
-     */
     public function cleanup_admin_submenus() {
         remove_submenu_page( 'edit.php?post_type=tour_booking', 'post-new.php?post_type=tour_booking' );
     }
-    
 }
