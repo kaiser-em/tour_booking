@@ -3,11 +3,19 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 // Variables préparées par le shortcode
 $currency = $gen_settings['currency'] ?? '€';
+$sec_token = class_exists( 'ETB_Security' ) ? ETB_Security::generate_timestamp_token() : array( 'time' => time(), 'token' => '' );
 ?>
+
+
 
 <form class="etb-booking-widget" id="etb-booking-app" onsubmit="return false;">
     
-    
+    <!-- CHAMPS DE SÉCURITÉ & ANTI-SPAM (Honeypot + Timestamp signé) -->
+    <div style="position: absolute !important; left: -9999px !important; top: -9999px !important; opacity: 0 !important; width: 0 !important; height: 0 !important; overflow: hidden !important;" aria-hidden="true">
+        <input type="text" name="etb_hp_email" value="" tabindex="-1" autocomplete="off">
+        <input type="hidden" name="etb_sec_time" value="<?php echo esc_attr( $sec_token['time'] ); ?>">
+        <input type="hidden" name="etb_sec_token" value="<?php echo esc_attr( $sec_token['token'] ); ?>">
+    </div>
 
     <!-- EN-TÊTE PRIX ET CAPACITÉ DU WIDGET (NOUVEAUTÉ V2.2) -->
     <div class="etb-sidebar-price-card" id="etb-sidebar-price-header">

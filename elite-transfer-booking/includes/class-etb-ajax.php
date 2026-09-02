@@ -12,6 +12,11 @@ class ETB_Ajax {
     public function handle_validate_promo() {
         check_ajax_referer( 'etb_booking_nonce', 'nonce' );
 
+        // 1. Anti Brute-Force Rate Limiting (Max 15 échecs / 10 min)
+        if ( ETB_Security::is_promo_bruteforce_blocked( 15 ) ) {
+            wp_send_json_error( array( 'message' => 'Trop de tentatives de code promo. Veuillez patienter 10 minutes.' ) );
+        }
+
         $raw_code   = sanitize_text_field( $_POST['promo_code'] ?? '' );
         $promo_code = strtoupper( trim( $raw_code ) );
 
@@ -41,6 +46,14 @@ class ETB_Ajax {
             $query->the_post();
             $promo_id = get_the_ID();
 
+            // 2. Vérification de l'état actif du code promo
+            $is_active = get_post_meta( $promo_id, '_etb_promo_active', true );
+            if ( '0' === $is_active ) {
+                wp_reset_postdata();
+                ETB_Security::record_failed_promo_attempt();
+                wp_send_json_error( array( 'message' => 'Code promo invalide ou expiré.' ) );
+            }
+
             $discount_type = get_post_meta( $promo_id, '_etb_discount_type', true );
             if ( empty( $discount_type ) ) {
                 $discount_type = get_post_meta( $promo_id, '_etb_promo_type', true ) ?: 'fixed';
@@ -65,6 +78,7 @@ class ETB_Ajax {
             ) );
         } else {
             wp_reset_postdata();
+            ETB_Security::record_failed_promo_attempt();
             wp_send_json_error( array( 'message' => 'Code promo invalide ou expiré.' ) );
         }
     }
@@ -72,10 +86,31 @@ class ETB_Ajax {
     public function handle_submit_booking() {
         check_ajax_referer( 'etb_booking_nonce', 'nonce' );
 
+        // 1. Contrôle Anti-Spam Honeypot
+        if ( ! ETB_Security::verify_honeypot( 'etb_hp_email' ) ) {
+            wp_send_json_error( array( 'message' => 'Validation de sécurité échouée.' ) );
+        }
+
+        // 2. Contrôle de vélocité (Minimum 3 secondes)
+        $sec_time  = absint( $_POST['etb_sec_time'] ?? 0 );
+        $sec_token = sanitize_text_field( $_POST['etb_sec_token'] ?? '' );
+        if ( ! ETB_Security::verify_timestamp_token( $sec_time, $sec_token, 3, 86400 ) ) {
+            wp_send_json_error( array( 'message' => 'Soumission trop rapide ou session expirée. Veuillez patienter quelques secondes et réessayer.' ) );
+        }
+
+        // 3. Rate Limiting Réservation (10 réservations / 10 minutes par IP)
+        if ( ! ETB_Security::check_rate_limit( 'booking', 10, 600 ) ) {
+            wp_send_json_error( array( 'message' => 'Trop de demandes de réservation effectuées récemment. Veuillez patienter quelques minutes.' ) );
+        }
+
+        // --- Réception et sanitization avec plafonnement ---
         $vehicles = array();
         if ( ! empty( $_POST['etb_car_qty'] ) && is_array( $_POST['etb_car_qty'] ) ) {
             foreach ( $_POST['etb_car_qty'] as $vehicle_id => $qty ) {
-                $vehicles[ absint( $vehicle_id ) ] = absint( $qty );
+                $clean_qty = min( 50, max( 0, absint( $qty ) ) ); // Plafonné à 50
+                if ( $clean_qty > 0 ) {
+                    $vehicles[ absint( $vehicle_id ) ] = $clean_qty;
+                }
             }
         }
 
@@ -83,14 +118,14 @@ class ETB_Ajax {
         foreach ( $_POST as $key => $value ) {
             if ( strpos( $key, 'etb_extra_' ) === 0 ) {
                 $extra_id = absint( str_replace( 'etb_extra_', '', $key ) );
-                $extras[ $extra_id ] = absint( $value );
+                $extras[ $extra_id ] = min( 20, max( 0, absint( $value ) ) ); // Plafonné à 20
             }
         }
 
         $data = array(
             'vehicles'       => $vehicles,
-            'adults'         => absint( $_POST['etb_adults'] ?? 0 ),
-            'children'       => absint( $_POST['etb_children'] ?? 0 ),
+            'adults'         => min( 200, absint( $_POST['etb_adults'] ?? 0 ) ),
+            'children'       => min( 200, absint( $_POST['etb_children'] ?? 0 ) ),
             'pickup_id'      => absint( $_POST['etb_pickup_id'] ?? 0 ),
             'pickup_address' => sanitize_text_field( $_POST['etb_pickup_address'] ?? '' ),
             'dropoff_info'   => sanitize_textarea_field( $_POST['etb_dropoff_info'] ?? '' ),
@@ -101,12 +136,12 @@ class ETB_Ajax {
             'email'          => sanitize_email( $_POST['etb_email'] ?? '' ),
             'date'           => sanitize_text_field( $_POST['etb_date'] ?? '' ),
             'time'           => sanitize_text_field( $_POST['etb_time'] ?? '' ),
-            'luggage'        => absint( $_POST['etb_total_luggage'] ?? 0 ),
+            'luggage'        => min( 500, absint( $_POST['etb_total_luggage'] ?? 0 ) ),
             'promo'          => sanitize_text_field( $_POST['etb_promo'] ?? '' ),
             'note'           => sanitize_textarea_field( $_POST['etb_note'] ?? '' ),
         );
 
-        // Validation serveur
+        // Validation métier
         if ( empty( $data['name'] ) ) {
             wp_send_json_error( array( 'message' => 'Le nom complet est obligatoire.' ) );
         }
@@ -219,8 +254,15 @@ class ETB_Ajax {
         }
         $note_html = ! empty( $data['note'] ) ? '<h3>Demande spéciale :</h3><p>' . nl2br( esc_html( $data['note'] ) ) . '</p>' : '';
 
+        // Durcissement de l'en-tête Reply-To (filtrage des caractères de contrôle SMTP)
+        $clean_name = preg_replace( '/[^\p{L}\p{N}\s\-\.]/u', '', $data['name'] );
+        $clean_name = trim( preg_replace( '/\s+/', ' ', $clean_name ) );
+
         $headers_client = array( 'Content-Type: text/html; charset=UTF-8' );
-        $headers_admin  = array( 'Content-Type: text/html; charset=UTF-8', 'Reply-To: ' . $data['name'] . ' <' . $data['email'] . '>' );
+        $headers_admin  = array(
+            'Content-Type: text/html; charset=UTF-8',
+            'Reply-To: ' . $clean_name . ' <' . $data['email'] . '>',
+        );
 
         $subject_client = sprintf( 'Confirmation de votre demande de réservation #%d', $booking_id );
         $message_client = sprintf(

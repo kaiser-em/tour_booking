@@ -13,7 +13,6 @@ class ETB_Pricing_Engine {
             return null;
         }
 
-        // 1. Recherche directe si circuit_id est fourni
         if ( ! empty( $circuit_id ) ) {
             $options = get_post_meta( $circuit_id, '_circuit_options_data', true );
             if ( is_array( $options ) && isset( $options[ $option_id ] ) ) {
@@ -24,7 +23,6 @@ class ETB_Pricing_Engine {
             }
         }
 
-        // 2. Recherche directe en BDD (SQL)
         global $wpdb;
         $meta_rows = $wpdb->get_results( $wpdb->prepare(
             "SELECT post_id, meta_value FROM {$wpdb->postmeta} WHERE meta_key = %s",
@@ -74,19 +72,17 @@ class ETB_Pricing_Engine {
         $option_id  = ! empty( $data['option_id'] ) ? sanitize_text_field( $data['option_id'] ) : '';
         $circuit_id = ! empty( $data['circuit_id'] ) ? absint( $data['circuit_id'] ) : 0;
 
-        // Récupération autonome de la durée et du supplément circuit
-        $circuit_data = self::find_circuit_option_data( $option_id, $circuit_id );
+        $circuit_data      = self::find_circuit_option_data( $option_id, $circuit_id );
         $default_duration  = ( $circuit_data && isset( $circuit_data['duration_hours'] ) ) ? floatval( $circuit_data['duration_hours'] ) : 1.0;
         $default_add_price = ( $circuit_data && isset( $circuit_data['additional_price'] ) ) ? floatval( $circuit_data['additional_price'] ) : 0.0;
 
-        // Filtres conservés pour extensibilité
         $duration_hours           = apply_filters( 'etb_circuit_duration_hours', $default_duration, $option_id, $circuit_id );
         $circuit_additional_price = apply_filters( 'etb_circuit_additional_price', $default_add_price, $option_id, $circuit_id );
 
-        // 1. Calcul des véhicules (Taux horaire × Durée × Quantité)
+        // 1. Calcul des véhicules (plafonné à 50)
         if ( ! empty( $data['vehicles'] ) && is_array( $data['vehicles'] ) ) {
             foreach ( $data['vehicles'] as $vehicle_id => $qty ) {
-                $qty = (int) $qty;
+                $qty = min( 50, max( 0, (int) $qty ) );
                 if ( $qty > 0 ) {
                     $hourly_rate = (float) get_post_meta( $vehicle_id, '_etb_hourly_rate', true );
                     if ( $hourly_rate <= 0 ) {
@@ -97,15 +93,15 @@ class ETB_Pricing_Engine {
             }
         }
 
-        // 2. Supplément pickup (si ID utilisé)
+        // 2. Supplément pickup
         if ( ! empty( $data['pickup_id'] ) ) {
             $pickup_surcharge = (float) get_post_meta( $data['pickup_id'], '_etb_surcharge', true );
         }
 
-        // 3. Calcul des extras
+        // 3. Calcul des extras (plafonné à 20)
         if ( ! empty( $data['extras'] ) && is_array( $data['extras'] ) ) {
             foreach ( $data['extras'] as $extra_id => $qty ) {
-                $qty = (int) $qty;
+                $qty = min( 20, max( 0, (int) $qty ) );
                 if ( $qty > 0 ) {
                     $extra_price = (float) get_post_meta( $extra_id, '_etb_price', true );
                     $price_type  = get_post_meta( $extra_id, '_etb_price_type', true );
@@ -123,7 +119,7 @@ class ETB_Pricing_Engine {
         $discount_amount = 0;
         $promo_code = ! empty( $data['promo'] ) ? strtoupper( trim( sanitize_text_field( $data['promo'] ) ) ) : '';
 
-        // 4. Application du code promo
+        // 4. Application du code promo avec contrôle d'activation
         if ( ! empty( $promo_code ) ) {
             $promo_query = new WP_Query( array(
                 'post_type'      => 'tour_promo',
@@ -147,24 +143,28 @@ class ETB_Pricing_Engine {
                 $promo_query->the_post();
                 $promo_id = get_the_ID();
 
-                $discount_type = get_post_meta( $promo_id, '_etb_discount_type', true );
-                if ( empty( $discount_type ) ) {
-                    $discount_type = get_post_meta( $promo_id, '_etb_promo_type', true ) ?: 'fixed';
-                }
+                // Contrôle strict de l'état actif du code promo en BDD
+                $is_active = get_post_meta( $promo_id, '_etb_promo_active', true );
+                if ( '0' !== $is_active ) {
+                    $discount_type = get_post_meta( $promo_id, '_etb_discount_type', true );
+                    if ( empty( $discount_type ) ) {
+                        $discount_type = get_post_meta( $promo_id, '_etb_promo_type', true ) ?: 'fixed';
+                    }
 
-                $raw_value = get_post_meta( $promo_id, '_etb_discount_value', true );
-                if ( '' === $raw_value || false === $raw_value ) {
-                    $raw_value = get_post_meta( $promo_id, '_etb_promo_value', true );
-                }
-                if ( '' === $raw_value || false === $raw_value ) {
-                    $raw_value = get_post_meta( $promo_id, '_etb_value', true );
-                }
-                $discount_val = floatval( $raw_value );
+                    $raw_value = get_post_meta( $promo_id, '_etb_discount_value', true );
+                    if ( '' === $raw_value || false === $raw_value ) {
+                        $raw_value = get_post_meta( $promo_id, '_etb_promo_value', true );
+                    }
+                    if ( '' === $raw_value || false === $raw_value ) {
+                        $raw_value = get_post_meta( $promo_id, '_etb_value', true );
+                    }
+                    $discount_val = floatval( $raw_value );
 
-                if ( in_array( strtolower( $discount_type ), array( 'percentage', 'percent', 'pourcentage', '%' ), true ) ) {
-                    $discount_amount = $subtotal * ( $discount_val / 100 );
-                } else {
-                    $discount_amount = $discount_val;
+                    if ( in_array( strtolower( $discount_type ), array( 'percentage', 'percent', 'pourcentage', '%' ), true ) ) {
+                        $discount_amount = $subtotal * ( $discount_val / 100 );
+                    } else {
+                        $discount_amount = $discount_val;
+                    }
                 }
                 wp_reset_postdata();
             }

@@ -45,6 +45,7 @@ class Elite_Transfer_Booking {
     }
 
     private function load_dependencies() {
+        require_once ETB_PATH . 'includes/class-etb-security.php'; // <-- Ajout du module de sécurité
         require_once ETB_PATH . 'includes/class-etb-cpt-manager.php';
         require_once ETB_PATH . 'includes/class-etb-settings.php';
         require_once ETB_PATH . 'includes/class-etb-pricing-engine.php';
