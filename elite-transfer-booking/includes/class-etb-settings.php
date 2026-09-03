@@ -46,6 +46,12 @@ class ETB_Settings {
             $new_input['admin_email'] = isset( $existing['admin_email'] ) ? $existing['admin_email'] : get_option( 'admin_email' );
         }
 
+        // Réglages OctopusPro
+        $new_input['octopus_enabled']    = isset( $input['octopus_enabled'] ) && $input['octopus_enabled'] === '1' ? '1' : '0';
+        $new_input['octopus_api_key']    = ! empty( $input['octopus_api_key'] ) ? sanitize_text_field( trim( $input['octopus_api_key'] ) ) : '';
+        $new_input['octopus_service_id'] = isset( $input['octopus_service_id'] ) ? absint( $input['octopus_service_id'] ) : 1;
+        $new_input['octopus_source_id']  = isset( $input['octopus_source_id'] ) ? absint( $input['octopus_source_id'] ) : 1;
+
         return $new_input;
     }
 
@@ -108,6 +114,41 @@ class ETB_Settings {
                         <tr>
                             <th scope="row">Email de notification admin</th>
                             <td><input type="email" name="etb_general_settings[admin_email]" value="<?php echo esc_attr( $options['admin_email'] ?? get_option('admin_email') ); ?>" class="regular-text"></td>
+                        </tr>
+                        <tr>
+                            <th scope="row" colspan="2"><hr style="margin: 20px 0; border: 0; border-top: 1px solid #dcdcde;"><h3>🔌 Intégration OctopusPro</h3></th>
+                        </tr>
+
+                        
+                        <tr>
+                            <th scope="row">Activer la synchronisation</th>
+                            <td>
+                                <label>
+                                    <input type="checkbox" name="etb_general_settings[octopus_enabled]" value="1" <?php checked( $options['octopus_enabled'] ?? '0', '1' ); ?>>
+                                    Transmettre automatiquement chaque réservation à OctopusPro
+                                </label>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Clé API OctopusPro (API Key)</th>
+                            <td>
+                                <input type="password" name="etb_general_settings[octopus_api_key]" value="<?php echo esc_attr( $options['octopus_api_key'] ?? '' ); ?>" class="regular-text" placeholder="Collez votre clé API ici...">
+                                <p class="description">Générée dans votre compte OctopusPro (Settings &gt; API &amp; Webhooks Integrations).</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">ID Numérique du Service OctopusPro</th>
+                            <td>
+                                <input type="number" min="1" name="etb_general_settings[octopus_service_id]" value="<?php echo esc_attr( $options['octopus_service_id'] ?? '1' ); ?>" class="small-text" placeholder="1">
+                                <p class="description">L'ID du service créé dans OctopusPro (Settings &gt; Service Settings &gt; Services).</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">ID de la Source OctopusPro (Lead Source ID)</th>
+                            <td>
+                                <input type="number" min="1" name="etb_general_settings[octopus_source_id]" value="<?php echo esc_attr( $options['octopus_source_id'] ?? '1' ); ?>" class="small-text" placeholder="1">
+                                <p class="description">Visible dans OctopusPro (Settings &gt; General Settings &gt; Lead Sources).</p>
+                            </td>
                         </tr>
                     </table>
                 <?php } else { 

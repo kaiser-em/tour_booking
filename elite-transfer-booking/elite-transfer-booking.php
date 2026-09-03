@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Elite Transfer Booking (Unified)
  * Plugin URI:  https://github.com/kaiser-em/tour_booking
- * Description: Système unifié de réservation d'excursions, circuits touristiques et transferts privés.
- * Version:     1.0.3
+ * Description: Système unifié de réservation d'excursions, circuits touristiques et transferts privés. avec lien API Octopuspro
+ * Version:     1.0.4
  * Author:      Reich C
  * Text Domain: elite-transfer-booking
  */
@@ -45,9 +45,10 @@ class Elite_Transfer_Booking {
     }
 
     private function load_dependencies() {
-        require_once ETB_PATH . 'includes/class-etb-security.php'; // <-- Ajout du module de sécurité
+        require_once ETB_PATH . 'includes/class-etb-security.php';
         require_once ETB_PATH . 'includes/class-etb-cpt-manager.php';
         require_once ETB_PATH . 'includes/class-etb-settings.php';
+        require_once ETB_PATH . 'includes/class-etb-octopus.php'; // <-- Chargement du connecteur OctopusPro
         require_once ETB_PATH . 'includes/class-etb-pricing-engine.php';
         require_once ETB_PATH . 'includes/class-etb-meta-manager.php';
         require_once ETB_PATH . 'includes/class-etb-ajax.php';
