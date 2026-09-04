@@ -32,9 +32,13 @@ class Elite_Transfer_Booking {
         wp_enqueue_style( 'etb-booking-style', ETB_URL . 'public/css/booking-widget.css', array( 'dashicons' ), ETB_VERSION );
         
         wp_enqueue_script( 'etb-booking-script', ETB_URL . 'public/js/booking-widget.js', array(), ETB_VERSION, true );
+        $gen_settings    = get_option( 'etb_general_settings', array() );
+        $currency_symbol = ! empty( $gen_settings['currency'] ) ? sanitize_text_field( $gen_settings['currency'] ) : '$';
+
         wp_localize_script( 'etb-booking-script', 'etbAjax', array(
             'ajax_url' => admin_url( 'admin-ajax.php' ),
             'nonce'    => wp_create_nonce( 'etb_booking_nonce' ),
+            'currency' => $currency_symbol,
         ) );
     }
 

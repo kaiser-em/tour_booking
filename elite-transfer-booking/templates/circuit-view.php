@@ -4,7 +4,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Variables disponibles : $circuit_id, $options
+$gen_settings = get_option( 'etb_general_settings', array() );
+$currency     = ! empty( $gen_settings['currency'] ) ? sanitize_text_field( $gen_settings['currency'] ) : '$';
 ?>
+
 
 <div class="co-circuit-wrapper" id="co-circuit-app" data-circuit-id="<?php echo esc_attr( $circuit_id ); ?>">
 
@@ -39,7 +42,7 @@ if ( ! defined( 'ABSPATH' ) ) {
                         <img src="<?php echo esc_url( $img_url ); ?>" class="etb-vehicle-image" alt="<?php echo esc_attr( $vehicle->post_title ); ?>">
                     <?php endif; ?>
                     <h3 class="etb-vehicle-name"><?php echo esc_html( $vehicle->post_title ); ?></h3>
-                    <p class="etb-vehicle-price"><?php echo esc_html( $display_price ); ?> € /h</p>
+                    <p class="etb-vehicle-price"><?php echo esc_html( $display_price ); ?> <?php echo esc_html( $currency ); ?> /h</p>
                     <div class="etb-vehicle-specs">
                         <span>👤 <?php echo esc_html( $max_pax ); ?> Pers. max</span>
                         <span>🧳 <?php echo esc_html( $max_bag ); ?> Bagages</span>
@@ -73,15 +76,19 @@ if ( ! defined( 'ABSPATH' ) ) {
                     foreach ( $options as $opt_id => $opt_data ) : 
                         $city = ! empty( $opt_data['city_name'] ) ? esc_html( $opt_data['city_name'] ) : 'Départ';
                     ?>
-                        <button type="button" 
-                                class="co-pub-tab-btn <?php echo $is_first ? 'active' : ''; ?>" 
-                                data-target="<?php echo esc_attr( $opt_id ); ?>"
-                                data-duration="<?php echo esc_attr( $opt_data['duration_hours'] ?? 1 ); ?>"
-                                data-price="<?php echo esc_attr( $opt_data['additional_price'] ?? 0 ); ?>"
-                        data-time="<?php echo esc_attr( $opt_data['departure_time'] ?? '09:00' ); ?>">
-                            <span class="dashicons dashicons-location"></span>
-                            <?php echo $city; ?>
-                        </button>
+                    <?php 
+                        $add_price = floatval( $opt_data['additional_price'] ?? 0 );
+                        $price_suffix = ( $add_price > 0 ) ? ' (+' . $add_price . ' ' . $currency . ')' : '';
+                    ?>
+                    <button type="button" 
+                            class="co-pub-tab-btn <?php echo $is_first ? 'active' : ''; ?>" 
+                            data-target="<?php echo esc_attr( $opt_id ); ?>"
+                            data-duration="<?php echo esc_attr( $opt_data['duration_hours'] ?? 1 ); ?>"
+                            data-price="<?php echo esc_attr( $add_price ); ?>"
+                            data-time="<?php echo esc_attr( $opt_data['departure_time'] ?? '09:00' ); ?>">
+                        <span class="dashicons dashicons-location"></span>
+                        <?php echo $city . esc_html( $price_suffix ); ?>
+                    </button>
                     <?php 
                         $is_first = false;
                     endforeach; 
@@ -96,7 +103,9 @@ if ( ! defined( 'ABSPATH' ) ) {
                 $inclusions = ! empty( $opt_data['inclusions'] ) ? explode( "\n", trim( $opt_data['inclusions'] ) ) : array();
                 $exclusions = ! empty( $opt_data['exclusions'] ) ? explode( "\n", trim( $opt_data['exclusions'] ) ) : array();
             ?>
-                <div class="co-option-pane <?php echo $is_first ? 'active' : ''; ?>" id="co-pane-<?php echo esc_attr( $opt_id ); ?>">
+                <div class="co-option-pane <?php echo $is_first ? 'active' : ''; ?>" 
+                     id="co-pane-<?php echo esc_attr( $opt_id ); ?>" 
+                     data-base-departure="<?php echo esc_attr( $opt_data['departure_time'] ?? '09:00' ); ?>">
                     
                     <!-- LES 4 BADGES (HIGHLIGHTS) -->
                     <div class="co-highlights-grid">
@@ -134,7 +143,7 @@ if ( ! defined( 'ABSPATH' ) ) {
                                 <?php foreach ( $timeline as $step ) : ?>
                                     <div class="co-timeline-step">
                                         <div class="co-timeline-bullet"></div>
-                                        <div class="co-timeline-time"><?php echo esc_html( $step['time'] ?? '' ); ?></div>
+                                        <div class="co-timeline-time" data-base-time="<?php echo esc_attr( $step['time'] ?? '' ); ?>"><?php echo esc_html( $step['time'] ?? '' ); ?></div>
                                         <div class="co-timeline-content">
                                             <h4><?php echo esc_html( $step['title'] ?? '' ); ?></h4>
                                             <?php if ( ! empty( $step['desc'] ) ) : ?>

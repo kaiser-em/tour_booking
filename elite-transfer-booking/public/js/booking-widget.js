@@ -50,7 +50,7 @@
         let state = {
             activeIndex: 0,
             pickup: { name: '', price: 0 },
-            currency: '€',
+            currency: (typeof etbAjax !== 'undefined' && etbAjax.currency) ? etbAjax.currency : '$',
             promo: { code: '', discount_type: 'fixed', discount_value: 0 },
             circuit: { duration: 1, additionalPrice: 0, optionId: '', cityName: '' }
         };
@@ -295,6 +295,45 @@
             updateSummary();
         };
 
+
+        /**
+         * Recalcule dynamiquement les horaires de la timeline selon l'heure de départ choisie
+         */
+        const updateTimelineTimes = (chosenTime) => {
+            const activePane = document.querySelector('.co-option-pane.active');
+            if (!activePane || !chosenTime) return;
+
+            const baseDepStr = activePane.dataset.baseDeparture || '09:00';
+            
+            // Conversion HH:MM en minutes
+            const parseMinutes = (tStr) => {
+                if (!tStr || !tStr.includes(':')) return 0;
+                const p = tStr.split(':');
+                return (parseInt(p[0], 10) * 60) + parseInt(p[1], 10);
+            };
+
+            // Formatage minutes en HH:MM
+            const formatTime = (totalMin) => {
+                const normalized = ((totalMin % 1440) + 1440) % 1440; // Gestion des 24h
+                const h = Math.floor(normalized / 60);
+                const m = normalized % 60;
+                return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+            };
+
+            const baseDepMin   = parseMinutes(baseDepStr);
+            const chosenDepMin = parseMinutes(chosenTime);
+            const deltaMin     = chosenDepMin - baseDepMin;
+
+            // Décalage de chaque étape de la timeline
+            activePane.querySelectorAll('.co-timeline-time').forEach(el => {
+                const originalStepTime = el.dataset.baseTime;
+                if (!originalStepTime || !originalStepTime.includes(':')) return;
+
+                const originalMin = parseMinutes(originalStepTime);
+                const updatedTime = formatTime(originalMin + deltaMin);
+                el.textContent = updatedTime;
+            });
+        };
         // ------------------------------------------------------------------------
         // 4. GESTION DES ONGLETS DE VILLES (DÉCLARÉE APRÈS UPDATESUMMARY)
         // ------------------------------------------------------------------------
@@ -334,6 +373,9 @@
             if (timeInput && departureTime) {
                 timeInput.value = departureTime;
             }
+
+            // Mise à jour immédiate des horaires de la timeline
+            updateTimelineTimes(departureTime || (timeInput ? timeInput.value : '09:00'));
 
             // Appel sécurisé maintenant que updateSummary est déclarée
             updateSummary();
@@ -549,10 +591,13 @@
             dateInput.addEventListener('input', refreshAll);
         }
         if (timeInput) {
-            timeInput.addEventListener('change', refreshAll);
-            timeInput.addEventListener('input', refreshAll);
+            const handleTimeChange = function () {
+                updateTimelineTimes(this.value);
+                refreshAll();
+            };
+            timeInput.addEventListener('change', handleTimeChange);
+            timeInput.addEventListener('input', handleTimeChange);
         }
-
         // 5. Navigation carrousel (flèches si présent)
         root.querySelector('.prev')?.addEventListener('click', (e) => {
             e.preventDefault();

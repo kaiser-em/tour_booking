@@ -280,22 +280,45 @@ class ETB_Octopus {
             $addresses[] = $data['dropoff_info'];
         }
 
-        // 9. Payload complet conforme au document Postman (Page 36 : description)
+        // Préparation des valeurs pour vos Custom Fields OctopusPro
+        $custom_dropoff  = ! empty( $data['dropoff_info'] ) ? $data['dropoff_info'] : 'Identique au lieu de départ';
+        $custom_vehicles = ! empty( $vehicles_summary ) ? $vehicles_summary : 'Non spécifié';
+
+        // Format tableau d'objets normalisé
+        $formatted_custom_fields = array(
+            array( 'id' => 18492, 'value' => $custom_vehicles ),
+            array( 'id' => 18493, 'value' => $custom_dropoff ),
+        );
+
+        // Clés par nom et par ID pour compatibilité maximale
+        $keyed_custom_fields = array(
+            'vehicules_18492'         => $custom_vehicles,
+            'drop_off_location_18493' => $custom_dropoff,
+            18492                     => $custom_vehicles,
+            18493                     => $custom_dropoff,
+        );
+
+        // Injection dans la ligne de service
+        $service_item['custom_fields'] = $formatted_custom_fields;
+
+        // Payload complet
         $payload = array(
             'customer_id'          => $customer_id,
-            'booking_status_id'    => 1, // 1 = Active / Pending
+            'booking_status_id'    => 1,
             'source_id'            => $source_id, // 111636 = Website
             'booking_start'        => $booking_start,
             'booking_end'          => $booking_end,
             'services'             => array( $service_item ),
-            'description'          => $job_notes, // Champ de texte principal officiel
-            'service_instructions' => $job_notes,
+            'custom_fields'        => $formatted_custom_fields,
+            'custom_field_values'  => $keyed_custom_fields,
             'special_instructions' => $job_notes,
+            'service_instructions' => $job_notes,
             'instructions'         => $job_notes,
             'notes'                => $job_notes,
             'reference_id'         => (string) $booking_id,
         );
 
+        
         if ( ! empty( $addresses ) ) {
             $payload['addresses'] = $addresses;
         }

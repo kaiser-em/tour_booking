@@ -519,6 +519,105 @@ class ETB_Meta_Manager {
                 <?php endif; ?>
             </div>
         </div>
+
+
+         <?php 
+        // ==========================================================================
+        // NOUVEAUTÉ : AFFICHAGE DU DÉTAIL DU CIRCUIT (TIMELINE & INCLUSIONS)
+        // ==========================================================================
+        if ( ! empty( $circuit_option_id ) ) {
+            $circuit_data = ETB_Pricing_Engine::find_circuit_option_data( $circuit_option_id, $circuit_id );
+            
+            if ( $circuit_data ) {
+                $timeline   = $circuit_data['timeline'] ?? array();
+                $inclusions = ! empty( $circuit_data['inclusions'] ) ? explode( "\n", trim( $circuit_data['inclusions'] ) ) : array();
+                $exclusions = ! empty( $circuit_data['exclusions'] ) ? explode( "\n", trim( $circuit_data['exclusions'] ) ) : array();
+                $badges     = array_filter( array( $circuit_data['badge_1'] ?? '', $circuit_data['badge_2'] ?? '', $circuit_data['badge_3'] ?? '', $circuit_data['badge_4'] ?? '' ) );
+
+                // Calcul du décalage horaire pour la timeline
+                $base_time   = $circuit_data['departure_time'] ?? '09:00';
+                $booked_time = $time ?: $base_time;
+                $delta_sec   = strtotime( $booked_time ) - strtotime( $base_time );
+                ?>
+                
+                <div class="etb-admin-card" style="margin-top: 20px; border-top: 3px solid #0284c7;">
+                    <h4 style="color: #0284c7; font-size: 16px;">🗺️ Programme & Détails du Circuit : <?php echo esc_html( $circuit_data['city_name'] ?? '' ); ?></h4>
+                    
+                    <!-- Badges -->
+                    <?php if ( ! empty( $badges ) ) : ?>
+                        <div style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+                            <?php foreach ( $badges as $badge ) : ?>
+                                <span style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 50px; font-size: 12px; color: #334155;">
+                                    <?php echo esc_html( $badge ); ?>
+                                </span>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+
+                    <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 30px;">
+                        <!-- Timeline -->
+                        <div>
+                            <h5 style="margin: 0 0 15px 0; font-size: 14px; text-transform: uppercase; color: #475569;">📍 Itinéraire (Heures adaptées)</h5>
+                            <?php if ( ! empty( $timeline ) ) : ?>
+                                <ul style="margin: 0; padding: 0; list-style: none; border-left: 2px dashed #cbd5e1; padding-left: 15px;">
+                                    <?php foreach ( $timeline as $step ) : 
+                                        $step_base_ts  = strtotime( $step['time'] ?? '09:00' );
+                                        $adjusted_time = date( 'H:i', $step_base_ts + $delta_sec );
+                                    ?>
+                                        <li style="margin-bottom: 15px; position: relative;">
+                                            <span style="position: absolute; left: -22px; top: 2px; width: 10px; height: 10px; background: #e65a15; border-radius: 50%; border: 2px solid #fff;"></span>
+                                            <strong style="color: #e65a15; font-size: 13px;"><?php echo esc_html( $adjusted_time ); ?></strong> - 
+                                            <strong style="color: #0f172a; font-size: 14px;"><?php echo esc_html( $step['title'] ?? '' ); ?></strong>
+                                            <?php if ( ! empty( $step['desc'] ) ) : ?>
+                                                <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;"><?php echo nl2br( esc_html( $step['desc'] ) ); ?></p>
+                                            <?php endif; ?>
+                                        </li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            <?php else : ?>
+                                <p style="color: #64748b; font-style: italic;">Aucune étape définie.</p>
+                            <?php endif; ?>
+                        </div>
+
+                        <!-- Inclus / Non Inclus -->
+                        <div>
+                            <div style="margin-bottom: 20px;">
+                                <h5 style="margin: 0 0 10px 0; font-size: 14px; text-transform: uppercase; color: #16a34a;">✅ Inclus</h5>
+                                <?php if ( ! empty( $inclusions ) ) : ?>
+                                    <ul style="margin: 0; padding: 0; list-style: none; font-size: 13px; color: #334155;">
+                                        <?php foreach ( $inclusions as $item ) : if ( trim( $item ) ) : ?>
+                                            <li style="margin-bottom: 5px;">✓ <?php echo esc_html( trim( $item ) ); ?></li>
+                                        <?php endif; endforeach; ?>
+                                    </ul>
+                                <?php else : ?>
+                                    <span style="color: #94a3b8; font-style: italic;">Non spécifié</span>
+                                <?php endif; ?>
+                            </div>
+
+                            <div>
+                                <h5 style="margin: 0 0 10px 0; font-size: 14px; text-transform: uppercase; color: #dc2626;">❌ Non inclus</h5>
+                                <?php if ( ! empty( $exclusions ) ) : ?>
+                                    <ul style="margin: 0; padding: 0; list-style: none; font-size: 13px; color: #334155;">
+                                        <?php foreach ( $exclusions as $item ) : if ( trim( $item ) ) : ?>
+                                            <li style="margin-bottom: 5px;">✕ <?php echo esc_html( trim( $item ) ); ?></li>
+                                        <?php endif; endforeach; ?>
+                                    </ul>
+                                <?php else : ?>
+                                    <span style="color: #94a3b8; font-style: italic;">Non spécifié</span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <?php
+            }
+        }
+        ?>
+
+
+
+
+
         <?php
     }
 
