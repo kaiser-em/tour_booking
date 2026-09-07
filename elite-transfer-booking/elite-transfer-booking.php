@@ -52,7 +52,7 @@ class Elite_Transfer_Booking {
         require_once ETB_PATH . 'includes/class-etb-security.php';
         require_once ETB_PATH . 'includes/class-etb-cpt-manager.php';
         require_once ETB_PATH . 'includes/class-etb-settings.php';
-        require_once ETB_PATH . 'includes/class-etb-octopus.php'; // <-- Chargement du connecteur OctopusPro
+        
         require_once ETB_PATH . 'includes/class-etb-pricing-engine.php';
         require_once ETB_PATH . 'includes/class-etb-meta-manager.php';
         require_once ETB_PATH . 'includes/class-etb-ajax.php';

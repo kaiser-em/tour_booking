@@ -406,11 +406,7 @@ class ETB_Meta_Manager {
         $circuit_option_id = get_post_meta( $post->ID, '_etb_circuit_option_id', true );
         $duration_hours    = get_post_meta( $post->ID, '_etb_duration_hours', true ) ?: 1;
 
-        // Récupération de l'état de synchronisation OctopusPro
-        $octopus_status = get_post_meta( $post->ID, '_etb_octopus_status', true );
-        $octopus_id     = get_post_meta( $post->ID, '_etb_octopus_booking_id', true );
-        $octopus_error  = get_post_meta( $post->ID, '_etb_octopus_error', true );
-
+       
 
         $option_label = 'Transfert standard (1.0h)';
         if ( ! empty( $circuit_option_id ) ) {
@@ -455,15 +451,7 @@ class ETB_Meta_Manager {
                 <p><strong>Prestation :</strong> <?php echo $circuit_option_id ? '<span style="background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px;">' . esc_html( $option_label ) . '</span>' : '<span style="color: #64748b;"><em>Transfert standard (1.0h)</em></span>'; ?></p>
 
 
-                <p><strong>OctopusPro :</strong> 
-                    <?php if ( $octopus_status === 'synced' ) : ?>
-                        <span style="background: #dcfce7; color: #15803d; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px;">✅ Synchronisé (ID: #<?php echo esc_html( $octopus_id ); ?>)</span>
-                    <?php elseif ( $octopus_status === 'failed' ) : ?>
-                        <span style="background: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px;">❌ Échec : <?php echo esc_html( $octopus_error ?: 'Erreur de connexion' ); ?></span>
-                    <?php else : ?>
-                        <span style="color: #94a3b8;"><em>Non synchronisé / Inactif</em></span>
-                    <?php endif; ?>
-                </p>
+              
 
                 <p><strong>Lieu de départ :</strong> <?php echo esc_html( $pickup ); ?></p>
                 <p><strong>Lieu de dépose :</strong> <?php echo $dropoff_info ? nl2br( esc_html( $dropoff_info ) ) : '<em>Identique au lieu de départ</em>'; ?></p>

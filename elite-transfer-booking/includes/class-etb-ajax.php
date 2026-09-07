@@ -280,10 +280,7 @@ class ETB_Ajax {
         wp_mail( $data['email'], $subject_client, $message_client, $headers_client );
         wp_mail( $admin_email, $subject_admin, $message_admin, $headers_admin );
 
-        // NOUVEAUTÉ : Transmission automatique à OctopusPro en arrière-plan
-        if ( class_exists( 'ETB_Octopus' ) ) {
-            ETB_Octopus::send_booking_to_octopus( $booking_id, $data );
-        }
+        
 
         
         $data['booking_id'] = $booking_id;
