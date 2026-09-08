@@ -46,7 +46,9 @@ class ETB_Settings {
             $new_input['admin_email'] = isset( $existing['admin_email'] ) ? $existing['admin_email'] : get_option( 'admin_email' );
         }
 
-    
+        // Réglages LimoExpress
+        $new_input['limo_enabled']   = isset( $input['limo_enabled'] ) && $input['limo_enabled'] === '1' ? '1' : '0';
+        $new_input['limo_api_token'] = ! empty( $input['limo_api_token'] ) ? sanitize_text_field( trim( $input['limo_api_token'] ) ) : '';
 
         return $new_input;
     }
@@ -111,7 +113,25 @@ class ETB_Settings {
                             <th scope="row">Email de notification admin</th>
                             <td><input type="email" name="etb_general_settings[admin_email]" value="<?php echo esc_attr( $options['admin_email'] ?? get_option('admin_email') ); ?>" class="regular-text"></td>
                         </tr>
-                        
+                        <tr>
+                            <th scope="row" colspan="2"><hr style="margin: 20px 0; border: 0; border-top: 1px solid #dcdcde;"><h3>🚙 Intégration LimoExpress</h3></th>
+                        </tr>
+                        <tr>
+                            <th scope="row">Activer la synchronisation</th>
+                            <td>
+                                <label>
+                                    <input type="checkbox" name="etb_general_settings[limo_enabled]" value="1" <?php checked( $options['limo_enabled'] ?? '0', '1' ); ?>>
+                                    Transmettre automatiquement chaque réservation validée vers LimoExpress
+                                </label>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Jeton API (Bearer Token)</th>
+                            <td>
+                                <input type="password" name="etb_general_settings[limo_api_token]" value="<?php echo esc_attr( $options['limo_api_token'] ?? '' ); ?>" class="regular-text" placeholder="Collez votre Token ici...">
+                                <p class="description">Généré dans LimoExpress (Administration &gt; Organization &gt; Advanced Settings &gt; API Integration).</p>
+                            </td>
+                        </tr>
                     </table>
                 <?php } else { 
                     settings_fields( 'etb_form_settings_group' );

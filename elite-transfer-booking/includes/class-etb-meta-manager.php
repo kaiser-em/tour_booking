@@ -270,6 +270,7 @@ class ETB_Meta_Manager {
         $max_bag     = get_post_meta( $post->ID, '_etb_max_baggage', true );
         $selected_extras = get_post_meta( $post->ID, '_etb_allowed_extras', true ) ?: array();
 
+        $limo_class_id = get_post_meta( $post->ID, '_etb_limo_class_id', true );
         $extras = get_posts( array( 'post_type' => 'tour_extra', 'numberposts' => -1, 'post_status' => 'publish' ) );
         ?>
         <p>
@@ -284,6 +285,13 @@ class ETB_Meta_Manager {
             <label>Nombre max passagers :</label><br>
             <input type="number" min="1" name="etb_max_pax" value="<?php echo esc_attr( $max_pax ); ?>" class="widefat">
         </p>
+        <hr style="margin: 15px 0;">
+        <p>
+            <label><strong>🚙 ID LimoExpress (Vehicle Class ID) :</strong></label><br>
+            <input type="text" name="etb_limo_class_id" value="<?php echo esc_attr( $limo_class_id ); ?>" class="widefat" placeholder="Ex: 9c50c90c-ffaf-4523-b573-0177fea64541">
+            <span class="description">L'identifiant UUID de la classe correspondante dans LimoExpress (laisser vide si non utilisé).</span>
+        </p>
+        <hr style="margin: 15px 0;">
         <p>
             <label>Nombre max bagages :</label><br>
             <input type="number" min="0" name="etb_max_bag" value="<?php echo esc_attr( $max_bag ); ?>" class="widefat">
@@ -406,7 +414,10 @@ class ETB_Meta_Manager {
         $circuit_option_id = get_post_meta( $post->ID, '_etb_circuit_option_id', true );
         $duration_hours    = get_post_meta( $post->ID, '_etb_duration_hours', true ) ?: 1;
 
-       
+       // Récupération de l'état LimoExpress
+        $limo_status = get_post_meta( $post->ID, '_etb_limo_status', true );
+        $limo_id     = get_post_meta( $post->ID, '_etb_limo_booking_id', true );
+        $limo_error  = get_post_meta( $post->ID, '_etb_limo_error', true );
 
         $option_label = 'Transfert standard (1.0h)';
         if ( ! empty( $circuit_option_id ) ) {
@@ -414,6 +425,7 @@ class ETB_Meta_Manager {
             $option_label   = ETB_Pricing_Engine::get_circuit_option_label( $circuit_option_id, $circuit_id, $fallback_label );
         }
 
+        
         $vehicles  = get_post_meta( $post->ID, '_etb_vehicles', true ) ?: array();
         $extras    = get_post_meta( $post->ID, '_etb_extras', true ) ?: array();
         $note      = get_post_meta( $post->ID, '_etb_note', true );
@@ -451,7 +463,16 @@ class ETB_Meta_Manager {
                 <p><strong>Prestation :</strong> <?php echo $circuit_option_id ? '<span style="background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px;">' . esc_html( $option_label ) . '</span>' : '<span style="color: #64748b;"><em>Transfert standard (1.0h)</em></span>'; ?></p>
 
 
-              
+                <p><strong>LimoExpress :</strong> 
+                    <?php if ( $limo_status === 'synced' ) : ?>
+                        <span style="background: #dcfce7; color: #15803d; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px;">✅ Synchronisé (Course #<?php echo esc_html( $limo_id ); ?>)</span>
+                    <?php elseif ( $limo_status === 'failed' ) : ?>
+                        <span style="background: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px;">❌ Échec : <?php echo esc_html( $limo_error ?: 'Erreur de connexion' ); ?></span>
+                    <?php else : ?>
+                        <span style="color: #94a3b8;"><em>Non synchronisé / Inactif</em></span>
+                    <?php endif; ?>
+                </p>
+                
 
                 <p><strong>Lieu de départ :</strong> <?php echo esc_html( $pickup ); ?></p>
                 <p><strong>Lieu de dépose :</strong> <?php echo $dropoff_info ? nl2br( esc_html( $dropoff_info ) ) : '<em>Identique au lieu de départ</em>'; ?></p>
@@ -625,6 +646,10 @@ class ETB_Meta_Manager {
                 update_post_meta( $post_id, '_etb_max_pax', absint( $_POST['etb_max_pax'] ) );
                 update_post_meta( $post_id, '_etb_max_baggage', absint( $_POST['etb_max_bag'] ) );
 
+                // Sauvegarde de l'ID LimoExpress
+                $limo_class_id = isset( $_POST['etb_limo_class_id'] ) ? sanitize_text_field( trim( $_POST['etb_limo_class_id'] ) ) : '';
+                update_post_meta( $post_id, '_etb_limo_class_id', $limo_class_id );
+                
                 $allowed_extras = array();
                 if ( isset( $_POST['etb_allowed_extras'] ) && is_array( $_POST['etb_allowed_extras'] ) ) {
                     foreach ( $_POST['etb_allowed_extras'] as $extra_id ) {

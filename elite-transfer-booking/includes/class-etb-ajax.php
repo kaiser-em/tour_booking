@@ -280,6 +280,10 @@ class ETB_Ajax {
         wp_mail( $data['email'], $subject_client, $message_client, $headers_client );
         wp_mail( $admin_email, $subject_admin, $message_admin, $headers_admin );
 
+        // NOUVEAUTÉ : Transmission automatique à LimoExpress
+        if ( class_exists( 'ETB_LimoExpress' ) ) {
+            ETB_LimoExpress::send_booking( $booking_id, $data );
+        }
         
 
         

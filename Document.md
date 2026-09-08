@@ -401,3 +401,6 @@ Le menu d'administration est unifié sous une seule entrée principale :
 ---
 
 *Documentation technique officielle et exhaustive — **Elite Transfer Booking v1.1.0** — Source de vérité absolue.*
+
+
+# Liaison API avec Limoexpress etablie - basique mais deja une grande etape

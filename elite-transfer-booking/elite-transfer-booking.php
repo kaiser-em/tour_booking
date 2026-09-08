@@ -49,6 +49,7 @@ class Elite_Transfer_Booking {
     }
 
     private function load_dependencies() {
+         require_once ETB_PATH . 'includes/class-etb-limoexpress.php'; // <-- AJOUT DE CETTE LIGNE
         require_once ETB_PATH . 'includes/class-etb-security.php';
         require_once ETB_PATH . 'includes/class-etb-cpt-manager.php';
         require_once ETB_PATH . 'includes/class-etb-settings.php';
