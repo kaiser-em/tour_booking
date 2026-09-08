@@ -56,7 +56,7 @@ class ETB_LimoExpress {
         $dur_m = round( ($duration_hours - $dur_h) * 60 );
         $duration_formatted = sprintf( '%02d:%02d', $dur_h, $dur_m );
 
-        // 4. Extraction du nom et des extras
+        // 4. Extraction du nom, des extras et préparation des notes
         $name_parts = explode( ' ', trim( $data['name'] ), 2 );
         $first_name = ! empty( $name_parts[0] ) ? $name_parts[0] : 'Client';
         $last_name  = ! empty( $name_parts[1] ) ? $name_parts[1] : 'ETB';
@@ -65,25 +65,49 @@ class ETB_LimoExpress {
             ? ETB_Pricing_Engine::get_circuit_option_label( $data['option_id'], $data['circuit_id'] )
             : 'Transfert standard';
 
-        $baby_seat_count = 0;
-        $extras_summary  = '';
+        $baby_seat_count    = 0;
+        $extras_summary     = '';
+        $driving_extra_fees = array(); // NOUVEAU : Tableau des frais supplémentaires pour LimoExpress
+
         if ( ! empty( $data['extras'] ) ) {
             foreach ( $data['extras'] as $e_id => $qty ) {
                 if ( $qty > 0 ) {
-                    $e_name = get_the_title( $e_id );
+                    $e_name     = get_the_title( $e_id );
+                    $e_price    = floatval( get_post_meta( $e_id, '_etb_price', true ) );
+                    $line_total = $e_price * $qty;
+
                     $extras_summary .= $e_name . ' x ' . $qty . ', ';
-                    // Détection intelligente du siège bébé (champ natif dans LimoExpress)
+                    
                     if ( stripos( $e_name, 'bébé' ) !== false || stripos( $e_name, 'bebe' ) !== false || stripos( $e_name, 'baby' ) !== false ) {
                         $baby_seat_count += $qty;
+                    }
+
+                    // Ajout formaté pour la section "Extra fees" de LimoExpress
+                    if ( $line_total > 0 ) {
+                        $driving_extra_fees[] = array(
+                            'name'   => sprintf( '%s (x%d)', $e_name, $qty ),
+                            'amount' => $line_total,
+                            'price'  => $line_total
+                        );
                     }
                 }
             }
             $extras_summary = rtrim( $extras_summary, ', ' );
         }
 
+        $vehicles_summary = '';
+        if ( ! empty( $data['vehicles'] ) ) {
+            foreach ( $data['vehicles'] as $v_id => $qty ) {
+                if ( $qty > 0 ) $vehicles_summary .= get_the_title( $v_id ) . ' x ' . $qty . ', ';
+            }
+            $vehicles_summary = rtrim( $vehicles_summary, ', ' );
+        }
+
         $pickup_address = ! empty( $data['pickup_address'] ) ? $data['pickup_address'] : 'Non spécifié';
         $dropoff_info   = ! empty( $data['dropoff_info'] ) ? $data['dropoff_info'] : $pickup_address;
+        $total_passengers = intval( $data['adults'] ) + intval( $data['children'] );
 
+        // Note pour le chauffeur (courte et opérationnelle)
         $note_for_driver = sprintf(
             "WP Booking #%d | Extras: %s | Notes client: %s",
             $booking_id,
@@ -91,12 +115,22 @@ class ETB_LimoExpress {
             ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
         );
 
-        // 5. Construction du Payload LimoExpress (Conforme à votre test Swagger)
+        // NOUVEAU : Note pour le Dispatcher (Admin LimoExpress) claire et détaillée
+        $dispatcher_note = sprintf(
+            "--- DÉTAILS RÉSERVATION ---\nPassagers : %d Adulte(s), %d Enfant(s)\nVéhicules : %s\nCircuit : %s\nDemande spéciale : %s",
+            $data['adults'] ?? 1,
+            $data['children'] ?? 0,
+            $vehicles_summary ?: 'Non spécifié',
+            $prestation_label,
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // 5. Construction du Payload LimoExpress
         $payload = array(
-            'booking_type_id'    => 'e52e0f08-878d-4e0c-8e2d-b09225b5a0cf', // Transfert par défaut
-            'booking_status_id'  => '7366f352-928e-43e9-8df0-217913b7177b', // Pending par défaut
+            'booking_type_id'    => 'e52e0f08-878d-4e0c-8e2d-b09225b5a0cf',
+            'booking_status_id'  => '7366f352-928e-43e9-8df0-217913b7177b',
             'vehicle_class_id'   => $vehicle_class_id,
-             'pickup_time'        => $start_datetime . ':00', // <-- HEURE DE PICKUP EXACTE // Exigé par LimoExpress (YYYY-MM-DD)
+            'pickup_time'        => $start_datetime . ':00',
             'start'              => $start_datetime,
             'end'                => $end_datetime,
             'duration'           => $duration_formatted,
@@ -104,20 +138,1920 @@ class ETB_LimoExpress {
             'to_location'        => array( 'name' => $dropoff_info ),
             'price'              => floatval( $data['pricing']['grand_total'] ?? 0 ),
             'price_type'         => 'NET',
-            'passenger_count'    => $total_passengers, // <-- TOTAL EXACT PASSAGERS
-            //'passenger_count'    => intval( $data['adults'] ) + intval( $data['children'] ),
+            'passenger_count'    => $total_passengers,
             'suitcase_count'     => intval( $data['luggage'] ),
             'baby_seat_count'    => intval( $baby_seat_count ),
-            'round_trip'         => ( ! empty( $data['option_id'] ) ) ? 1 : 0, // Circuit = 1
-            'note'               => $prestation_label,
+            'round_trip'         => ( ! empty( $data['option_id'] ) ) ? 1 : 0,
+            'note'               => $dispatcher_note, // <-- Affiché dans "Additional info"
             'note_for_driver'    => substr( $note_for_driver, 0, 500 ),
             'waiting_board_text' => substr( $data['name'], 0, 50 ),
+            'drivingExtraFees'   => $driving_extra_fees, // <-- Injecte les extras dans LimoExpress
             'passengers'         => array(
                 array(
                     'first_name' => $first_name,
                     'last_name'  => $last_name,
                     'email'      => $data['email'],
-                    'phone'      => ! empty( $data['phone'] ) ? $data['phone'] : '' // Laissé vide si le champ phone n'est pas dans votre formulaire HTML
+                    'phone'      => ! empty( $data['phone'] ) ? $data['phone'] : ''
+                )
+            )
+        );// 4. Extraction du nom, des extras et préparation des notes
+        $name_parts = explode( ' ', trim( $data['name'] ), 2 );
+        $first_name = ! empty( $name_parts[0] ) ? $name_parts[0] : 'Client';
+        $last_name  = ! empty( $name_parts[1] ) ? $name_parts[1] : 'ETB';
+
+        $prestation_label = ! empty( $data['option_id'] )
+            ? ETB_Pricing_Engine::get_circuit_option_label( $data['option_id'], $data['circuit_id'] )
+            : 'Transfert standard';
+
+        $baby_seat_count    = 0;
+        $extras_summary     = '';
+        $driving_extra_fees = array(); // NOUVEAU : Tableau des frais supplémentaires pour LimoExpress
+
+        if ( ! empty( $data['extras'] ) ) {
+            foreach ( $data['extras'] as $e_id => $qty ) {
+                if ( $qty > 0 ) {
+                    $e_name     = get_the_title( $e_id );
+                    $e_price    = floatval( get_post_meta( $e_id, '_etb_price', true ) );
+                    $line_total = $e_price * $qty;
+
+                    $extras_summary .= $e_name . ' x ' . $qty . ', ';
+                    
+                    if ( stripos( $e_name, 'bébé' ) !== false || stripos( $e_name, 'bebe' ) !== false || stripos( $e_name, 'baby' ) !== false ) {
+                        $baby_seat_count += $qty;
+                    }
+
+                    // Ajout formaté pour la section "Extra fees" de LimoExpress
+                    if ( $line_total > 0 ) {
+                        $driving_extra_fees[] = array(
+                            'name'   => sprintf( '%s (x%d)', $e_name, $qty ),
+                            'amount' => $line_total,
+                            'price'  => $line_total
+                        );
+                    }
+                }
+            }
+            $extras_summary = rtrim( $extras_summary, ', ' );
+        }
+
+        $vehicles_summary = '';
+        if ( ! empty( $data['vehicles'] ) ) {
+            foreach ( $data['vehicles'] as $v_id => $qty ) {
+                if ( $qty > 0 ) $vehicles_summary .= get_the_title( $v_id ) . ' x ' . $qty . ', ';
+            }
+            $vehicles_summary = rtrim( $vehicles_summary, ', ' );
+        }
+
+        $pickup_address = ! empty( $data['pickup_address'] ) ? $data['pickup_address'] : 'Non spécifié';
+        $dropoff_info   = ! empty( $data['dropoff_info'] ) ? $data['dropoff_info'] : $pickup_address;
+        $total_passengers = intval( $data['adults'] ) + intval( $data['children'] );
+
+        // Note pour le chauffeur (courte et opérationnelle)
+        $note_for_driver = sprintf(
+            "WP Booking #%d | Extras: %s | Notes client: %s",
+            $booking_id,
+            $extras_summary ?: 'Aucun',
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // NOUVEAU : Note pour le Dispatcher (Admin LimoExpress) claire et détaillée
+        $dispatcher_note = sprintf(
+            "--- DÉTAILS RÉSERVATION ---\nPassagers : %d Adulte(s), %d Enfant(s)\nVéhicules : %s\nCircuit : %s\nDemande spéciale : %s",
+            $data['adults'] ?? 1,
+            $data['children'] ?? 0,
+            $vehicles_summary ?: 'Non spécifié',
+            $prestation_label,
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // 5. Construction du Payload LimoExpress
+        $payload = array(
+            'booking_type_id'    => 'e52e0f08-878d-4e0c-8e2d-b09225b5a0cf',
+            'booking_status_id'  => '7366f352-928e-43e9-8df0-217913b7177b',
+            'vehicle_class_id'   => $vehicle_class_id,
+            'pickup_time'        => $start_datetime . ':00',
+            'start'              => $start_datetime,
+            'end'                => $end_datetime,
+            'duration'           => $duration_formatted,
+            'from_location'      => array( 'name' => $pickup_address ),
+            'to_location'        => array( 'name' => $dropoff_info ),
+            'price'              => floatval( $data['pricing']['grand_total'] ?? 0 ),
+            'price_type'         => 'NET',
+            'passenger_count'    => $total_passengers,
+            'suitcase_count'     => intval( $data['luggage'] ),
+            'baby_seat_count'    => intval( $baby_seat_count ),
+            'round_trip'         => ( ! empty( $data['option_id'] ) ) ? 1 : 0,
+            'note'               => $dispatcher_note, // <-- Affiché dans "Additional info"
+            'note_for_driver'    => substr( $note_for_driver, 0, 500 ),
+            'waiting_board_text' => substr( $data['name'], 0, 50 ),
+            'drivingExtraFees'   => $driving_extra_fees, // <-- Injecte les extras dans LimoExpress
+            'passengers'         => array(
+                array(
+                    'first_name' => $first_name,
+                    'last_name'  => $last_name,
+                    'email'      => $data['email'],
+                    'phone'      => ! empty( $data['phone'] ) ? $data['phone'] : ''
+                )
+            )
+        );// 4. Extraction du nom, des extras et préparation des notes
+        $name_parts = explode( ' ', trim( $data['name'] ), 2 );
+        $first_name = ! empty( $name_parts[0] ) ? $name_parts[0] : 'Client';
+        $last_name  = ! empty( $name_parts[1] ) ? $name_parts[1] : 'ETB';
+
+        $prestation_label = ! empty( $data['option_id'] )
+            ? ETB_Pricing_Engine::get_circuit_option_label( $data['option_id'], $data['circuit_id'] )
+            : 'Transfert standard';
+
+        $baby_seat_count    = 0;
+        $extras_summary     = '';
+        $driving_extra_fees = array(); // NOUVEAU : Tableau des frais supplémentaires pour LimoExpress
+
+        if ( ! empty( $data['extras'] ) ) {
+            foreach ( $data['extras'] as $e_id => $qty ) {
+                if ( $qty > 0 ) {
+                    $e_name     = get_the_title( $e_id );
+                    $e_price    = floatval( get_post_meta( $e_id, '_etb_price', true ) );
+                    $line_total = $e_price * $qty;
+
+                    $extras_summary .= $e_name . ' x ' . $qty . ', ';
+                    
+                    if ( stripos( $e_name, 'bébé' ) !== false || stripos( $e_name, 'bebe' ) !== false || stripos( $e_name, 'baby' ) !== false ) {
+                        $baby_seat_count += $qty;
+                    }
+
+                    // Ajout formaté pour la section "Extra fees" de LimoExpress
+                    if ( $line_total > 0 ) {
+                        $driving_extra_fees[] = array(
+                            'name'   => sprintf( '%s (x%d)', $e_name, $qty ),
+                            'amount' => $line_total,
+                            'price'  => $line_total
+                        );
+                    }
+                }
+            }
+            $extras_summary = rtrim( $extras_summary, ', ' );
+        }
+
+        $vehicles_summary = '';
+        if ( ! empty( $data['vehicles'] ) ) {
+            foreach ( $data['vehicles'] as $v_id => $qty ) {
+                if ( $qty > 0 ) $vehicles_summary .= get_the_title( $v_id ) . ' x ' . $qty . ', ';
+            }
+            $vehicles_summary = rtrim( $vehicles_summary, ', ' );
+        }
+
+        $pickup_address = ! empty( $data['pickup_address'] ) ? $data['pickup_address'] : 'Non spécifié';
+        $dropoff_info   = ! empty( $data['dropoff_info'] ) ? $data['dropoff_info'] : $pickup_address;
+        $total_passengers = intval( $data['adults'] ) + intval( $data['children'] );
+
+        // Note pour le chauffeur (courte et opérationnelle)
+        $note_for_driver = sprintf(
+            "WP Booking #%d | Extras: %s | Notes client: %s",
+            $booking_id,
+            $extras_summary ?: 'Aucun',
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // NOUVEAU : Note pour le Dispatcher (Admin LimoExpress) claire et détaillée
+        $dispatcher_note = sprintf(
+            "--- DÉTAILS RÉSERVATION ---\nPassagers : %d Adulte(s), %d Enfant(s)\nVéhicules : %s\nCircuit : %s\nDemande spéciale : %s",
+            $data['adults'] ?? 1,
+            $data['children'] ?? 0,
+            $vehicles_summary ?: 'Non spécifié',
+            $prestation_label,
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // 5. Construction du Payload LimoExpress
+        $payload = array(
+            'booking_type_id'    => 'e52e0f08-878d-4e0c-8e2d-b09225b5a0cf',
+            'booking_status_id'  => '7366f352-928e-43e9-8df0-217913b7177b',
+            'vehicle_class_id'   => $vehicle_class_id,
+            'pickup_time'        => $start_datetime . ':00',
+            'start'              => $start_datetime,
+            'end'                => $end_datetime,
+            'duration'           => $duration_formatted,
+            'from_location'      => array( 'name' => $pickup_address ),
+            'to_location'        => array( 'name' => $dropoff_info ),
+            'price'              => floatval( $data['pricing']['grand_total'] ?? 0 ),
+            'price_type'         => 'NET',
+            'passenger_count'    => $total_passengers,
+            'suitcase_count'     => intval( $data['luggage'] ),
+            'baby_seat_count'    => intval( $baby_seat_count ),
+            'round_trip'         => ( ! empty( $data['option_id'] ) ) ? 1 : 0,
+            'note'               => $dispatcher_note, // <-- Affiché dans "Additional info"
+            'note_for_driver'    => substr( $note_for_driver, 0, 500 ),
+            'waiting_board_text' => substr( $data['name'], 0, 50 ),
+            'drivingExtraFees'   => $driving_extra_fees, // <-- Injecte les extras dans LimoExpress
+            'passengers'         => array(
+                array(
+                    'first_name' => $first_name,
+                    'last_name'  => $last_name,
+                    'email'      => $data['email'],
+                    'phone'      => ! empty( $data['phone'] ) ? $data['phone'] : ''
+                )
+            )
+        );// 4. Extraction du nom, des extras et préparation des notes
+        $name_parts = explode( ' ', trim( $data['name'] ), 2 );
+        $first_name = ! empty( $name_parts[0] ) ? $name_parts[0] : 'Client';
+        $last_name  = ! empty( $name_parts[1] ) ? $name_parts[1] : 'ETB';
+
+        $prestation_label = ! empty( $data['option_id'] )
+            ? ETB_Pricing_Engine::get_circuit_option_label( $data['option_id'], $data['circuit_id'] )
+            : 'Transfert standard';
+
+        $baby_seat_count    = 0;
+        $extras_summary     = '';
+        $driving_extra_fees = array(); // NOUVEAU : Tableau des frais supplémentaires pour LimoExpress
+
+        if ( ! empty( $data['extras'] ) ) {
+            foreach ( $data['extras'] as $e_id => $qty ) {
+                if ( $qty > 0 ) {
+                    $e_name     = get_the_title( $e_id );
+                    $e_price    = floatval( get_post_meta( $e_id, '_etb_price', true ) );
+                    $line_total = $e_price * $qty;
+
+                    $extras_summary .= $e_name . ' x ' . $qty . ', ';
+                    
+                    if ( stripos( $e_name, 'bébé' ) !== false || stripos( $e_name, 'bebe' ) !== false || stripos( $e_name, 'baby' ) !== false ) {
+                        $baby_seat_count += $qty;
+                    }
+
+                    // Ajout formaté pour la section "Extra fees" de LimoExpress
+                    if ( $line_total > 0 ) {
+                        $driving_extra_fees[] = array(
+                            'name'   => sprintf( '%s (x%d)', $e_name, $qty ),
+                            'amount' => $line_total,
+                            'price'  => $line_total
+                        );
+                    }
+                }
+            }
+            $extras_summary = rtrim( $extras_summary, ', ' );
+        }
+
+        $vehicles_summary = '';
+        if ( ! empty( $data['vehicles'] ) ) {
+            foreach ( $data['vehicles'] as $v_id => $qty ) {
+                if ( $qty > 0 ) $vehicles_summary .= get_the_title( $v_id ) . ' x ' . $qty . ', ';
+            }
+            $vehicles_summary = rtrim( $vehicles_summary, ', ' );
+        }
+
+        $pickup_address = ! empty( $data['pickup_address'] ) ? $data['pickup_address'] : 'Non spécifié';
+        $dropoff_info   = ! empty( $data['dropoff_info'] ) ? $data['dropoff_info'] : $pickup_address;
+        $total_passengers = intval( $data['adults'] ) + intval( $data['children'] );
+
+        // Note pour le chauffeur (courte et opérationnelle)
+        $note_for_driver = sprintf(
+            "WP Booking #%d | Extras: %s | Notes client: %s",
+            $booking_id,
+            $extras_summary ?: 'Aucun',
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // NOUVEAU : Note pour le Dispatcher (Admin LimoExpress) claire et détaillée
+        $dispatcher_note = sprintf(
+            "--- DÉTAILS RÉSERVATION ---\nPassagers : %d Adulte(s), %d Enfant(s)\nVéhicules : %s\nCircuit : %s\nDemande spéciale : %s",
+            $data['adults'] ?? 1,
+            $data['children'] ?? 0,
+            $vehicles_summary ?: 'Non spécifié',
+            $prestation_label,
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // 5. Construction du Payload LimoExpress
+        $payload = array(
+            'booking_type_id'    => 'e52e0f08-878d-4e0c-8e2d-b09225b5a0cf',
+            'booking_status_id'  => '7366f352-928e-43e9-8df0-217913b7177b',
+            'vehicle_class_id'   => $vehicle_class_id,
+            'pickup_time'        => $start_datetime . ':00',
+            'start'              => $start_datetime,
+            'end'                => $end_datetime,
+            'duration'           => $duration_formatted,
+            'from_location'      => array( 'name' => $pickup_address ),
+            'to_location'        => array( 'name' => $dropoff_info ),
+            'price'              => floatval( $data['pricing']['grand_total'] ?? 0 ),
+            'price_type'         => 'NET',
+            'passenger_count'    => $total_passengers,
+            'suitcase_count'     => intval( $data['luggage'] ),
+            'baby_seat_count'    => intval( $baby_seat_count ),
+            'round_trip'         => ( ! empty( $data['option_id'] ) ) ? 1 : 0,
+            'note'               => $dispatcher_note, // <-- Affiché dans "Additional info"
+            'note_for_driver'    => substr( $note_for_driver, 0, 500 ),
+            'waiting_board_text' => substr( $data['name'], 0, 50 ),
+            'drivingExtraFees'   => $driving_extra_fees, // <-- Injecte les extras dans LimoExpress
+            'passengers'         => array(
+                array(
+                    'first_name' => $first_name,
+                    'last_name'  => $last_name,
+                    'email'      => $data['email'],
+                    'phone'      => ! empty( $data['phone'] ) ? $data['phone'] : ''
+                )
+            )
+        );// 4. Extraction du nom, des extras et préparation des notes
+        $name_parts = explode( ' ', trim( $data['name'] ), 2 );
+        $first_name = ! empty( $name_parts[0] ) ? $name_parts[0] : 'Client';
+        $last_name  = ! empty( $name_parts[1] ) ? $name_parts[1] : 'ETB';
+
+        $prestation_label = ! empty( $data['option_id'] )
+            ? ETB_Pricing_Engine::get_circuit_option_label( $data['option_id'], $data['circuit_id'] )
+            : 'Transfert standard';
+
+        $baby_seat_count    = 0;
+        $extras_summary     = '';
+        $driving_extra_fees = array(); // NOUVEAU : Tableau des frais supplémentaires pour LimoExpress
+
+        if ( ! empty( $data['extras'] ) ) {
+            foreach ( $data['extras'] as $e_id => $qty ) {
+                if ( $qty > 0 ) {
+                    $e_name     = get_the_title( $e_id );
+                    $e_price    = floatval( get_post_meta( $e_id, '_etb_price', true ) );
+                    $line_total = $e_price * $qty;
+
+                    $extras_summary .= $e_name . ' x ' . $qty . ', ';
+                    
+                    if ( stripos( $e_name, 'bébé' ) !== false || stripos( $e_name, 'bebe' ) !== false || stripos( $e_name, 'baby' ) !== false ) {
+                        $baby_seat_count += $qty;
+                    }
+
+                    // Ajout formaté pour la section "Extra fees" de LimoExpress
+                    if ( $line_total > 0 ) {
+                        $driving_extra_fees[] = array(
+                            'name'   => sprintf( '%s (x%d)', $e_name, $qty ),
+                            'amount' => $line_total,
+                            'price'  => $line_total
+                        );
+                    }
+                }
+            }
+            $extras_summary = rtrim( $extras_summary, ', ' );
+        }
+
+        $vehicles_summary = '';
+        if ( ! empty( $data['vehicles'] ) ) {
+            foreach ( $data['vehicles'] as $v_id => $qty ) {
+                if ( $qty > 0 ) $vehicles_summary .= get_the_title( $v_id ) . ' x ' . $qty . ', ';
+            }
+            $vehicles_summary = rtrim( $vehicles_summary, ', ' );
+        }
+
+        $pickup_address = ! empty( $data['pickup_address'] ) ? $data['pickup_address'] : 'Non spécifié';
+        $dropoff_info   = ! empty( $data['dropoff_info'] ) ? $data['dropoff_info'] : $pickup_address;
+        $total_passengers = intval( $data['adults'] ) + intval( $data['children'] );
+
+        // Note pour le chauffeur (courte et opérationnelle)
+        $note_for_driver = sprintf(
+            "WP Booking #%d | Extras: %s | Notes client: %s",
+            $booking_id,
+            $extras_summary ?: 'Aucun',
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // NOUVEAU : Note pour le Dispatcher (Admin LimoExpress) claire et détaillée
+        $dispatcher_note = sprintf(
+            "--- DÉTAILS RÉSERVATION ---\nPassagers : %d Adulte(s), %d Enfant(s)\nVéhicules : %s\nCircuit : %s\nDemande spéciale : %s",
+            $data['adults'] ?? 1,
+            $data['children'] ?? 0,
+            $vehicles_summary ?: 'Non spécifié',
+            $prestation_label,
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // 5. Construction du Payload LimoExpress
+        $payload = array(
+            'booking_type_id'    => 'e52e0f08-878d-4e0c-8e2d-b09225b5a0cf',
+            'booking_status_id'  => '7366f352-928e-43e9-8df0-217913b7177b',
+            'vehicle_class_id'   => $vehicle_class_id,
+            'pickup_time'        => $start_datetime . ':00',
+            'start'              => $start_datetime,
+            'end'                => $end_datetime,
+            'duration'           => $duration_formatted,
+            'from_location'      => array( 'name' => $pickup_address ),
+            'to_location'        => array( 'name' => $dropoff_info ),
+            'price'              => floatval( $data['pricing']['grand_total'] ?? 0 ),
+            'price_type'         => 'NET',
+            'passenger_count'    => $total_passengers,
+            'suitcase_count'     => intval( $data['luggage'] ),
+            'baby_seat_count'    => intval( $baby_seat_count ),
+            'round_trip'         => ( ! empty( $data['option_id'] ) ) ? 1 : 0,
+            'note'               => $dispatcher_note, // <-- Affiché dans "Additional info"
+            'note_for_driver'    => substr( $note_for_driver, 0, 500 ),
+            'waiting_board_text' => substr( $data['name'], 0, 50 ),
+            'drivingExtraFees'   => $driving_extra_fees, // <-- Injecte les extras dans LimoExpress
+            'passengers'         => array(
+                array(
+                    'first_name' => $first_name,
+                    'last_name'  => $last_name,
+                    'email'      => $data['email'],
+                    'phone'      => ! empty( $data['phone'] ) ? $data['phone'] : ''
+                )
+            )
+        );// 4. Extraction du nom, des extras et préparation des notes
+        $name_parts = explode( ' ', trim( $data['name'] ), 2 );
+        $first_name = ! empty( $name_parts[0] ) ? $name_parts[0] : 'Client';
+        $last_name  = ! empty( $name_parts[1] ) ? $name_parts[1] : 'ETB';
+
+        $prestation_label = ! empty( $data['option_id'] )
+            ? ETB_Pricing_Engine::get_circuit_option_label( $data['option_id'], $data['circuit_id'] )
+            : 'Transfert standard';
+
+        $baby_seat_count    = 0;
+        $extras_summary     = '';
+        $driving_extra_fees = array(); // NOUVEAU : Tableau des frais supplémentaires pour LimoExpress
+
+        if ( ! empty( $data['extras'] ) ) {
+            foreach ( $data['extras'] as $e_id => $qty ) {
+                if ( $qty > 0 ) {
+                    $e_name     = get_the_title( $e_id );
+                    $e_price    = floatval( get_post_meta( $e_id, '_etb_price', true ) );
+                    $line_total = $e_price * $qty;
+
+                    $extras_summary .= $e_name . ' x ' . $qty . ', ';
+                    
+                    if ( stripos( $e_name, 'bébé' ) !== false || stripos( $e_name, 'bebe' ) !== false || stripos( $e_name, 'baby' ) !== false ) {
+                        $baby_seat_count += $qty;
+                    }
+
+                    // Ajout formaté pour la section "Extra fees" de LimoExpress
+                    if ( $line_total > 0 ) {
+                        $driving_extra_fees[] = array(
+                            'name'   => sprintf( '%s (x%d)', $e_name, $qty ),
+                            'amount' => $line_total,
+                            'price'  => $line_total
+                        );
+                    }
+                }
+            }
+            $extras_summary = rtrim( $extras_summary, ', ' );
+        }
+
+        $vehicles_summary = '';
+        if ( ! empty( $data['vehicles'] ) ) {
+            foreach ( $data['vehicles'] as $v_id => $qty ) {
+                if ( $qty > 0 ) $vehicles_summary .= get_the_title( $v_id ) . ' x ' . $qty . ', ';
+            }
+            $vehicles_summary = rtrim( $vehicles_summary, ', ' );
+        }
+
+        $pickup_address = ! empty( $data['pickup_address'] ) ? $data['pickup_address'] : 'Non spécifié';
+        $dropoff_info   = ! empty( $data['dropoff_info'] ) ? $data['dropoff_info'] : $pickup_address;
+        $total_passengers = intval( $data['adults'] ) + intval( $data['children'] );
+
+        // Note pour le chauffeur (courte et opérationnelle)
+        $note_for_driver = sprintf(
+            "WP Booking #%d | Extras: %s | Notes client: %s",
+            $booking_id,
+            $extras_summary ?: 'Aucun',
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // NOUVEAU : Note pour le Dispatcher (Admin LimoExpress) claire et détaillée
+        $dispatcher_note = sprintf(
+            "--- DÉTAILS RÉSERVATION ---\nPassagers : %d Adulte(s), %d Enfant(s)\nVéhicules : %s\nCircuit : %s\nDemande spéciale : %s",
+            $data['adults'] ?? 1,
+            $data['children'] ?? 0,
+            $vehicles_summary ?: 'Non spécifié',
+            $prestation_label,
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // 5. Construction du Payload LimoExpress
+        $payload = array(
+            'booking_type_id'    => 'e52e0f08-878d-4e0c-8e2d-b09225b5a0cf',
+            'booking_status_id'  => '7366f352-928e-43e9-8df0-217913b7177b',
+            'vehicle_class_id'   => $vehicle_class_id,
+            'pickup_time'        => $start_datetime . ':00',
+            'start'              => $start_datetime,
+            'end'                => $end_datetime,
+            'duration'           => $duration_formatted,
+            'from_location'      => array( 'name' => $pickup_address ),
+            'to_location'        => array( 'name' => $dropoff_info ),
+            'price'              => floatval( $data['pricing']['grand_total'] ?? 0 ),
+            'price_type'         => 'NET',
+            'passenger_count'    => $total_passengers,
+            'suitcase_count'     => intval( $data['luggage'] ),
+            'baby_seat_count'    => intval( $baby_seat_count ),
+            'round_trip'         => ( ! empty( $data['option_id'] ) ) ? 1 : 0,
+            'note'               => $dispatcher_note, // <-- Affiché dans "Additional info"
+            'note_for_driver'    => substr( $note_for_driver, 0, 500 ),
+            'waiting_board_text' => substr( $data['name'], 0, 50 ),
+            'drivingExtraFees'   => $driving_extra_fees, // <-- Injecte les extras dans LimoExpress
+            'passengers'         => array(
+                array(
+                    'first_name' => $first_name,
+                    'last_name'  => $last_name,
+                    'email'      => $data['email'],
+                    'phone'      => ! empty( $data['phone'] ) ? $data['phone'] : ''
+                )
+            )
+        );// 4. Extraction du nom, des extras et préparation des notes
+        $name_parts = explode( ' ', trim( $data['name'] ), 2 );
+        $first_name = ! empty( $name_parts[0] ) ? $name_parts[0] : 'Client';
+        $last_name  = ! empty( $name_parts[1] ) ? $name_parts[1] : 'ETB';
+
+        $prestation_label = ! empty( $data['option_id'] )
+            ? ETB_Pricing_Engine::get_circuit_option_label( $data['option_id'], $data['circuit_id'] )
+            : 'Transfert standard';
+
+        $baby_seat_count    = 0;
+        $extras_summary     = '';
+        $driving_extra_fees = array(); // NOUVEAU : Tableau des frais supplémentaires pour LimoExpress
+
+        if ( ! empty( $data['extras'] ) ) {
+            foreach ( $data['extras'] as $e_id => $qty ) {
+                if ( $qty > 0 ) {
+                    $e_name     = get_the_title( $e_id );
+                    $e_price    = floatval( get_post_meta( $e_id, '_etb_price', true ) );
+                    $line_total = $e_price * $qty;
+
+                    $extras_summary .= $e_name . ' x ' . $qty . ', ';
+                    
+                    if ( stripos( $e_name, 'bébé' ) !== false || stripos( $e_name, 'bebe' ) !== false || stripos( $e_name, 'baby' ) !== false ) {
+                        $baby_seat_count += $qty;
+                    }
+
+                    // Ajout formaté pour la section "Extra fees" de LimoExpress
+                    if ( $line_total > 0 ) {
+                        $driving_extra_fees[] = array(
+                            'name'   => sprintf( '%s (x%d)', $e_name, $qty ),
+                            'amount' => $line_total,
+                            'price'  => $line_total
+                        );
+                    }
+                }
+            }
+            $extras_summary = rtrim( $extras_summary, ', ' );
+        }
+
+        $vehicles_summary = '';
+        if ( ! empty( $data['vehicles'] ) ) {
+            foreach ( $data['vehicles'] as $v_id => $qty ) {
+                if ( $qty > 0 ) $vehicles_summary .= get_the_title( $v_id ) . ' x ' . $qty . ', ';
+            }
+            $vehicles_summary = rtrim( $vehicles_summary, ', ' );
+        }
+
+        $pickup_address = ! empty( $data['pickup_address'] ) ? $data['pickup_address'] : 'Non spécifié';
+        $dropoff_info   = ! empty( $data['dropoff_info'] ) ? $data['dropoff_info'] : $pickup_address;
+        $total_passengers = intval( $data['adults'] ) + intval( $data['children'] );
+
+        // Note pour le chauffeur (courte et opérationnelle)
+        $note_for_driver = sprintf(
+            "WP Booking #%d | Extras: %s | Notes client: %s",
+            $booking_id,
+            $extras_summary ?: 'Aucun',
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // NOUVEAU : Note pour le Dispatcher (Admin LimoExpress) claire et détaillée
+        $dispatcher_note = sprintf(
+            "--- DÉTAILS RÉSERVATION ---\nPassagers : %d Adulte(s), %d Enfant(s)\nVéhicules : %s\nCircuit : %s\nDemande spéciale : %s",
+            $data['adults'] ?? 1,
+            $data['children'] ?? 0,
+            $vehicles_summary ?: 'Non spécifié',
+            $prestation_label,
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // 5. Construction du Payload LimoExpress
+        $payload = array(
+            'booking_type_id'    => 'e52e0f08-878d-4e0c-8e2d-b09225b5a0cf',
+            'booking_status_id'  => '7366f352-928e-43e9-8df0-217913b7177b',
+            'vehicle_class_id'   => $vehicle_class_id,
+            'pickup_time'        => $start_datetime . ':00',
+            'start'              => $start_datetime,
+            'end'                => $end_datetime,
+            'duration'           => $duration_formatted,
+            'from_location'      => array( 'name' => $pickup_address ),
+            'to_location'        => array( 'name' => $dropoff_info ),
+            'price'              => floatval( $data['pricing']['grand_total'] ?? 0 ),
+            'price_type'         => 'NET',
+            'passenger_count'    => $total_passengers,
+            'suitcase_count'     => intval( $data['luggage'] ),
+            'baby_seat_count'    => intval( $baby_seat_count ),
+            'round_trip'         => ( ! empty( $data['option_id'] ) ) ? 1 : 0,
+            'note'               => $dispatcher_note, // <-- Affiché dans "Additional info"
+            'note_for_driver'    => substr( $note_for_driver, 0, 500 ),
+            'waiting_board_text' => substr( $data['name'], 0, 50 ),
+            'drivingExtraFees'   => $driving_extra_fees, // <-- Injecte les extras dans LimoExpress
+            'passengers'         => array(
+                array(
+                    'first_name' => $first_name,
+                    'last_name'  => $last_name,
+                    'email'      => $data['email'],
+                    'phone'      => ! empty( $data['phone'] ) ? $data['phone'] : ''
+                )
+            )
+        );// 4. Extraction du nom, des extras et préparation des notes
+        $name_parts = explode( ' ', trim( $data['name'] ), 2 );
+        $first_name = ! empty( $name_parts[0] ) ? $name_parts[0] : 'Client';
+        $last_name  = ! empty( $name_parts[1] ) ? $name_parts[1] : 'ETB';
+
+        $prestation_label = ! empty( $data['option_id'] )
+            ? ETB_Pricing_Engine::get_circuit_option_label( $data['option_id'], $data['circuit_id'] )
+            : 'Transfert standard';
+
+        $baby_seat_count    = 0;
+        $extras_summary     = '';
+        $driving_extra_fees = array(); // NOUVEAU : Tableau des frais supplémentaires pour LimoExpress
+
+        if ( ! empty( $data['extras'] ) ) {
+            foreach ( $data['extras'] as $e_id => $qty ) {
+                if ( $qty > 0 ) {
+                    $e_name     = get_the_title( $e_id );
+                    $e_price    = floatval( get_post_meta( $e_id, '_etb_price', true ) );
+                    $line_total = $e_price * $qty;
+
+                    $extras_summary .= $e_name . ' x ' . $qty . ', ';
+                    
+                    if ( stripos( $e_name, 'bébé' ) !== false || stripos( $e_name, 'bebe' ) !== false || stripos( $e_name, 'baby' ) !== false ) {
+                        $baby_seat_count += $qty;
+                    }
+
+                    // Ajout formaté pour la section "Extra fees" de LimoExpress
+                    if ( $line_total > 0 ) {
+                        $driving_extra_fees[] = array(
+                            'name'   => sprintf( '%s (x%d)', $e_name, $qty ),
+                            'amount' => $line_total,
+                            'price'  => $line_total
+                        );
+                    }
+                }
+            }
+            $extras_summary = rtrim( $extras_summary, ', ' );
+        }
+
+        $vehicles_summary = '';
+        if ( ! empty( $data['vehicles'] ) ) {
+            foreach ( $data['vehicles'] as $v_id => $qty ) {
+                if ( $qty > 0 ) $vehicles_summary .= get_the_title( $v_id ) . ' x ' . $qty . ', ';
+            }
+            $vehicles_summary = rtrim( $vehicles_summary, ', ' );
+        }
+
+        $pickup_address = ! empty( $data['pickup_address'] ) ? $data['pickup_address'] : 'Non spécifié';
+        $dropoff_info   = ! empty( $data['dropoff_info'] ) ? $data['dropoff_info'] : $pickup_address;
+        $total_passengers = intval( $data['adults'] ) + intval( $data['children'] );
+
+        // Note pour le chauffeur (courte et opérationnelle)
+        $note_for_driver = sprintf(
+            "WP Booking #%d | Extras: %s | Notes client: %s",
+            $booking_id,
+            $extras_summary ?: 'Aucun',
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // NOUVEAU : Note pour le Dispatcher (Admin LimoExpress) claire et détaillée
+        $dispatcher_note = sprintf(
+            "--- DÉTAILS RÉSERVATION ---\nPassagers : %d Adulte(s), %d Enfant(s)\nVéhicules : %s\nCircuit : %s\nDemande spéciale : %s",
+            $data['adults'] ?? 1,
+            $data['children'] ?? 0,
+            $vehicles_summary ?: 'Non spécifié',
+            $prestation_label,
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // 5. Construction du Payload LimoExpress
+        $payload = array(
+            'booking_type_id'    => 'e52e0f08-878d-4e0c-8e2d-b09225b5a0cf',
+            'booking_status_id'  => '7366f352-928e-43e9-8df0-217913b7177b',
+            'vehicle_class_id'   => $vehicle_class_id,
+            'pickup_time'        => $start_datetime . ':00',
+            'start'              => $start_datetime,
+            'end'                => $end_datetime,
+            'duration'           => $duration_formatted,
+            'from_location'      => array( 'name' => $pickup_address ),
+            'to_location'        => array( 'name' => $dropoff_info ),
+            'price'              => floatval( $data['pricing']['grand_total'] ?? 0 ),
+            'price_type'         => 'NET',
+            'passenger_count'    => $total_passengers,
+            'suitcase_count'     => intval( $data['luggage'] ),
+            'baby_seat_count'    => intval( $baby_seat_count ),
+            'round_trip'         => ( ! empty( $data['option_id'] ) ) ? 1 : 0,
+            'note'               => $dispatcher_note, // <-- Affiché dans "Additional info"
+            'note_for_driver'    => substr( $note_for_driver, 0, 500 ),
+            'waiting_board_text' => substr( $data['name'], 0, 50 ),
+            'drivingExtraFees'   => $driving_extra_fees, // <-- Injecte les extras dans LimoExpress
+            'passengers'         => array(
+                array(
+                    'first_name' => $first_name,
+                    'last_name'  => $last_name,
+                    'email'      => $data['email'],
+                    'phone'      => ! empty( $data['phone'] ) ? $data['phone'] : ''
+                )
+            )
+        );// 4. Extraction du nom, des extras et préparation des notes
+        $name_parts = explode( ' ', trim( $data['name'] ), 2 );
+        $first_name = ! empty( $name_parts[0] ) ? $name_parts[0] : 'Client';
+        $last_name  = ! empty( $name_parts[1] ) ? $name_parts[1] : 'ETB';
+
+        $prestation_label = ! empty( $data['option_id'] )
+            ? ETB_Pricing_Engine::get_circuit_option_label( $data['option_id'], $data['circuit_id'] )
+            : 'Transfert standard';
+
+        $baby_seat_count    = 0;
+        $extras_summary     = '';
+        $driving_extra_fees = array(); // NOUVEAU : Tableau des frais supplémentaires pour LimoExpress
+
+        if ( ! empty( $data['extras'] ) ) {
+            foreach ( $data['extras'] as $e_id => $qty ) {
+                if ( $qty > 0 ) {
+                    $e_name     = get_the_title( $e_id );
+                    $e_price    = floatval( get_post_meta( $e_id, '_etb_price', true ) );
+                    $line_total = $e_price * $qty;
+
+                    $extras_summary .= $e_name . ' x ' . $qty . ', ';
+                    
+                    if ( stripos( $e_name, 'bébé' ) !== false || stripos( $e_name, 'bebe' ) !== false || stripos( $e_name, 'baby' ) !== false ) {
+                        $baby_seat_count += $qty;
+                    }
+
+                    // Ajout formaté pour la section "Extra fees" de LimoExpress
+                    if ( $line_total > 0 ) {
+                        $driving_extra_fees[] = array(
+                            'name'   => sprintf( '%s (x%d)', $e_name, $qty ),
+                            'amount' => $line_total,
+                            'price'  => $line_total
+                        );
+                    }
+                }
+            }
+            $extras_summary = rtrim( $extras_summary, ', ' );
+        }
+
+        $vehicles_summary = '';
+        if ( ! empty( $data['vehicles'] ) ) {
+            foreach ( $data['vehicles'] as $v_id => $qty ) {
+                if ( $qty > 0 ) $vehicles_summary .= get_the_title( $v_id ) . ' x ' . $qty . ', ';
+            }
+            $vehicles_summary = rtrim( $vehicles_summary, ', ' );
+        }
+
+        $pickup_address = ! empty( $data['pickup_address'] ) ? $data['pickup_address'] : 'Non spécifié';
+        $dropoff_info   = ! empty( $data['dropoff_info'] ) ? $data['dropoff_info'] : $pickup_address;
+        $total_passengers = intval( $data['adults'] ) + intval( $data['children'] );
+
+        // Note pour le chauffeur (courte et opérationnelle)
+        $note_for_driver = sprintf(
+            "WP Booking #%d | Extras: %s | Notes client: %s",
+            $booking_id,
+            $extras_summary ?: 'Aucun',
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // NOUVEAU : Note pour le Dispatcher (Admin LimoExpress) claire et détaillée
+        $dispatcher_note = sprintf(
+            "--- DÉTAILS RÉSERVATION ---\nPassagers : %d Adulte(s), %d Enfant(s)\nVéhicules : %s\nCircuit : %s\nDemande spéciale : %s",
+            $data['adults'] ?? 1,
+            $data['children'] ?? 0,
+            $vehicles_summary ?: 'Non spécifié',
+            $prestation_label,
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // 5. Construction du Payload LimoExpress
+        $payload = array(
+            'booking_type_id'    => 'e52e0f08-878d-4e0c-8e2d-b09225b5a0cf',
+            'booking_status_id'  => '7366f352-928e-43e9-8df0-217913b7177b',
+            'vehicle_class_id'   => $vehicle_class_id,
+            'pickup_time'        => $start_datetime . ':00',
+            'start'              => $start_datetime,
+            'end'                => $end_datetime,
+            'duration'           => $duration_formatted,
+            'from_location'      => array( 'name' => $pickup_address ),
+            'to_location'        => array( 'name' => $dropoff_info ),
+            'price'              => floatval( $data['pricing']['grand_total'] ?? 0 ),
+            'price_type'         => 'NET',
+            'passenger_count'    => $total_passengers,
+            'suitcase_count'     => intval( $data['luggage'] ),
+            'baby_seat_count'    => intval( $baby_seat_count ),
+            'round_trip'         => ( ! empty( $data['option_id'] ) ) ? 1 : 0,
+            'note'               => $dispatcher_note, // <-- Affiché dans "Additional info"
+            'note_for_driver'    => substr( $note_for_driver, 0, 500 ),
+            'waiting_board_text' => substr( $data['name'], 0, 50 ),
+            'drivingExtraFees'   => $driving_extra_fees, // <-- Injecte les extras dans LimoExpress
+            'passengers'         => array(
+                array(
+                    'first_name' => $first_name,
+                    'last_name'  => $last_name,
+                    'email'      => $data['email'],
+                    'phone'      => ! empty( $data['phone'] ) ? $data['phone'] : ''
+                )
+            )
+        );// 4. Extraction du nom, des extras et préparation des notes
+        $name_parts = explode( ' ', trim( $data['name'] ), 2 );
+        $first_name = ! empty( $name_parts[0] ) ? $name_parts[0] : 'Client';
+        $last_name  = ! empty( $name_parts[1] ) ? $name_parts[1] : 'ETB';
+
+        $prestation_label = ! empty( $data['option_id'] )
+            ? ETB_Pricing_Engine::get_circuit_option_label( $data['option_id'], $data['circuit_id'] )
+            : 'Transfert standard';
+
+        $baby_seat_count    = 0;
+        $extras_summary     = '';
+        $driving_extra_fees = array(); // NOUVEAU : Tableau des frais supplémentaires pour LimoExpress
+
+        if ( ! empty( $data['extras'] ) ) {
+            foreach ( $data['extras'] as $e_id => $qty ) {
+                if ( $qty > 0 ) {
+                    $e_name     = get_the_title( $e_id );
+                    $e_price    = floatval( get_post_meta( $e_id, '_etb_price', true ) );
+                    $line_total = $e_price * $qty;
+
+                    $extras_summary .= $e_name . ' x ' . $qty . ', ';
+                    
+                    if ( stripos( $e_name, 'bébé' ) !== false || stripos( $e_name, 'bebe' ) !== false || stripos( $e_name, 'baby' ) !== false ) {
+                        $baby_seat_count += $qty;
+                    }
+
+                    // Ajout formaté pour la section "Extra fees" de LimoExpress
+                    if ( $line_total > 0 ) {
+                        $driving_extra_fees[] = array(
+                            'name'   => sprintf( '%s (x%d)', $e_name, $qty ),
+                            'amount' => $line_total,
+                            'price'  => $line_total
+                        );
+                    }
+                }
+            }
+            $extras_summary = rtrim( $extras_summary, ', ' );
+        }
+
+        $vehicles_summary = '';
+        if ( ! empty( $data['vehicles'] ) ) {
+            foreach ( $data['vehicles'] as $v_id => $qty ) {
+                if ( $qty > 0 ) $vehicles_summary .= get_the_title( $v_id ) . ' x ' . $qty . ', ';
+            }
+            $vehicles_summary = rtrim( $vehicles_summary, ', ' );
+        }
+
+        $pickup_address = ! empty( $data['pickup_address'] ) ? $data['pickup_address'] : 'Non spécifié';
+        $dropoff_info   = ! empty( $data['dropoff_info'] ) ? $data['dropoff_info'] : $pickup_address;
+        $total_passengers = intval( $data['adults'] ) + intval( $data['children'] );
+
+        // Note pour le chauffeur (courte et opérationnelle)
+        $note_for_driver = sprintf(
+            "WP Booking #%d | Extras: %s | Notes client: %s",
+            $booking_id,
+            $extras_summary ?: 'Aucun',
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // NOUVEAU : Note pour le Dispatcher (Admin LimoExpress) claire et détaillée
+        $dispatcher_note = sprintf(
+            "--- DÉTAILS RÉSERVATION ---\nPassagers : %d Adulte(s), %d Enfant(s)\nVéhicules : %s\nCircuit : %s\nDemande spéciale : %s",
+            $data['adults'] ?? 1,
+            $data['children'] ?? 0,
+            $vehicles_summary ?: 'Non spécifié',
+            $prestation_label,
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // 5. Construction du Payload LimoExpress
+        $payload = array(
+            'booking_type_id'    => 'e52e0f08-878d-4e0c-8e2d-b09225b5a0cf',
+            'booking_status_id'  => '7366f352-928e-43e9-8df0-217913b7177b',
+            'vehicle_class_id'   => $vehicle_class_id,
+            'pickup_time'        => $start_datetime . ':00',
+            'start'              => $start_datetime,
+            'end'                => $end_datetime,
+            'duration'           => $duration_formatted,
+            'from_location'      => array( 'name' => $pickup_address ),
+            'to_location'        => array( 'name' => $dropoff_info ),
+            'price'              => floatval( $data['pricing']['grand_total'] ?? 0 ),
+            'price_type'         => 'NET',
+            'passenger_count'    => $total_passengers,
+            'suitcase_count'     => intval( $data['luggage'] ),
+            'baby_seat_count'    => intval( $baby_seat_count ),
+            'round_trip'         => ( ! empty( $data['option_id'] ) ) ? 1 : 0,
+            'note'               => $dispatcher_note, // <-- Affiché dans "Additional info"
+            'note_for_driver'    => substr( $note_for_driver, 0, 500 ),
+            'waiting_board_text' => substr( $data['name'], 0, 50 ),
+            'drivingExtraFees'   => $driving_extra_fees, // <-- Injecte les extras dans LimoExpress
+            'passengers'         => array(
+                array(
+                    'first_name' => $first_name,
+                    'last_name'  => $last_name,
+                    'email'      => $data['email'],
+                    'phone'      => ! empty( $data['phone'] ) ? $data['phone'] : ''
+                )
+            )
+        );// 4. Extraction du nom, des extras et préparation des notes
+        $name_parts = explode( ' ', trim( $data['name'] ), 2 );
+        $first_name = ! empty( $name_parts[0] ) ? $name_parts[0] : 'Client';
+        $last_name  = ! empty( $name_parts[1] ) ? $name_parts[1] : 'ETB';
+
+        $prestation_label = ! empty( $data['option_id'] )
+            ? ETB_Pricing_Engine::get_circuit_option_label( $data['option_id'], $data['circuit_id'] )
+            : 'Transfert standard';
+
+        $baby_seat_count    = 0;
+        $extras_summary     = '';
+        $driving_extra_fees = array(); // NOUVEAU : Tableau des frais supplémentaires pour LimoExpress
+
+        if ( ! empty( $data['extras'] ) ) {
+            foreach ( $data['extras'] as $e_id => $qty ) {
+                if ( $qty > 0 ) {
+                    $e_name     = get_the_title( $e_id );
+                    $e_price    = floatval( get_post_meta( $e_id, '_etb_price', true ) );
+                    $line_total = $e_price * $qty;
+
+                    $extras_summary .= $e_name . ' x ' . $qty . ', ';
+                    
+                    if ( stripos( $e_name, 'bébé' ) !== false || stripos( $e_name, 'bebe' ) !== false || stripos( $e_name, 'baby' ) !== false ) {
+                        $baby_seat_count += $qty;
+                    }
+
+                    // Ajout formaté pour la section "Extra fees" de LimoExpress
+                    if ( $line_total > 0 ) {
+                        $driving_extra_fees[] = array(
+                            'name'   => sprintf( '%s (x%d)', $e_name, $qty ),
+                            'amount' => $line_total,
+                            'price'  => $line_total
+                        );
+                    }
+                }
+            }
+            $extras_summary = rtrim( $extras_summary, ', ' );
+        }
+
+        $vehicles_summary = '';
+        if ( ! empty( $data['vehicles'] ) ) {
+            foreach ( $data['vehicles'] as $v_id => $qty ) {
+                if ( $qty > 0 ) $vehicles_summary .= get_the_title( $v_id ) . ' x ' . $qty . ', ';
+            }
+            $vehicles_summary = rtrim( $vehicles_summary, ', ' );
+        }
+
+        $pickup_address = ! empty( $data['pickup_address'] ) ? $data['pickup_address'] : 'Non spécifié';
+        $dropoff_info   = ! empty( $data['dropoff_info'] ) ? $data['dropoff_info'] : $pickup_address;
+        $total_passengers = intval( $data['adults'] ) + intval( $data['children'] );
+
+        // Note pour le chauffeur (courte et opérationnelle)
+        $note_for_driver = sprintf(
+            "WP Booking #%d | Extras: %s | Notes client: %s",
+            $booking_id,
+            $extras_summary ?: 'Aucun',
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // NOUVEAU : Note pour le Dispatcher (Admin LimoExpress) claire et détaillée
+        $dispatcher_note = sprintf(
+            "--- DÉTAILS RÉSERVATION ---\nPassagers : %d Adulte(s), %d Enfant(s)\nVéhicules : %s\nCircuit : %s\nDemande spéciale : %s",
+            $data['adults'] ?? 1,
+            $data['children'] ?? 0,
+            $vehicles_summary ?: 'Non spécifié',
+            $prestation_label,
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // 5. Construction du Payload LimoExpress
+        $payload = array(
+            'booking_type_id'    => 'e52e0f08-878d-4e0c-8e2d-b09225b5a0cf',
+            'booking_status_id'  => '7366f352-928e-43e9-8df0-217913b7177b',
+            'vehicle_class_id'   => $vehicle_class_id,
+            'pickup_time'        => $start_datetime . ':00',
+            'start'              => $start_datetime,
+            'end'                => $end_datetime,
+            'duration'           => $duration_formatted,
+            'from_location'      => array( 'name' => $pickup_address ),
+            'to_location'        => array( 'name' => $dropoff_info ),
+            'price'              => floatval( $data['pricing']['grand_total'] ?? 0 ),
+            'price_type'         => 'NET',
+            'passenger_count'    => $total_passengers,
+            'suitcase_count'     => intval( $data['luggage'] ),
+            'baby_seat_count'    => intval( $baby_seat_count ),
+            'round_trip'         => ( ! empty( $data['option_id'] ) ) ? 1 : 0,
+            'note'               => $dispatcher_note, // <-- Affiché dans "Additional info"
+            'note_for_driver'    => substr( $note_for_driver, 0, 500 ),
+            'waiting_board_text' => substr( $data['name'], 0, 50 ),
+            'drivingExtraFees'   => $driving_extra_fees, // <-- Injecte les extras dans LimoExpress
+            'passengers'         => array(
+                array(
+                    'first_name' => $first_name,
+                    'last_name'  => $last_name,
+                    'email'      => $data['email'],
+                    'phone'      => ! empty( $data['phone'] ) ? $data['phone'] : ''
+                )
+            )
+        );// 4. Extraction du nom, des extras et préparation des notes
+        $name_parts = explode( ' ', trim( $data['name'] ), 2 );
+        $first_name = ! empty( $name_parts[0] ) ? $name_parts[0] : 'Client';
+        $last_name  = ! empty( $name_parts[1] ) ? $name_parts[1] : 'ETB';
+
+        $prestation_label = ! empty( $data['option_id'] )
+            ? ETB_Pricing_Engine::get_circuit_option_label( $data['option_id'], $data['circuit_id'] )
+            : 'Transfert standard';
+
+        $baby_seat_count    = 0;
+        $extras_summary     = '';
+        $driving_extra_fees = array(); // NOUVEAU : Tableau des frais supplémentaires pour LimoExpress
+
+        if ( ! empty( $data['extras'] ) ) {
+            foreach ( $data['extras'] as $e_id => $qty ) {
+                if ( $qty > 0 ) {
+                    $e_name     = get_the_title( $e_id );
+                    $e_price    = floatval( get_post_meta( $e_id, '_etb_price', true ) );
+                    $line_total = $e_price * $qty;
+
+                    $extras_summary .= $e_name . ' x ' . $qty . ', ';
+                    
+                    if ( stripos( $e_name, 'bébé' ) !== false || stripos( $e_name, 'bebe' ) !== false || stripos( $e_name, 'baby' ) !== false ) {
+                        $baby_seat_count += $qty;
+                    }
+
+                    // Ajout formaté pour la section "Extra fees" de LimoExpress
+                    if ( $line_total > 0 ) {
+                        $driving_extra_fees[] = array(
+                            'name'   => sprintf( '%s (x%d)', $e_name, $qty ),
+                            'amount' => $line_total,
+                            'price'  => $line_total
+                        );
+                    }
+                }
+            }
+            $extras_summary = rtrim( $extras_summary, ', ' );
+        }
+
+        $vehicles_summary = '';
+        if ( ! empty( $data['vehicles'] ) ) {
+            foreach ( $data['vehicles'] as $v_id => $qty ) {
+                if ( $qty > 0 ) $vehicles_summary .= get_the_title( $v_id ) . ' x ' . $qty . ', ';
+            }
+            $vehicles_summary = rtrim( $vehicles_summary, ', ' );
+        }
+
+        $pickup_address = ! empty( $data['pickup_address'] ) ? $data['pickup_address'] : 'Non spécifié';
+        $dropoff_info   = ! empty( $data['dropoff_info'] ) ? $data['dropoff_info'] : $pickup_address;
+        $total_passengers = intval( $data['adults'] ) + intval( $data['children'] );
+
+        // Note pour le chauffeur (courte et opérationnelle)
+        $note_for_driver = sprintf(
+            "WP Booking #%d | Extras: %s | Notes client: %s",
+            $booking_id,
+            $extras_summary ?: 'Aucun',
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // NOUVEAU : Note pour le Dispatcher (Admin LimoExpress) claire et détaillée
+        $dispatcher_note = sprintf(
+            "--- DÉTAILS RÉSERVATION ---\nPassagers : %d Adulte(s), %d Enfant(s)\nVéhicules : %s\nCircuit : %s\nDemande spéciale : %s",
+            $data['adults'] ?? 1,
+            $data['children'] ?? 0,
+            $vehicles_summary ?: 'Non spécifié',
+            $prestation_label,
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // 5. Construction du Payload LimoExpress
+        $payload = array(
+            'booking_type_id'    => 'e52e0f08-878d-4e0c-8e2d-b09225b5a0cf',
+            'booking_status_id'  => '7366f352-928e-43e9-8df0-217913b7177b',
+            'vehicle_class_id'   => $vehicle_class_id,
+            'pickup_time'        => $start_datetime . ':00',
+            'start'              => $start_datetime,
+            'end'                => $end_datetime,
+            'duration'           => $duration_formatted,
+            'from_location'      => array( 'name' => $pickup_address ),
+            'to_location'        => array( 'name' => $dropoff_info ),
+            'price'              => floatval( $data['pricing']['grand_total'] ?? 0 ),
+            'price_type'         => 'NET',
+            'passenger_count'    => $total_passengers,
+            'suitcase_count'     => intval( $data['luggage'] ),
+            'baby_seat_count'    => intval( $baby_seat_count ),
+            'round_trip'         => ( ! empty( $data['option_id'] ) ) ? 1 : 0,
+            'note'               => $dispatcher_note, // <-- Affiché dans "Additional info"
+            'note_for_driver'    => substr( $note_for_driver, 0, 500 ),
+            'waiting_board_text' => substr( $data['name'], 0, 50 ),
+            'drivingExtraFees'   => $driving_extra_fees,
+            
+            // Forcer le type de client "Regular" (Individuel)
+            'client'             => array(
+                'name'  => $data['name'],
+                'email' => $data['email'],
+                'phone' => ! empty( $data['phone'] ) ? $data['phone'] : '',
+                'type'  => 'regular' // ou 'individual' selon les réglages LimoExpress
+            ),
+            
+            // Génération dynamique des passagers pour que LimoExpress compte juste
+            'passengers'         => array_merge(
+                array(
+                    // Passager principal (Le client qui réserve)
+                    array(
+                        'first_name' => $first_name,
+                        'last_name'  => $last_name,
+                        'email'      => $data['email'],
+                        'phone'      => ! empty( $data['phone'] ) ? $data['phone'] : ''
+                    )
+                ),
+                // Passagers supplémentaires générés automatiquement
+                array_map( function($i) {
+                    return array(
+                        'first_name' => 'Passager',
+                        'last_name'  => (string) ($i + 1), // "Passager 2", "Passager 3"...
+                        'email'      => '',
+                        'phone'      => ''
+                    );
+                }, range( 1, max( 1, $total_passengers ) - 1 ) )
+            )
+        );
+
+        // Nettoyage si $total_passengers = 1
+        if ( $total_passengers <= 1 ) {
+            $payload['passengers'] = array(
+                array(
+                    'first_name' => $first_name,
+                    'last_name'  => $last_name,
+                    'email'      => $data['email'],
+                    'phone'      => ! empty( $data['phone'] ) ? $data['phone'] : ''
+                )
+            );
+        }
+
+        // 4. Extraction du nom, des extras et préparation des notes
+        $name_parts = explode( ' ', trim( $data['name'] ), 2 );
+        $first_name = ! empty( $name_parts[0] ) ? $name_parts[0] : 'Client';
+        $last_name  = ! empty( $name_parts[1] ) ? $name_parts[1] : 'ETB';
+
+
+
+        $prestation_label = ! empty( $data['option_id'] )
+            ? ETB_Pricing_Engine::get_circuit_option_label( $data['option_id'], $data['circuit_id'] )
+            : 'Transfert standard';
+
+        $baby_seat_count    = 0;
+        $extras_summary     = '';
+        $driving_extra_fees = array(); // NOUVEAU : Tableau des frais supplémentaires pour LimoExpress
+
+        if ( ! empty( $data['extras'] ) ) {
+            foreach ( $data['extras'] as $e_id => $qty ) {
+                if ( $qty > 0 ) {
+                    $e_name     = get_the_title( $e_id );
+                    $e_price    = floatval( get_post_meta( $e_id, '_etb_price', true ) );
+                    $line_total = $e_price * $qty;
+
+                    $extras_summary .= $e_name . ' x ' . $qty . ', ';
+                    
+                    if ( stripos( $e_name, 'bébé' ) !== false || stripos( $e_name, 'bebe' ) !== false || stripos( $e_name, 'baby' ) !== false ) {
+                        $baby_seat_count += $qty;
+                    }
+
+                    // Ajout formaté pour la section "Extra fees" de LimoExpress
+                    if ( $line_total > 0 ) {
+                        $driving_extra_fees[] = array(
+                            'name'   => sprintf( '%s (x%d)', $e_name, $qty ),
+                            'amount' => $line_total,
+                            'price'  => $line_total
+                        );
+                    }
+                }
+            }
+            $extras_summary = rtrim( $extras_summary, ', ' );
+        }
+
+        $vehicles_summary = '';
+        if ( ! empty( $data['vehicles'] ) ) {
+            foreach ( $data['vehicles'] as $v_id => $qty ) {
+                if ( $qty > 0 ) $vehicles_summary .= get_the_title( $v_id ) . ' x ' . $qty . ', ';
+            }
+            $vehicles_summary = rtrim( $vehicles_summary, ', ' );
+        }
+
+        $pickup_address = ! empty( $data['pickup_address'] ) ? $data['pickup_address'] : 'Non spécifié';
+        $dropoff_info   = ! empty( $data['dropoff_info'] ) ? $data['dropoff_info'] : $pickup_address;
+        $total_passengers = intval( $data['adults'] ) + intval( $data['children'] );
+
+        // Note pour le chauffeur (courte et opérationnelle)
+        $note_for_driver = sprintf(
+            "WP Booking #%d | Extras: %s | Notes client: %s",
+            $booking_id,
+            $extras_summary ?: 'Aucun',
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // NOUVEAU : Note pour le Dispatcher (Admin LimoExpress) claire et détaillée
+        $dispatcher_note = sprintf(
+            "--- DÉTAILS RÉSERVATION ---\nPassagers : %d Adulte(s), %d Enfant(s)\nVéhicules : %s\nCircuit : %s\nDemande spéciale : %s",
+            $data['adults'] ?? 1,
+            $data['children'] ?? 0,
+            $vehicles_summary ?: 'Non spécifié',
+            $prestation_label,
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // 5. Construction du Payload LimoExpress
+        $payload = array(
+            'booking_type_id'    => 'e52e0f08-878d-4e0c-8e2d-b09225b5a0cf',
+            'booking_status_id'  => '7366f352-928e-43e9-8df0-217913b7177b',
+            'vehicle_class_id'   => $vehicle_class_id,
+            'pickup_time'        => $start_datetime . ':00',
+            'start'              => $start_datetime,
+            'end'                => $end_datetime,
+            'duration'           => $duration_formatted,
+            'from_location'      => array( 'name' => $pickup_address ),
+            'to_location'        => array( 'name' => $dropoff_info ),
+            'price'              => floatval( $data['pricing']['grand_total'] ?? 0 ),
+            'price_type'         => 'NET',
+            'passenger_count'    => $total_passengers,
+            'suitcase_count'     => intval( $data['luggage'] ),
+            'baby_seat_count'    => intval( $baby_seat_count ),
+            'round_trip'         => ( ! empty( $data['option_id'] ) ) ? 1 : 0,
+            'note'               => $dispatcher_note, // <-- Affiché dans "Additional info"
+            'note_for_driver'    => substr( $note_for_driver, 0, 500 ),
+            'waiting_board_text' => substr( $data['name'], 0, 50 ),
+            'drivingExtraFees'   => $driving_extra_fees, // <-- Injecte les extras dans LimoExpress
+            'passengers'         => array(
+                array(
+                    'first_name' => $first_name,
+                    'last_name'  => $last_name,
+                    'email'      => $data['email'],
+                    'phone'      => ! empty( $data['phone'] ) ? $data['phone'] : ''
+                )
+            )
+        );// 4. Extraction du nom, des extras et préparation des notes
+        $name_parts = explode( ' ', trim( $data['name'] ), 2 );
+        $first_name = ! empty( $name_parts[0] ) ? $name_parts[0] : 'Client';
+        $last_name  = ! empty( $name_parts[1] ) ? $name_parts[1] : 'ETB';
+
+        $prestation_label = ! empty( $data['option_id'] )
+            ? ETB_Pricing_Engine::get_circuit_option_label( $data['option_id'], $data['circuit_id'] )
+            : 'Transfert standard';
+
+        $baby_seat_count    = 0;
+        $extras_summary     = '';
+        $driving_extra_fees = array(); // NOUVEAU : Tableau des frais supplémentaires pour LimoExpress
+
+        if ( ! empty( $data['extras'] ) ) {
+            foreach ( $data['extras'] as $e_id => $qty ) {
+                if ( $qty > 0 ) {
+                    $e_name     = get_the_title( $e_id );
+                    $e_price    = floatval( get_post_meta( $e_id, '_etb_price', true ) );
+                    $line_total = $e_price * $qty;
+
+                    $extras_summary .= $e_name . ' x ' . $qty . ', ';
+                    
+                    if ( stripos( $e_name, 'bébé' ) !== false || stripos( $e_name, 'bebe' ) !== false || stripos( $e_name, 'baby' ) !== false ) {
+                        $baby_seat_count += $qty;
+                    }
+
+                    // Ajout formaté pour la section "Extra fees" de LimoExpress
+                    if ( $line_total > 0 ) {
+                        $driving_extra_fees[] = array(
+                            'name'   => sprintf( '%s (x%d)', $e_name, $qty ),
+                            'amount' => $line_total,
+                            'price'  => $line_total
+                        );
+                    }
+                }
+            }
+            $extras_summary = rtrim( $extras_summary, ', ' );
+        }
+
+        $vehicles_summary = '';
+        if ( ! empty( $data['vehicles'] ) ) {
+            foreach ( $data['vehicles'] as $v_id => $qty ) {
+                if ( $qty > 0 ) $vehicles_summary .= get_the_title( $v_id ) . ' x ' . $qty . ', ';
+            }
+            $vehicles_summary = rtrim( $vehicles_summary, ', ' );
+        }
+
+        $pickup_address = ! empty( $data['pickup_address'] ) ? $data['pickup_address'] : 'Non spécifié';
+        $dropoff_info   = ! empty( $data['dropoff_info'] ) ? $data['dropoff_info'] : $pickup_address;
+        $total_passengers = intval( $data['adults'] ) + intval( $data['children'] );
+
+        // Note pour le chauffeur (courte et opérationnelle)
+        $note_for_driver = sprintf(
+            "WP Booking #%d | Extras: %s | Notes client: %s",
+            $booking_id,
+            $extras_summary ?: 'Aucun',
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // NOUVEAU : Note pour le Dispatcher (Admin LimoExpress) claire et détaillée
+        $dispatcher_note = sprintf(
+            "--- DÉTAILS RÉSERVATION ---\nPassagers : %d Adulte(s), %d Enfant(s)\nVéhicules : %s\nCircuit : %s\nDemande spéciale : %s",
+            $data['adults'] ?? 1,
+            $data['children'] ?? 0,
+            $vehicles_summary ?: 'Non spécifié',
+            $prestation_label,
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // 5. Construction du Payload LimoExpress
+        $payload = array(
+            'booking_type_id'    => 'e52e0f08-878d-4e0c-8e2d-b09225b5a0cf',
+            'booking_status_id'  => '7366f352-928e-43e9-8df0-217913b7177b',
+            'vehicle_class_id'   => $vehicle_class_id,
+            'pickup_time'        => $start_datetime . ':00',
+            'start'              => $start_datetime,
+            'end'                => $end_datetime,
+            'duration'           => $duration_formatted,
+            'from_location'      => array( 'name' => $pickup_address ),
+            'to_location'        => array( 'name' => $dropoff_info ),
+            'price'              => floatval( $data['pricing']['grand_total'] ?? 0 ),
+            'price_type'         => 'NET',
+            'passenger_count'    => $total_passengers,
+            'suitcase_count'     => intval( $data['luggage'] ),
+            'baby_seat_count'    => intval( $baby_seat_count ),
+            'round_trip'         => ( ! empty( $data['option_id'] ) ) ? 1 : 0,
+            'note'               => $dispatcher_note, // <-- Affiché dans "Additional info"
+            'note_for_driver'    => substr( $note_for_driver, 0, 500 ),
+            'waiting_board_text' => substr( $data['name'], 0, 50 ),
+            'drivingExtraFees'   => $driving_extra_fees, // <-- Injecte les extras dans LimoExpress
+            'passengers'         => array(
+                array(
+                    'first_name' => $first_name,
+                    'last_name'  => $last_name,
+                    'email'      => $data['email'],
+                    'phone'      => ! empty( $data['phone'] ) ? $data['phone'] : ''
+                )
+            )
+        );// 4. Extraction du nom, des extras et préparation des notes
+        $name_parts = explode( ' ', trim( $data['name'] ), 2 );
+        $first_name = ! empty( $name_parts[0] ) ? $name_parts[0] : 'Client';
+        $last_name  = ! empty( $name_parts[1] ) ? $name_parts[1] : 'ETB';
+
+        $prestation_label = ! empty( $data['option_id'] )
+            ? ETB_Pricing_Engine::get_circuit_option_label( $data['option_id'], $data['circuit_id'] )
+            : 'Transfert standard';
+
+        $baby_seat_count    = 0;
+        $extras_summary     = '';
+        $driving_extra_fees = array(); // NOUVEAU : Tableau des frais supplémentaires pour LimoExpress
+
+        if ( ! empty( $data['extras'] ) ) {
+            foreach ( $data['extras'] as $e_id => $qty ) {
+                if ( $qty > 0 ) {
+                    $e_name     = get_the_title( $e_id );
+                    $e_price    = floatval( get_post_meta( $e_id, '_etb_price', true ) );
+                    $line_total = $e_price * $qty;
+
+                    $extras_summary .= $e_name . ' x ' . $qty . ', ';
+                    
+                    if ( stripos( $e_name, 'bébé' ) !== false || stripos( $e_name, 'bebe' ) !== false || stripos( $e_name, 'baby' ) !== false ) {
+                        $baby_seat_count += $qty;
+                    }
+
+                    // Ajout formaté pour la section "Extra fees" de LimoExpress
+                    if ( $line_total > 0 ) {
+                        $driving_extra_fees[] = array(
+                            'name'   => sprintf( '%s (x%d)', $e_name, $qty ),
+                            'amount' => $line_total,
+                            'price'  => $line_total
+                        );
+                    }
+                }
+            }
+            $extras_summary = rtrim( $extras_summary, ', ' );
+        }
+
+        $vehicles_summary = '';
+        if ( ! empty( $data['vehicles'] ) ) {
+            foreach ( $data['vehicles'] as $v_id => $qty ) {
+                if ( $qty > 0 ) $vehicles_summary .= get_the_title( $v_id ) . ' x ' . $qty . ', ';
+            }
+            $vehicles_summary = rtrim( $vehicles_summary, ', ' );
+        }
+
+        $pickup_address = ! empty( $data['pickup_address'] ) ? $data['pickup_address'] : 'Non spécifié';
+        $dropoff_info   = ! empty( $data['dropoff_info'] ) ? $data['dropoff_info'] : $pickup_address;
+        $total_passengers = intval( $data['adults'] ) + intval( $data['children'] );
+
+        // Note pour le chauffeur (courte et opérationnelle)
+        $note_for_driver = sprintf(
+            "WP Booking #%d | Extras: %s | Notes client: %s",
+            $booking_id,
+            $extras_summary ?: 'Aucun',
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // NOUVEAU : Note pour le Dispatcher (Admin LimoExpress) claire et détaillée
+        $dispatcher_note = sprintf(
+            "--- DÉTAILS RÉSERVATION ---\nPassagers : %d Adulte(s), %d Enfant(s)\nVéhicules : %s\nCircuit : %s\nDemande spéciale : %s",
+            $data['adults'] ?? 1,
+            $data['children'] ?? 0,
+            $vehicles_summary ?: 'Non spécifié',
+            $prestation_label,
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // 5. Construction du Payload LimoExpress
+        $payload = array(
+            'booking_type_id'    => 'e52e0f08-878d-4e0c-8e2d-b09225b5a0cf',
+            'booking_status_id'  => '7366f352-928e-43e9-8df0-217913b7177b',
+            'vehicle_class_id'   => $vehicle_class_id,
+            'pickup_time'        => $start_datetime . ':00',
+            'start'              => $start_datetime,
+            'end'                => $end_datetime,
+            'duration'           => $duration_formatted,
+            'from_location'      => array( 'name' => $pickup_address ),
+            'to_location'        => array( 'name' => $dropoff_info ),
+            'price'              => floatval( $data['pricing']['grand_total'] ?? 0 ),
+            'price_type'         => 'NET',
+            'passenger_count'    => $total_passengers,
+            'suitcase_count'     => intval( $data['luggage'] ),
+            'baby_seat_count'    => intval( $baby_seat_count ),
+            'round_trip'         => ( ! empty( $data['option_id'] ) ) ? 1 : 0,
+            'note'               => $dispatcher_note, // <-- Affiché dans "Additional info"
+            'note_for_driver'    => substr( $note_for_driver, 0, 500 ),
+            'waiting_board_text' => substr( $data['name'], 0, 50 ),
+            'drivingExtraFees'   => $driving_extra_fees, // <-- Injecte les extras dans LimoExpress
+            'passengers'         => array(
+                array(
+                    'first_name' => $first_name,
+                    'last_name'  => $last_name,
+                    'email'      => $data['email'],
+                    'phone'      => ! empty( $data['phone'] ) ? $data['phone'] : ''
+                )
+            )
+        );// 4. Extraction du nom, des extras et préparation des notes
+        $name_parts = explode( ' ', trim( $data['name'] ), 2 );
+        $first_name = ! empty( $name_parts[0] ) ? $name_parts[0] : 'Client';
+        $last_name  = ! empty( $name_parts[1] ) ? $name_parts[1] : 'ETB';
+
+        $prestation_label = ! empty( $data['option_id'] )
+            ? ETB_Pricing_Engine::get_circuit_option_label( $data['option_id'], $data['circuit_id'] )
+            : 'Transfert standard';
+
+        $baby_seat_count    = 0;
+        $extras_summary     = '';
+        $driving_extra_fees = array(); // NOUVEAU : Tableau des frais supplémentaires pour LimoExpress
+
+        if ( ! empty( $data['extras'] ) ) {
+            foreach ( $data['extras'] as $e_id => $qty ) {
+                if ( $qty > 0 ) {
+                    $e_name     = get_the_title( $e_id );
+                    $e_price    = floatval( get_post_meta( $e_id, '_etb_price', true ) );
+                    $line_total = $e_price * $qty;
+
+                    $extras_summary .= $e_name . ' x ' . $qty . ', ';
+                    
+                    if ( stripos( $e_name, 'bébé' ) !== false || stripos( $e_name, 'bebe' ) !== false || stripos( $e_name, 'baby' ) !== false ) {
+                        $baby_seat_count += $qty;
+                    }
+
+                    // Ajout formaté pour la section "Extra fees" de LimoExpress
+                    if ( $line_total > 0 ) {
+                        $driving_extra_fees[] = array(
+                            'name'   => sprintf( '%s (x%d)', $e_name, $qty ),
+                            'amount' => $line_total,
+                            'price'  => $line_total
+                        );
+                    }
+                }
+            }
+            $extras_summary = rtrim( $extras_summary, ', ' );
+        }
+
+        $vehicles_summary = '';
+        if ( ! empty( $data['vehicles'] ) ) {
+            foreach ( $data['vehicles'] as $v_id => $qty ) {
+                if ( $qty > 0 ) $vehicles_summary .= get_the_title( $v_id ) . ' x ' . $qty . ', ';
+            }
+            $vehicles_summary = rtrim( $vehicles_summary, ', ' );
+        }
+
+        $pickup_address = ! empty( $data['pickup_address'] ) ? $data['pickup_address'] : 'Non spécifié';
+        $dropoff_info   = ! empty( $data['dropoff_info'] ) ? $data['dropoff_info'] : $pickup_address;
+        $total_passengers = intval( $data['adults'] ) + intval( $data['children'] );
+
+        // Note pour le chauffeur (courte et opérationnelle)
+        $note_for_driver = sprintf(
+            "WP Booking #%d | Extras: %s | Notes client: %s",
+            $booking_id,
+            $extras_summary ?: 'Aucun',
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // NOUVEAU : Note pour le Dispatcher (Admin LimoExpress) claire et détaillée
+        $dispatcher_note = sprintf(
+            "--- DÉTAILS RÉSERVATION ---\nPassagers : %d Adulte(s), %d Enfant(s)\nVéhicules : %s\nCircuit : %s\nDemande spéciale : %s",
+            $data['adults'] ?? 1,
+            $data['children'] ?? 0,
+            $vehicles_summary ?: 'Non spécifié',
+            $prestation_label,
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // 5. Construction du Payload LimoExpress
+        $payload = array(
+            'booking_type_id'    => 'e52e0f08-878d-4e0c-8e2d-b09225b5a0cf',
+            'booking_status_id'  => '7366f352-928e-43e9-8df0-217913b7177b',
+            'vehicle_class_id'   => $vehicle_class_id,
+            'pickup_time'        => $start_datetime . ':00',
+            'start'              => $start_datetime,
+            'end'                => $end_datetime,
+            'duration'           => $duration_formatted,
+            'from_location'      => array( 'name' => $pickup_address ),
+            'to_location'        => array( 'name' => $dropoff_info ),
+            'price'              => floatval( $data['pricing']['grand_total'] ?? 0 ),
+            'price_type'         => 'NET',
+            'passenger_count'    => $total_passengers,
+            'suitcase_count'     => intval( $data['luggage'] ),
+            'baby_seat_count'    => intval( $baby_seat_count ),
+            'round_trip'         => ( ! empty( $data['option_id'] ) ) ? 1 : 0,
+            'note'               => $dispatcher_note, // <-- Affiché dans "Additional info"
+            'note_for_driver'    => substr( $note_for_driver, 0, 500 ),
+            'waiting_board_text' => substr( $data['name'], 0, 50 ),
+            'drivingExtraFees'   => $driving_extra_fees, // <-- Injecte les extras dans LimoExpress
+            'passengers'         => array(
+                array(
+                    'first_name' => $first_name,
+                    'last_name'  => $last_name,
+                    'email'      => $data['email'],
+                    'phone'      => ! empty( $data['phone'] ) ? $data['phone'] : ''
+                )
+            )
+        );// 4. Extraction du nom, des extras et préparation des notes
+        $name_parts = explode( ' ', trim( $data['name'] ), 2 );
+        $first_name = ! empty( $name_parts[0] ) ? $name_parts[0] : 'Client';
+        $last_name  = ! empty( $name_parts[1] ) ? $name_parts[1] : 'ETB';
+
+        $prestation_label = ! empty( $data['option_id'] )
+            ? ETB_Pricing_Engine::get_circuit_option_label( $data['option_id'], $data['circuit_id'] )
+            : 'Transfert standard';
+
+        $baby_seat_count    = 0;
+        $extras_summary     = '';
+        $driving_extra_fees = array(); // NOUVEAU : Tableau des frais supplémentaires pour LimoExpress
+
+        if ( ! empty( $data['extras'] ) ) {
+            foreach ( $data['extras'] as $e_id => $qty ) {
+                if ( $qty > 0 ) {
+                    $e_name     = get_the_title( $e_id );
+                    $e_price    = floatval( get_post_meta( $e_id, '_etb_price', true ) );
+                    $line_total = $e_price * $qty;
+
+                    $extras_summary .= $e_name . ' x ' . $qty . ', ';
+                    
+                    if ( stripos( $e_name, 'bébé' ) !== false || stripos( $e_name, 'bebe' ) !== false || stripos( $e_name, 'baby' ) !== false ) {
+                        $baby_seat_count += $qty;
+                    }
+
+                    // Ajout formaté pour la section "Extra fees" de LimoExpress
+                    if ( $line_total > 0 ) {
+                        $driving_extra_fees[] = array(
+                            'name'   => sprintf( '%s (x%d)', $e_name, $qty ),
+                            'amount' => $line_total,
+                            'price'  => $line_total
+                        );
+                    }
+                }
+            }
+            $extras_summary = rtrim( $extras_summary, ', ' );
+        }
+
+        $vehicles_summary = '';
+        if ( ! empty( $data['vehicles'] ) ) {
+            foreach ( $data['vehicles'] as $v_id => $qty ) {
+                if ( $qty > 0 ) $vehicles_summary .= get_the_title( $v_id ) . ' x ' . $qty . ', ';
+            }
+            $vehicles_summary = rtrim( $vehicles_summary, ', ' );
+        }
+
+        $pickup_address = ! empty( $data['pickup_address'] ) ? $data['pickup_address'] : 'Non spécifié';
+        $dropoff_info   = ! empty( $data['dropoff_info'] ) ? $data['dropoff_info'] : $pickup_address;
+        $total_passengers = intval( $data['adults'] ) + intval( $data['children'] );
+
+        // Note pour le chauffeur (courte et opérationnelle)
+        $note_for_driver = sprintf(
+            "WP Booking #%d | Extras: %s | Notes client: %s",
+            $booking_id,
+            $extras_summary ?: 'Aucun',
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // NOUVEAU : Note pour le Dispatcher (Admin LimoExpress) claire et détaillée
+        $dispatcher_note = sprintf(
+            "--- DÉTAILS RÉSERVATION ---\nPassagers : %d Adulte(s), %d Enfant(s)\nVéhicules : %s\nCircuit : %s\nDemande spéciale : %s",
+            $data['adults'] ?? 1,
+            $data['children'] ?? 0,
+            $vehicles_summary ?: 'Non spécifié',
+            $prestation_label,
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // 5. Construction du Payload LimoExpress
+        $payload = array(
+            'booking_type_id'    => 'e52e0f08-878d-4e0c-8e2d-b09225b5a0cf',
+            'booking_status_id'  => '7366f352-928e-43e9-8df0-217913b7177b',
+            'vehicle_class_id'   => $vehicle_class_id,
+            'pickup_time'        => $start_datetime . ':00',
+            'start'              => $start_datetime,
+            'end'                => $end_datetime,
+            'duration'           => $duration_formatted,
+            'from_location'      => array( 'name' => $pickup_address ),
+            'to_location'        => array( 'name' => $dropoff_info ),
+            'price'              => floatval( $data['pricing']['grand_total'] ?? 0 ),
+            'price_type'         => 'NET',
+            'passenger_count'    => $total_passengers,
+            'suitcase_count'     => intval( $data['luggage'] ),
+            'baby_seat_count'    => intval( $baby_seat_count ),
+            'round_trip'         => ( ! empty( $data['option_id'] ) ) ? 1 : 0,
+            'note'               => $dispatcher_note, // <-- Affiché dans "Additional info"
+            'note_for_driver'    => substr( $note_for_driver, 0, 500 ),
+            'waiting_board_text' => substr( $data['name'], 0, 50 ),
+            'drivingExtraFees'   => $driving_extra_fees, // <-- Injecte les extras dans LimoExpress
+            'passengers'         => array(
+                array(
+                    'first_name' => $first_name,
+                    'last_name'  => $last_name,
+                    'email'      => $data['email'],
+                    'phone'      => ! empty( $data['phone'] ) ? $data['phone'] : ''
+                )
+            )
+        );// 4. Extraction du nom, des extras et préparation des notes
+        $name_parts = explode( ' ', trim( $data['name'] ), 2 );
+        $first_name = ! empty( $name_parts[0] ) ? $name_parts[0] : 'Client';
+        $last_name  = ! empty( $name_parts[1] ) ? $name_parts[1] : 'ETB';
+
+        $prestation_label = ! empty( $data['option_id'] )
+            ? ETB_Pricing_Engine::get_circuit_option_label( $data['option_id'], $data['circuit_id'] )
+            : 'Transfert standard';
+
+        $baby_seat_count    = 0;
+        $extras_summary     = '';
+        $driving_extra_fees = array(); // NOUVEAU : Tableau des frais supplémentaires pour LimoExpress
+
+        if ( ! empty( $data['extras'] ) ) {
+            foreach ( $data['extras'] as $e_id => $qty ) {
+                if ( $qty > 0 ) {
+                    $e_name     = get_the_title( $e_id );
+                    $e_price    = floatval( get_post_meta( $e_id, '_etb_price', true ) );
+                    $line_total = $e_price * $qty;
+
+                    $extras_summary .= $e_name . ' x ' . $qty . ', ';
+                    
+                    if ( stripos( $e_name, 'bébé' ) !== false || stripos( $e_name, 'bebe' ) !== false || stripos( $e_name, 'baby' ) !== false ) {
+                        $baby_seat_count += $qty;
+                    }
+
+                    // Ajout formaté pour la section "Extra fees" de LimoExpress
+                    if ( $line_total > 0 ) {
+                        $driving_extra_fees[] = array(
+                            'name'   => sprintf( '%s (x%d)', $e_name, $qty ),
+                            'amount' => $line_total,
+                            'price'  => $line_total
+                        );
+                    }
+                }
+            }
+            $extras_summary = rtrim( $extras_summary, ', ' );
+        }
+
+        $vehicles_summary = '';
+        if ( ! empty( $data['vehicles'] ) ) {
+            foreach ( $data['vehicles'] as $v_id => $qty ) {
+                if ( $qty > 0 ) $vehicles_summary .= get_the_title( $v_id ) . ' x ' . $qty . ', ';
+            }
+            $vehicles_summary = rtrim( $vehicles_summary, ', ' );
+        }
+
+        $pickup_address = ! empty( $data['pickup_address'] ) ? $data['pickup_address'] : 'Non spécifié';
+        $dropoff_info   = ! empty( $data['dropoff_info'] ) ? $data['dropoff_info'] : $pickup_address;
+        $total_passengers = intval( $data['adults'] ) + intval( $data['children'] );
+
+        // Note pour le chauffeur (courte et opérationnelle)
+        $note_for_driver = sprintf(
+            "WP Booking #%d | Extras: %s | Notes client: %s",
+            $booking_id,
+            $extras_summary ?: 'Aucun',
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // NOUVEAU : Note pour le Dispatcher (Admin LimoExpress) claire et détaillée
+        $dispatcher_note = sprintf(
+            "--- DÉTAILS RÉSERVATION ---\nPassagers : %d Adulte(s), %d Enfant(s)\nVéhicules : %s\nCircuit : %s\nDemande spéciale : %s",
+            $data['adults'] ?? 1,
+            $data['children'] ?? 0,
+            $vehicles_summary ?: 'Non spécifié',
+            $prestation_label,
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // 5. Construction du Payload LimoExpress
+        $payload = array(
+            'booking_type_id'    => 'e52e0f08-878d-4e0c-8e2d-b09225b5a0cf',
+            'booking_status_id'  => '7366f352-928e-43e9-8df0-217913b7177b',
+            'vehicle_class_id'   => $vehicle_class_id,
+            'pickup_time'        => $start_datetime . ':00',
+            'start'              => $start_datetime,
+            'end'                => $end_datetime,
+            'duration'           => $duration_formatted,
+            'from_location'      => array( 'name' => $pickup_address ),
+            'to_location'        => array( 'name' => $dropoff_info ),
+            'price'              => floatval( $data['pricing']['grand_total'] ?? 0 ),
+            'price_type'         => 'NET',
+            'passenger_count'    => $total_passengers,
+            'suitcase_count'     => intval( $data['luggage'] ),
+            'baby_seat_count'    => intval( $baby_seat_count ),
+            'round_trip'         => ( ! empty( $data['option_id'] ) ) ? 1 : 0,
+            'note'               => $dispatcher_note, // <-- Affiché dans "Additional info"
+            'note_for_driver'    => substr( $note_for_driver, 0, 500 ),
+            'waiting_board_text' => substr( $data['name'], 0, 50 ),
+            'drivingExtraFees'   => $driving_extra_fees, // <-- Injecte les extras dans LimoExpress
+            'passengers'         => array(
+                array(
+                    'first_name' => $first_name,
+                    'last_name'  => $last_name,
+                    'email'      => $data['email'],
+                    'phone'      => ! empty( $data['phone'] ) ? $data['phone'] : ''
+                )
+            )
+        );// 4. Extraction du nom, des extras et préparation des notes
+        $name_parts = explode( ' ', trim( $data['name'] ), 2 );
+        $first_name = ! empty( $name_parts[0] ) ? $name_parts[0] : 'Client';
+        $last_name  = ! empty( $name_parts[1] ) ? $name_parts[1] : 'ETB';
+
+        $prestation_label = ! empty( $data['option_id'] )
+            ? ETB_Pricing_Engine::get_circuit_option_label( $data['option_id'], $data['circuit_id'] )
+            : 'Transfert standard';
+
+        $baby_seat_count    = 0;
+        $extras_summary     = '';
+        $driving_extra_fees = array(); // NOUVEAU : Tableau des frais supplémentaires pour LimoExpress
+
+        if ( ! empty( $data['extras'] ) ) {
+            foreach ( $data['extras'] as $e_id => $qty ) {
+                if ( $qty > 0 ) {
+                    $e_name     = get_the_title( $e_id );
+                    $e_price    = floatval( get_post_meta( $e_id, '_etb_price', true ) );
+                    $line_total = $e_price * $qty;
+
+                    $extras_summary .= $e_name . ' x ' . $qty . ', ';
+                    
+                    if ( stripos( $e_name, 'bébé' ) !== false || stripos( $e_name, 'bebe' ) !== false || stripos( $e_name, 'baby' ) !== false ) {
+                        $baby_seat_count += $qty;
+                    }
+
+                    // Ajout formaté pour la section "Extra fees" de LimoExpress
+                    if ( $line_total > 0 ) {
+                        $driving_extra_fees[] = array(
+                            'name'   => sprintf( '%s (x%d)', $e_name, $qty ),
+                            'amount' => $line_total,
+                            'price'  => $line_total
+                        );
+                    }
+                }
+            }
+            $extras_summary = rtrim( $extras_summary, ', ' );
+        }
+
+        $vehicles_summary = '';
+        if ( ! empty( $data['vehicles'] ) ) {
+            foreach ( $data['vehicles'] as $v_id => $qty ) {
+                if ( $qty > 0 ) $vehicles_summary .= get_the_title( $v_id ) . ' x ' . $qty . ', ';
+            }
+            $vehicles_summary = rtrim( $vehicles_summary, ', ' );
+        }
+
+        $pickup_address = ! empty( $data['pickup_address'] ) ? $data['pickup_address'] : 'Non spécifié';
+        $dropoff_info   = ! empty( $data['dropoff_info'] ) ? $data['dropoff_info'] : $pickup_address;
+        $total_passengers = intval( $data['adults'] ) + intval( $data['children'] );
+
+        // Note pour le chauffeur (courte et opérationnelle)
+        $note_for_driver = sprintf(
+            "WP Booking #%d | Extras: %s | Notes client: %s",
+            $booking_id,
+            $extras_summary ?: 'Aucun',
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // NOUVEAU : Note pour le Dispatcher (Admin LimoExpress) claire et détaillée
+        $dispatcher_note = sprintf(
+            "--- DÉTAILS RÉSERVATION ---\nPassagers : %d Adulte(s), %d Enfant(s)\nVéhicules : %s\nCircuit : %s\nDemande spéciale : %s",
+            $data['adults'] ?? 1,
+            $data['children'] ?? 0,
+            $vehicles_summary ?: 'Non spécifié',
+            $prestation_label,
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // 5. Construction du Payload LimoExpress
+        $payload = array(
+            'booking_type_id'    => 'e52e0f08-878d-4e0c-8e2d-b09225b5a0cf',
+            'booking_status_id'  => '7366f352-928e-43e9-8df0-217913b7177b',
+            'vehicle_class_id'   => $vehicle_class_id,
+            'pickup_time'        => $start_datetime . ':00',
+            'start'              => $start_datetime,
+            'end'                => $end_datetime,
+            'duration'           => $duration_formatted,
+            'from_location'      => array( 'name' => $pickup_address ),
+            'to_location'        => array( 'name' => $dropoff_info ),
+            'price'              => floatval( $data['pricing']['grand_total'] ?? 0 ),
+            'price_type'         => 'NET',
+            'passenger_count'    => $total_passengers,
+            'suitcase_count'     => intval( $data['luggage'] ),
+            'baby_seat_count'    => intval( $baby_seat_count ),
+            'round_trip'         => ( ! empty( $data['option_id'] ) ) ? 1 : 0,
+            'note'               => $dispatcher_note, // <-- Affiché dans "Additional info"
+            'note_for_driver'    => substr( $note_for_driver, 0, 500 ),
+            'waiting_board_text' => substr( $data['name'], 0, 50 ),
+            'drivingExtraFees'   => $driving_extra_fees, // <-- Injecte les extras dans LimoExpress
+            'passengers'         => array(
+                array(
+                    'first_name' => $first_name,
+                    'last_name'  => $last_name,
+                    'email'      => $data['email'],
+                    'phone'      => ! empty( $data['phone'] ) ? $data['phone'] : ''
+                )
+            )
+        );// 4. Extraction du nom, des extras et préparation des notes
+        $name_parts = explode( ' ', trim( $data['name'] ), 2 );
+        $first_name = ! empty( $name_parts[0] ) ? $name_parts[0] : 'Client';
+        $last_name  = ! empty( $name_parts[1] ) ? $name_parts[1] : 'ETB';
+
+        $prestation_label = ! empty( $data['option_id'] )
+            ? ETB_Pricing_Engine::get_circuit_option_label( $data['option_id'], $data['circuit_id'] )
+            : 'Transfert standard';
+
+        $baby_seat_count    = 0;
+        $extras_summary     = '';
+        $driving_extra_fees = array(); // NOUVEAU : Tableau des frais supplémentaires pour LimoExpress
+
+        if ( ! empty( $data['extras'] ) ) {
+            foreach ( $data['extras'] as $e_id => $qty ) {
+                if ( $qty > 0 ) {
+                    $e_name     = get_the_title( $e_id );
+                    $e_price    = floatval( get_post_meta( $e_id, '_etb_price', true ) );
+                    $line_total = $e_price * $qty;
+
+                    $extras_summary .= $e_name . ' x ' . $qty . ', ';
+                    
+                    if ( stripos( $e_name, 'bébé' ) !== false || stripos( $e_name, 'bebe' ) !== false || stripos( $e_name, 'baby' ) !== false ) {
+                        $baby_seat_count += $qty;
+                    }
+
+                    // Ajout formaté pour la section "Extra fees" de LimoExpress
+                    if ( $line_total > 0 ) {
+                        $driving_extra_fees[] = array(
+                            'name'   => sprintf( '%s (x%d)', $e_name, $qty ),
+                            'amount' => $line_total,
+                            'price'  => $line_total
+                        );
+                    }
+                }
+            }
+            $extras_summary = rtrim( $extras_summary, ', ' );
+        }
+
+        $vehicles_summary = '';
+        if ( ! empty( $data['vehicles'] ) ) {
+            foreach ( $data['vehicles'] as $v_id => $qty ) {
+                if ( $qty > 0 ) $vehicles_summary .= get_the_title( $v_id ) . ' x ' . $qty . ', ';
+            }
+            $vehicles_summary = rtrim( $vehicles_summary, ', ' );
+        }
+
+        $pickup_address = ! empty( $data['pickup_address'] ) ? $data['pickup_address'] : 'Non spécifié';
+        $dropoff_info   = ! empty( $data['dropoff_info'] ) ? $data['dropoff_info'] : $pickup_address;
+        $total_passengers = intval( $data['adults'] ) + intval( $data['children'] );
+
+        // Note pour le chauffeur (courte et opérationnelle)
+        $note_for_driver = sprintf(
+            "WP Booking #%d | Extras: %s | Notes client: %s",
+            $booking_id,
+            $extras_summary ?: 'Aucun',
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // NOUVEAU : Note pour le Dispatcher (Admin LimoExpress) claire et détaillée
+        $dispatcher_note = sprintf(
+            "--- DÉTAILS RÉSERVATION ---\nPassagers : %d Adulte(s), %d Enfant(s)\nVéhicules : %s\nCircuit : %s\nDemande spéciale : %s",
+            $data['adults'] ?? 1,
+            $data['children'] ?? 0,
+            $vehicles_summary ?: 'Non spécifié',
+            $prestation_label,
+            ! empty( $data['note'] ) ? $data['note'] : 'Aucune'
+        );
+
+        // 5. Construction du Payload LimoExpress
+        $payload = array(
+            'booking_type_id'    => 'e52e0f08-878d-4e0c-8e2d-b09225b5a0cf',
+            'booking_status_id'  => '7366f352-928e-43e9-8df0-217913b7177b',
+            'vehicle_class_id'   => $vehicle_class_id,
+            'pickup_time'        => $start_datetime . ':00',
+            'start'              => $start_datetime,
+            'end'                => $end_datetime,
+            'duration'           => $duration_formatted,
+            'from_location'      => array( 'name' => $pickup_address ),
+            'to_location'        => array( 'name' => $dropoff_info ),
+            'price'              => floatval( $data['pricing']['grand_total'] ?? 0 ),
+            'price_type'         => 'NET',
+            'passenger_count'    => $total_passengers,
+            'suitcase_count'     => intval( $data['luggage'] ),
+            'baby_seat_count'    => intval( $baby_seat_count ),
+            'round_trip'         => ( ! empty( $data['option_id'] ) ) ? 1 : 0,
+            'note'               => $dispatcher_note, // <-- Affiché dans "Additional info"
+            'note_for_driver'    => substr( $note_for_driver, 0, 500 ),
+            'waiting_board_text' => substr( $data['name'], 0, 50 ),
+            'drivingExtraFees'   => $driving_extra_fees, // <-- Injecte les extras dans LimoExpress
+            'passengers'         => array(
+                array(
+                    'first_name' => $first_name,
+                    'last_name'  => $last_name,
+                    'email'      => $data['email'],
+                    'phone'      => ! empty( $data['phone'] ) ? $data['phone'] : ''
                 )
             )
         );
