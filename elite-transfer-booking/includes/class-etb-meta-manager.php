@@ -339,6 +339,12 @@ class ETB_Meta_Manager {
             <label>Icône Dashicons (ex: dashicons-admin-generic) :</label><br>
             <input type="text" name="etb_icon" value="<?php echo esc_attr( $icon ); ?>" class="widefat" placeholder="dashicons-...">
         </p>
+        <hr style="margin: 15px 0;">
+        <p>
+            <label><strong>🏷️ ID LimoExpress (Extra / Service additionnel) :</strong></label><br>
+            <input type="text" name="etb_limo_extra_id" value="<?php echo esc_attr( get_post_meta( $post->ID, '_etb_limo_extra_id', true ) ); ?>" class="widefat" placeholder="Ex: a1b2c3d4-...">
+            <span class="description">UUID de l'Extra correspondant dans LimoExpress (Settings > Extra Fees).</span>
+        </p>
         <?php
     }
 
@@ -391,6 +397,12 @@ class ETB_Meta_Manager {
                 <option value="1" <?php selected( $active, '1' ); ?>>Actif</option>
                 <option value="0" <?php selected( $active, '0' ); ?>>Inactif</option>
             </select>
+        </p>
+        <hr style="margin: 15px 0;">
+        <p>
+            <label><strong>🎟️ ID LimoExpress (Code de réduction / Discount) :</strong></label><br>
+            <input type="text" name="etb_limo_promo_id" value="<?php echo esc_attr( get_post_meta( $post->ID, '_etb_limo_promo_id', true ) ); ?>" class="widefat" placeholder="Ex: f9e8d7c6-...">
+            <span class="description">UUID du code promo dans LimoExpress (Settings > Discount Codes).</span>
         </p>
         <?php
     }
@@ -624,9 +636,6 @@ class ETB_Meta_Manager {
         ?>
 
 
-
-
-
         <?php
     }
 
@@ -671,6 +680,8 @@ class ETB_Meta_Manager {
                 update_post_meta( $post_id, '_etb_price_type', $type );
                 update_post_meta( $post_id, '_etb_max_qty', max( 1, absint( $_POST['etb_max_qty'] ) ) );
                 update_post_meta( $post_id, '_etb_icon', sanitize_text_field( $_POST['etb_icon'] ) );
+                update_post_meta( $post_id, '_etb_limo_extra_id', sanitize_text_field( $_POST['etb_limo_extra_id'] ?? '' ) );
+
                 break;
 
             case 'tour_pickup':
@@ -693,6 +704,7 @@ class ETB_Meta_Manager {
                 update_post_meta( $post_id, '_etb_promo_type', $p_type );
                 update_post_meta( $post_id, '_etb_promo_value', $p_value );
                 update_post_meta( $post_id, '_etb_promo_active', ( $_POST['etb_promo_active'] === '0' ) ? '0' : '1' );
+                update_post_meta( $post_id, '_etb_limo_promo_id', sanitize_text_field( $_POST['etb_limo_promo_id'] ?? '' ) );
                 break;
 
             case 'tour_booking':
