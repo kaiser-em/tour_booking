@@ -192,6 +192,16 @@ $sec_token = class_exists( 'ETB_Security' ) ? ETB_Security::generate_timestamp_t
                 </div>
             <?php endif; ?>
             
+            <?php if ( ! isset( $form_settings['show_phone'] ) || $form_settings['show_phone'] !== '0' ) : ?>
+                <div class="etb-field">
+                    <label>Téléphone *</label>
+                    <div class="etb-field-icon-wrapper">
+                        <span class="dashicons dashicons-phone"></span>
+                        <input type="tel" name="etb_phone" placeholder="Ex: +33 6 12 34 56 78">
+                    </div>
+                </div>
+            <?php endif; ?>
+            
             <?php if ( $form_settings['show_date'] !== '0' ) : ?>
                 <div id="etb-time-field" class="etb-field">
                     <label>Date souhaitée *</label>

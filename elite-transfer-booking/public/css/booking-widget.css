@@ -1102,10 +1102,14 @@
     opacity: 0.9 !important;
 }
 
+
 .etb-summary-row strong {
     color: var(--etb-accent) !important;
 }
 
+#promo-line.etb-promo-row strong{
+    color: var(--etb-success) !important;
+}
 .etb-summary-total {
     display: flex !important;
     justify-content: space-between !important;

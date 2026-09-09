@@ -285,17 +285,42 @@ class ETB_Meta_Manager {
             <label>Nombre max passagers :</label><br>
             <input type="number" min="1" name="etb_max_pax" value="<?php echo esc_attr( $max_pax ); ?>" class="widefat">
         </p>
-        <hr style="margin: 15px 0;">
-        <p>
-            <label><strong>🚙 ID LimoExpress (Vehicle Class ID) :</strong></label><br>
-            <input type="text" name="etb_limo_class_id" value="<?php echo esc_attr( $limo_class_id ); ?>" class="widefat" placeholder="Ex: 9c50c90c-ffaf-4523-b573-0177fea64541">
-            <span class="description">L'identifiant UUID de la classe correspondante dans LimoExpress (laisser vide si non utilisé).</span>
-        </p>
-        <hr style="margin: 15px 0;">
+        
         <p>
             <label>Nombre max bagages :</label><br>
             <input type="number" min="0" name="etb_max_bag" value="<?php echo esc_attr( $max_bag ); ?>" class="widefat">
         </p>
+        <hr style="margin: 15px 0;">
+        <?php 
+        // Si l'utilisateur clique sur "Rafraîchir", on force la requête vers LimoExpress
+        $force_refresh = ! empty( $_GET['refresh_limo'] );
+        $limo_classes  = class_exists( 'ETB_LimoExpress' ) ? ETB_LimoExpress::get_vehicle_classes( $force_refresh ) : array();
+        $refresh_url   = add_query_arg( 'refresh_limo', '1' );
+        ?>
+        <p>
+            <label><strong>🚙 Classe de Véhicule LimoExpress :</strong></label><br>
+            <?php if ( ! empty( $limo_classes ) ) : ?>
+                <select name="etb_limo_class_id" class="widefat" style="margin-top: 5px;">
+                    <option value="">-- Aucune liaison LimoExpress --</option>
+                    <?php foreach ( $limo_classes as $cls ) : ?>
+                        <option value="<?php echo esc_attr( $cls['id'] ); ?>" <?php selected( $limo_class_id, $cls['id'] ); ?>>
+                            🚙 <?php echo esc_html( $cls['name'] ); ?> (<?php echo esc_html( substr( $cls['id'], 0, 8 ) ); ?>...)
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <span style="display: block; margin-top: 6px;">
+                    <a href="<?php echo esc_url( $refresh_url ); ?>" class="button button-small" style="vertical-align: middle;">
+                        🔄 Rafraîchir la liste LimoExpress
+                    </a>
+                    <span class="description" style="color: #166534; margin-left: 6px;">Classes synchronisées en temps réel.</span>
+                </span>
+            <?php else : ?>
+                <input type="text" name="etb_limo_class_id" value="<?php echo esc_attr( $limo_class_id ); ?>" class="widefat" placeholder="Ex: 9c50c90c-ffaf-4523-b573-0177fea64541">
+                <span class="description">Saisissez le jeton API dans les Réglages pour charger automatiquement vos classes de véhicules.</span>
+            <?php endif; ?>
+        </p>
+        <hr style="margin: 15px 0;">
+        
         <p>
             <label>Options autorisées pour ce véhicule :</label><br>
             <div style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; background: #fff;">
@@ -468,6 +493,7 @@ class ETB_Meta_Manager {
                 <h4>👤 Client</h4>
                 <p><strong>Nom :</strong> <?php echo esc_html( $name ?: 'Non renseigné' ); ?></p>
                 <p><strong>E-mail :</strong> <?php echo esc_html( $email ?: 'Non renseigné' ); ?></p>
+                 <p><strong>Téléphone :</strong> <?php echo esc_html( get_post_meta( $post->ID, '_etb_customer_phone', true ) ?: 'Non renseigné' ); ?></p>
             </div>
 
             <div class="etb-admin-card">

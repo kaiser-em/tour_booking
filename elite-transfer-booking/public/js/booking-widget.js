@@ -15,7 +15,6 @@
         const tabButtons = document.querySelectorAll('.co-pub-tab-btn');
         const panes = document.querySelectorAll('.co-option-pane');
 
-        const track = root.querySelector('.etb-carousel-track');
         const vehicleInput = root.querySelector('#etb-vehicle-input');
         const pickupInput = root.querySelector('input[name="etb_pickup_address"]');
         const totalValEl = root.querySelector('#etb-total-val');
@@ -75,32 +74,7 @@
         // 3. FONCTIONS DE CALCUL ET MISES À JOUR (DÉCLARÉES EN PREMIER)
         // ------------------------------------------------------------------------
 
-        // Carrousel 3D (si présent)
-        const updateCarousel = () => {
-            if (!track) return;
-            const carouselCards = Array.from(track.querySelectorAll('.etb-vehicle-card'));
-            if (carouselCards.length === 0) return;
-            const n = carouselCards.length;
-
-            carouselCards.forEach((card, i) => {
-                let offset = i - state.activeIndex;
-                if (offset > n / 2) offset -= n;
-                else if (offset < -n / 2) offset += n;
-
-                const absOffset = Math.abs(offset);
-                const horizontalShift = offset * 25;
-                const scale = Math.max(0.7, 1 - absOffset * 0.2);
-                const zIndex = 10 - absOffset;
-
-                card.style.transform = `translateX(${horizontalShift}%) scale(${scale})`;
-                card.style.zIndex = Math.round(zIndex);
-                card.classList.toggle('etb-active', offset === 0);
-            });
-
-            if (vehicleInput && carouselCards[state.activeIndex]) {
-                vehicleInput.value = carouselCards[state.activeIndex].dataset.id;
-            }
-        };
+        
 
         // Moteur de calcul en direct (Récapitulatif & En-tête)
         const updateSummary = () => {
@@ -259,7 +233,7 @@
                 }
                 
                 total = Math.max(0, total - discountAmount);
-                promoHtml = `<div class="etb-summary-row etb-promo-row" style="color: #22c55e;"><strong>Code promo (${state.promo.code})</strong><strong>- ${discountAmount.toFixed(0)} ${state.currency}</strong></div>`;
+                promoHtml = `<div class="etb-summary-row etb-promo-row" id="promo-line"><strong>Code promo (${state.promo.code})</strong><strong>- ${discountAmount.toFixed(0)} ${state.currency}</strong></div>`;
             }
 
             // Mise à jour du Récapitulatif sombre
@@ -291,7 +265,6 @@
         };
 
         const refreshAll = () => {
-            updateCarousel();
             updateSummary();
         };
 
@@ -598,18 +571,9 @@
             timeInput.addEventListener('change', handleTimeChange);
             timeInput.addEventListener('input', handleTimeChange);
         }
-        // 5. Navigation carrousel (flèches si présent)
-        root.querySelector('.prev')?.addEventListener('click', (e) => {
-            e.preventDefault();
-            state.activeIndex = (state.activeIndex - 1 + cards.length) % cards.length;
-            refreshAll();
-        });
 
-        root.querySelector('.next')?.addEventListener('click', (e) => {
-            e.preventDefault();
-            state.activeIndex = (state.activeIndex + 1) % cards.length;
-            refreshAll();
-        });
+
+
 
         // ------------------------------------------------------------------------
         // 8. SOUMISSION FINALE AJAX (FETCH)

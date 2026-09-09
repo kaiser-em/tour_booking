@@ -50,6 +50,9 @@ class ETB_Settings {
         $new_input['limo_enabled']   = isset( $input['limo_enabled'] ) && $input['limo_enabled'] === '1' ? '1' : '0';
         $new_input['limo_api_token'] = ! empty( $input['limo_api_token'] ) ? sanitize_text_field( trim( $input['limo_api_token'] ) ) : '';
 
+        // Sauvegarde du client LimoExpress par défaut
+        $new_input['limo_client_id'] = ! empty( $input['limo_client_id'] ) ? sanitize_text_field( trim( $input['limo_client_id'] ) ) : '';
+
         return $new_input;
     }
 
@@ -76,6 +79,7 @@ class ETB_Settings {
             'show_extras'    => 'Options supplémentaires',
             'show_name'      => 'Nom complet',
             'show_email'     => 'Email',
+            'show_phone'     => 'Téléphone', // <-- AJOUT DE CETTE LIGNE
             'show_date'      => 'Date souhaitée',
             'show_time'      => 'Heure de départ',
             'show_total_bag' => 'Bagages total (véhicule)',
@@ -132,6 +136,31 @@ class ETB_Settings {
                                 <p class="description">Généré dans LimoExpress (Administration &gt; Organization &gt; Advanced Settings &gt; API Integration).</p>
                             </td>
                         </tr>
+
+                        <?php 
+                        $limo_clients = class_exists( 'ETB_LimoExpress' ) ? ETB_LimoExpress::get_clients() : array();
+                        $current_client_id = $options['limo_client_id'] ?? ( defined('ETB_LimoExpress::DEFAULT_REGULAR_CLIENT_ID') ? ETB_LimoExpress::DEFAULT_REGULAR_CLIENT_ID : 'e56ea49f-8533-41b9-97c9-17343ee35a4e' );
+                        ?>
+                        <tr>
+                            <th scope="row">Client par défaut LimoExpress</th>
+                            <td>
+                                <?php if ( ! empty( $limo_clients ) ) : ?>
+                                    <select name="etb_general_settings[limo_client_id]" class="regular-text">
+                                        <?php foreach ( $limo_clients as $client ) : ?>
+                                            <option value="<?php echo esc_attr( $client['id'] ); ?>" <?php selected( $current_client_id, $client['id'] ); ?>>
+                                                👤 <?php echo esc_html( $client['name'] ); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <p class="description">✅ Chargé automatiquement depuis votre compte LimoExpress.</p>
+                                <?php else : ?>
+                                    <input type="text" name="etb_general_settings[limo_client_id]" value="<?php echo esc_attr( $current_client_id ); ?>" class="regular-text">
+                                    <p class="description">Enregistrez votre Jeton API ci-dessus pour charger automatiquement vos clients.</p>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+
+                        
                     </table>
                 <?php } else { 
                     settings_fields( 'etb_form_settings_group' );

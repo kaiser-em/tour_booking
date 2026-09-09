@@ -134,6 +134,7 @@ class ETB_Ajax {
             'extras'         => $extras,
             'name'           => sanitize_text_field( $_POST['etb_name'] ?? '' ),
             'email'          => sanitize_email( $_POST['etb_email'] ?? '' ),
+            'phone'          => sanitize_text_field( $_POST['etb_phone'] ?? '' ), // <-- AJOUT DE CETTE LIGNE phone 
             'date'           => sanitize_text_field( $_POST['etb_date'] ?? '' ),
             'time'           => sanitize_text_field( $_POST['etb_time'] ?? '' ),
             'luggage'        => min( 500, absint( $_POST['etb_total_luggage'] ?? 0 ) ),
@@ -207,6 +208,7 @@ class ETB_Ajax {
         // Sauvegarde des métadonnées
         update_post_meta( $booking_id, '_etb_customer_name', $data['name'] );
         update_post_meta( $booking_id, '_etb_customer_email', $data['email'] );
+        update_post_meta( $booking_id, '_etb_customer_phone', $data['phone'] ); // <-- AJOUT DE CETTE LIGNE
         update_post_meta( $booking_id, '_etb_booking_date', $data['date'] );
         update_post_meta( $booking_id, '_etb_booking_time', $data['time'] );
         update_post_meta( $booking_id, '_etb_pickup_id', $data['pickup_id'] );
@@ -254,6 +256,9 @@ class ETB_Ajax {
         }
         $note_html = ! empty( $data['note'] ) ? '<h3>Demande spéciale :</h3><p>' . nl2br( esc_html( $data['note'] ) ) . '</p>' : '';
 
+        // Préparation du numéro de téléphone pour l'affichage
+        $phone_display = ! empty( $data['phone'] ) ? esc_html( $data['phone'] ) : 'Non renseigné';
+
         // Durcissement de l'en-tête Reply-To (filtrage des caractères de contrôle SMTP)
         $clean_name = preg_replace( '/[^\p{L}\p{N}\s\-\.]/u', '', $data['name'] );
         $clean_name = trim( preg_replace( '/\s+/', ' ', $clean_name ) );
@@ -264,19 +269,47 @@ class ETB_Ajax {
             'Reply-To: ' . $clean_name . ' <' . $data['email'] . '>',
         );
 
-        $subject_client = sprintf( 'Confirmation de votre demande de réservation #%d', $booking_id );
-        $message_client = sprintf(
-            '<h2>Bonjour %s,</h2><p>Votre demande de réservation a bien été enregistrée sous le dossier <strong>#%d</strong>.</p><hr><h3>Détails de la réservation :</h3><ul><li><strong>Prestation :</strong> %s</li><li><strong>Point de départ :</strong> %s</li><li><strong>Point d\'arrivée :</strong> %s</li><li><strong>Date et Heure :</strong> %s à %s</li><li><strong>Passagers :</strong> %d adulte(s), %d enfant(s) (Total : %d)</li><li><strong>Bagages :</strong> %d</li></ul><h3>Véhicule(s) réservé(s) :</h3><ul>%s</ul>%s%s<hr><p><strong>Montant estimé :</strong> %s</p>',
-            esc_html( $data['name'] ), $booking_id, esc_html( $prestation_label ), esc_html( $pickup_name ), esc_html( empty( $data['dropoff_info'] ) ? 'Identique au point de départ' : $data['dropoff_info'] ), esc_html( $data['date'] ), esc_html( $data['time'] ), $data['adults'], $data['children'], ( $data['adults'] + $data['children'] ), $data['luggage'], $vehicles_list, ( $extras_list ? '<h3>Option(s) / Extra(s) :</h3><ul>' . $extras_list . '</ul>' : '' ), $promo_html . $note_html, $formatted_total
-        );
+        $subject_client = 'Confirmation de votre demande de réservation #' . $booking_id;
+        $message_client = '<h2>Bonjour ' . esc_html( $data['name'] ) . ',</h2>'
+            . '<p>Votre demande de réservation a bien été enregistrée sous le dossier <strong>#' . $booking_id . '</strong>.</p>'
+            . '<hr>'
+            . '<h3>Détails de la réservation :</h3>'
+            . '<ul>'
+            . '<li><strong>Prestation :</strong> ' . esc_html( $prestation_label ) . '</li>'
+            . '<li><strong>Point de départ :</strong> ' . esc_html( $pickup_name ) . '</li>'
+            . '<li><strong>Point d\'arrivée :</strong> ' . esc_html( empty( $data['dropoff_info'] ) ? 'Identique au point de départ' : $data['dropoff_info'] ) . '</li>'
+            . '<li><strong>Date et Heure :</strong> ' . esc_html( $data['date'] ) . ' à ' . esc_html( $data['time'] ) . '</li>'
+            . '<li><strong>Téléphone :</strong> ' . $phone_display . '</li>'
+            . '<li><strong>Passagers :</strong> ' . $data['adults'] . ' adulte(s), ' . $data['children'] . ' enfant(s) (Total : ' . ( $data['adults'] + $data['children'] ) . ')</li>'
+            . '<li><strong>Bagages :</strong> ' . $data['luggage'] . '</li>'
+            . '</ul>'
+            . '<h3>Véhicule(s) réservé(s) :</h3><ul>' . $vehicles_list . '</ul>'
+            . ( $extras_list ? '<h3>Option(s) / Extra(s) :</h3><ul>' . $extras_list . '</ul>' : '' )
+            . $promo_html . $note_html
+            . '<hr><p><strong>Montant estimé :</strong> ' . $formatted_total . '</p>';
 
-        $subject_admin  = sprintf( '[Nouvelle Réservation] Dossier #%d - %s', $booking_id, $data['name'] );
+        $subject_admin  = '[Nouvelle Réservation] Dossier #' . $booking_id . ' - ' . $data['name'];
         $admin_edit_url = admin_url( 'post.php?post=' . $booking_id . '&action=edit' );
-        $message_admin  = sprintf(
-            '<h2>Nouvelle demande de réservation (Dossier #%d)</h2><p><strong>Client :</strong> %s (%s)</p><hr><h3>Détails de la réservation :</h3><ul><li><strong>Prestation :</strong> %s</li><li><strong>Point de départ :</strong> %s</li><li><strong>Point d\'arrivée :</strong> %s</li><li><strong>Date et Heure :</strong> %s à %s</li><li><strong>Passagers :</strong> %d adulte(s), %d enfant(s) (Total : %d)</li><li><strong>Bagages :</strong> %d</li></ul><h3>Véhicule(s) :</h3><ul>%s</ul>%s%s<hr><p><strong>Montant Total :</strong> %s</p><hr><p><a href="%s" style="display:inline-block; padding:10px 15px; background:#0073aa; color:#fff; text-decoration:none; border-radius:3px;">Consulter le dossier dans WordPress</a></p>',
-            $booking_id, esc_html( $data['name'] ), esc_html( $data['email'] ), esc_html( $prestation_label ), esc_html( $pickup_name ), esc_html( empty( $data['dropoff_info'] ) ? 'Identique au point de départ' : $data['dropoff_info'] ), esc_html( $data['date'] ), esc_html( $data['time'] ), $data['adults'], $data['children'], ( $data['adults'] + $data['children'] ), $data['luggage'], $vehicles_list, ( $extras_list ? '<h3>Option(s) / Extra(s) :</h3><ul>' . $extras_list . '</ul>' : '' ), $promo_html . $note_html, $formatted_total, esc_url( $admin_edit_url )
-        );
+        $message_admin  = '<h2>Nouvelle demande de réservation (Dossier #' . $booking_id . ')</h2>'
+            . '<p><strong>Client :</strong> ' . esc_html( $data['name'] ) . ' (' . esc_html( $data['email'] ) . ')</p>'
+            . '<hr>'
+            . '<h3>Détails de la réservation :</h3>'
+            . '<ul>'
+            . '<li><strong>Prestation :</strong> ' . esc_html( $prestation_label ) . '</li>'
+            . '<li><strong>Point de départ :</strong> ' . esc_html( $pickup_name ) . '</li>'
+            . '<li><strong>Point d\'arrivée :</strong> ' . esc_html( empty( $data['dropoff_info'] ) ? 'Identique au point de départ' : $data['dropoff_info'] ) . '</li>'
+            . '<li><strong>Date et Heure :</strong> ' . esc_html( $data['date'] ) . ' à ' . esc_html( $data['time'] ) . '</li>'
+            . '<li><strong>Téléphone :</strong> ' . $phone_display . '</li>'
+            . '<li><strong>Passagers :</strong> ' . $data['adults'] . ' adulte(s), ' . $data['children'] . ' enfant(s) (Total : ' . ( $data['adults'] + $data['children'] ) . ')</li>'
+            . '<li><strong>Bagages :</strong> ' . $data['luggage'] . '</li>'
+            . '</ul>'
+            . '<h3>Véhicule(s) :</h3><ul>' . $vehicles_list . '</ul>'
+            . ( $extras_list ? '<h3>Option(s) / Extra(s) :</h3><ul>' . $extras_list . '</ul>' : '' )
+            . $promo_html . $note_html
+            . '<hr><p><strong>Montant Total :</strong> ' . $formatted_total . '</p>'
+            . '<hr><p><a href="' . esc_url( $admin_edit_url ) . '" style="display:inline-block; padding:10px 15px; background:#0073aa; color:#fff; text-decoration:none; border-radius:3px;">Consulter le dossier dans WordPress</a></p>';
 
+            
         wp_mail( $data['email'], $subject_client, $message_client, $headers_client );
         wp_mail( $admin_email, $subject_admin, $message_admin, $headers_admin );
 

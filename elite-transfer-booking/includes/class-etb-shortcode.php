@@ -67,10 +67,14 @@ class ETB_Shortcode {
     public function render_booking_form( $atts = array() ) {
         $gen_settings  = get_option( 'etb_general_settings', array() );
         $currency      = $gen_settings['currency'] ?? '€';
-        $form_settings = array(
-            'show_vehicle'   => '0', // Masqué par défaut car affiché en haut dans le layout circuit
+        
+        // Récupération des réglages administrateur avec valeurs par défaut
+        $saved_form_settings = get_option( 'etb_form_settings', array() );
+        $default_settings    = array(
+            'show_vehicle'   => '0', // Masqué par défaut dans le split layout
             'show_adults'    => '1',
             'show_children'  => '1',
+            'show_phone'     => '1',
             'show_pickup'    => '1',
             'show_extras'    => '1',
             'show_name'      => '1',
@@ -81,6 +85,10 @@ class ETB_Shortcode {
             'show_promo'     => '1',
             'show_note'      => '1',
         );
+
+        $form_settings = ( ! empty( $saved_form_settings ) && is_array( $saved_form_settings ) )
+            ? wp_parse_args( $saved_form_settings, $default_settings )
+            : $default_settings;
 
         $vehicles = get_posts( array( 'post_type' => 'tour_vehicle', 'numberposts' => -1, 'post_status' => 'publish', 'orderby' => 'menu_order', 'order' => 'ASC' ) );
         $extras   = get_posts( array( 'post_type' => 'tour_extra', 'numberposts' => -1, 'post_status' => 'publish', 'orderby' => 'menu_order', 'order' => 'ASC' ) );
