@@ -7,6 +7,8 @@ class ETB_Ajax {
         add_action( 'wp_ajax_nopriv_etb_submit_booking', array( $this, 'handle_submit_booking' ) );
         add_action( 'wp_ajax_etb_validate_promo', array( $this, 'handle_validate_promo' ) );
         add_action( 'wp_ajax_nopriv_etb_validate_promo', array( $this, 'handle_validate_promo' ) );
+
+        add_action( 'wp_ajax_etb_resync_booking', array( $this, 'handle_resync_booking' ) );
     }
 
     public function handle_validate_promo() {
@@ -51,10 +53,36 @@ class ETB_Ajax {
             if ( '0' === $is_active ) {
                 wp_reset_postdata();
                 ETB_Security::record_failed_promo_attempt();
-                wp_send_json_error( array( 'message' => 'Code promo invalide ou expiré.' ) );
+                wp_send_json_error( array( 'message' => 'Code promo invalide ou désactivé.' ) );
+            }
+
+            // 2bis. Contrôle des dates de validité
+            $today      = current_time( 'Y-m-d' );
+            $valid_from = get_post_meta( $promo_id, '_etb_promo_valid_from', true );
+            $valid_to   = get_post_meta( $promo_id, '_etb_promo_valid_to', true );
+
+            if ( ! empty( $valid_from ) && $today < $valid_from ) {
+                wp_reset_postdata();
+                ETB_Security::record_failed_promo_attempt();
+                wp_send_json_error( array( 'message' => 'Ce code promo n\'est pas encore actif.' ) );
+            }
+
+            if ( ! empty( $valid_to ) && $today > $valid_to ) {
+                wp_reset_postdata();
+                ETB_Security::record_failed_promo_attempt();
+                wp_send_json_error( array( 'message' => 'Ce code promo a expiré.' ) );
+            }
+
+            // 2ter. Contrôle du quota d'utilisations restantes
+            $remaining = get_post_meta( $promo_id, '_etb_promo_remaining', true );
+            if ( '' !== $remaining && is_numeric( $remaining ) && (int) $remaining <= 0 ) {
+                wp_reset_postdata();
+                ETB_Security::record_failed_promo_attempt();
+                wp_send_json_error( array( 'message' => 'Ce code promo a atteint sa limite maximale d\'utilisations.' ) );
             }
 
             $discount_type = get_post_meta( $promo_id, '_etb_discount_type', true );
+
             if ( empty( $discount_type ) ) {
                 $discount_type = get_post_meta( $promo_id, '_etb_promo_type', true ) ?: 'fixed';
             }
@@ -225,9 +253,42 @@ class ETB_Ajax {
         update_post_meta( $booking_id, '_etb_note', $data['note'] );
         update_post_meta( $booking_id, '_etb_total_price', $pricing_details['grand_total'] );
         update_post_meta( $booking_id, '_etb_pricing_details', $pricing_details );
+        
         update_post_meta( $booking_id, '_etb_promo_code', $pricing_details['promo_code'] );
         update_post_meta( $booking_id, '_etb_discount_amount', $pricing_details['discount_amount'] );
 
+        // Décrémentation automatique du quota d'utilisations restantes
+        if ( ! empty( $pricing_details['promo_code'] ) && ! empty( $pricing_details['discount_amount'] ) && $pricing_details['discount_amount'] > 0 ) {
+            $applied_code = strtoupper( trim( $pricing_details['promo_code'] ) );
+            
+            // Recherche du coupon utilisé
+            $p_query = new WP_Query( array(
+                'post_type'      => 'tour_promo',
+                'post_status'    => 'publish',
+                'title'          => $applied_code,
+                'posts_per_page' => 1,
+            ) );
+            if ( ! $p_query->have_posts() ) {
+                $p_query = new WP_Query( array(
+                    'post_type'      => 'tour_promo',
+                    'post_status'    => 'publish',
+                    'meta_key'       => '_etb_promo_code',
+                    'meta_value'     => $applied_code,
+                    'posts_per_page' => 1,
+                ) );
+            }
+
+            if ( $p_query->have_posts() ) {
+                $used_promo_id = $p_query->posts[0]->ID;
+                $rem = get_post_meta( $used_promo_id, '_etb_promo_remaining', true );
+                if ( '' !== $rem && is_numeric( $rem ) && (int) $rem > 0 ) {
+                    update_post_meta( $used_promo_id, '_etb_promo_remaining', max( 0, (int) $rem - 1 ) );
+                }
+            }
+        }
+
+        // Notifications E-mail
+        $general_settings = get_option( 'etb_general_settings', array() );
         // Notifications E-mail
         $general_settings = get_option( 'etb_general_settings', array() );
         $currency_symbol  = ! empty( $general_settings['currency'] ) ? sanitize_text_field( $general_settings['currency'] ) : '€';
@@ -310,17 +371,93 @@ class ETB_Ajax {
             . '<hr><p><a href="' . esc_url( $admin_edit_url ) . '" style="display:inline-block; padding:10px 15px; background:#0073aa; color:#fff; text-decoration:none; border-radius:3px;">Consulter le dossier dans WordPress</a></p>';
 
             
+        // 1. Transmission préalable à LimoExpress pour évaluer le statut
+        $limo_synced = false;
+        $limo_err    = '';
+        if ( class_exists( 'ETB_LimoExpress' ) ) {
+            $limo_synced = ETB_LimoExpress::send_booking( $booking_id, $data );
+            if ( ! $limo_synced ) {
+                $limo_err = get_post_meta( $booking_id, '_etb_limo_error', true );
+            }
+        }
+
+        // 2. Alerte e-mail administrateur si le transfert LimoExpress a échoué
+        if ( ! $limo_synced && ! empty( $limo_err ) ) {
+            $subject_admin = '[Action Requise - Échec LimoExpress] Dossier #' . $booking_id . ' - ' . $data['name'];
+            $alert_box     = '<div style="background:#fee2e2; border-left:4px solid #dc2626; padding:12px; margin-bottom:15px; color:#991b1b;">'
+                . '<strong>⚠️ ATTENTION : La synchronisation automatique vers LimoExpress a échoué.</strong><br>'
+                . 'Motif : ' . esc_html( $limo_err ) . '<br>'
+                . '👉 <em>Vous pouvez relancer le transfert en un clic depuis WordPress via le bouton "Transférer vers LimoExpress".</em>'
+                . '</div>';
+            $message_admin = $alert_box . $message_admin;
+        }
+
+        // 3. Expédition des e-mails
         wp_mail( $data['email'], $subject_client, $message_client, $headers_client );
         wp_mail( $admin_email, $subject_admin, $message_admin, $headers_admin );
-
-        // NOUVEAUTÉ : Transmission automatique à LimoExpress
-        if ( class_exists( 'ETB_LimoExpress' ) ) {
-            ETB_LimoExpress::send_booking( $booking_id, $data );
-        }
-        
-
         
         $data['booking_id'] = $booking_id;
         wp_send_json_success( $data );
+    }
+
+    /**
+     * Traitement AJAX du bouton "Transférer vers LimoExpress"
+     */
+    public function handle_resync_booking() {
+        $booking_id = absint( $_POST['booking_id'] ?? 0 );
+        check_ajax_referer( 'etb_resync_nonce_' . $booking_id, 'nonce' );
+
+        if ( ! current_user_can( 'edit_post', $booking_id ) ) {
+            wp_send_json_error( array( 'message' => 'Autorisation refusée.' ) );
+        }
+
+        // Reconstitution des données de la réservation depuis la base WordPress
+        $pricing = get_post_meta( $booking_id, '_etb_pricing_details', true );
+        if ( ! is_array( $pricing ) ) {
+            $pricing = array(
+                'grand_total'     => floatval( get_post_meta( $booking_id, '_etb_total_price', true ) ),
+                'duration_hours'  => floatval( get_post_meta( $booking_id, '_etb_duration_hours', true ) ?: 1 ),
+                'discount_amount' => floatval( get_post_meta( $booking_id, '_etb_discount_amount', true ) ?: 0 ),
+                'promo_code'      => get_post_meta( $booking_id, '_etb_promo_code', true ) ?: '',
+            );
+        }
+
+        $data = array(
+            'vehicles'       => get_post_meta( $booking_id, '_etb_vehicles', true ) ?: array(),
+            'adults'         => absint( get_post_meta( $booking_id, '_etb_adults', true ) ),
+            'children'       => absint( get_post_meta( $booking_id, '_etb_children', true ) ),
+            'pickup_id'      => absint( get_post_meta( $booking_id, '_etb_pickup_id', true ) ),
+            'pickup_address' => get_post_meta( $booking_id, '_etb_pickup_address', true ) ?: '',
+            'dropoff_info'   => get_post_meta( $booking_id, '_etb_dropoff_info', true ) ?: '',
+            'option_id'      => get_post_meta( $booking_id, '_etb_circuit_option_id', true ) ?: '',
+            'circuit_id'     => absint( get_post_meta( $booking_id, '_etb_circuit_id', true ) ),
+            'extras'         => get_post_meta( $booking_id, '_etb_extras', true ) ?: array(),
+            'name'           => get_post_meta( $booking_id, '_etb_customer_name', true ) ?: '',
+            'email'          => get_post_meta( $booking_id, '_etb_customer_email', true ) ?: '',
+            'phone'          => get_post_meta( $booking_id, '_etb_customer_phone', true ) ?: '',
+            'date'           => get_post_meta( $booking_id, '_etb_booking_date', true ) ?: '',
+            'time'           => get_post_meta( $booking_id, '_etb_booking_time', true ) ?: '',
+            'luggage'        => absint( get_post_meta( $booking_id, '_etb_luggage', true ) ),
+            'note'           => get_post_meta( $booking_id, '_etb_note', true ) ?: '',
+            'pricing'        => $pricing,
+        );
+
+        if ( ! class_exists( 'ETB_LimoExpress' ) ) {
+            wp_send_json_error( array( 'message' => 'Module LimoExpress introuvable.' ) );
+        }
+
+        $success = ETB_LimoExpress::send_booking( $booking_id, $data );
+
+        if ( $success ) {
+            $limo_id      = get_post_meta( $booking_id, '_etb_limo_booking_id', true );
+            $client_debug = get_post_meta( $booking_id, '_etb_limo_client_debug', true );
+            wp_send_json_success( array( 
+                'limo_id'      => $limo_id,
+                'client_debug' => $client_debug,
+            ) );
+        } else {
+            $error_msg = get_post_meta( $booking_id, '_etb_limo_error', true ) ?: 'Erreur de communication API';
+            wp_send_json_error( array( 'message' => $error_msg ) );
+        }
     }
 }

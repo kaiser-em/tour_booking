@@ -244,11 +244,7 @@
                 margin 0.3s cubic-bezier(0.25, 1, 0.5, 1) !important;
 }
 
-.co-vehicles-grid .etb-vehicle-card.etb-selected .etb-vehicle-image {
-    height: 110px !important;
-    max-height: 110px !important;
-    margin-bottom: 2px !important;
-}
+
 
 /* 5. Titre et Prix */
 .co-vehicles-grid .etb-vehicle-card h3.etb-vehicle-name {
@@ -830,9 +826,13 @@
     color: var(--etb-primary) !important;
     transition: border-color 0.2s !important;
 }
+.etb-field input{
+     max-height: 43px !important;
+}
 
 .etb-field .etb-field-icon-wrapper input {
     padding-left: 42px !important;
+    max-height: 43px !important;
 }
 
 .etb-field input:focus,
@@ -958,7 +958,7 @@
     height: 32px !important;
     min-width: 32px !important;
     border-radius: var(--etb-radius-sm) !important;
-    background: var(--etb-bg-light) !important;
+    background: transparent !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;

@@ -8,6 +8,7 @@ class ETB_Meta_Manager {
         add_action( 'save_post', array( $this, 'save_etb_meta_data' ) );
         add_action( 'save_post_circuit', array( $this, 'save_circuit_options_data' ) );
         add_filter( 'wp_insert_post_data', array( $this, 'normalize_promo_code_title' ), 10, 2 );
+        add_action( 'admin_post_etb_print_invoice', array( $this, 'handle_print_invoice' ) ); // <-- AJOUT DE CETTE LIGNE
     }
 
     public function add_etb_meta_boxes() {
@@ -364,12 +365,7 @@ class ETB_Meta_Manager {
             <label>Icône Dashicons (ex: dashicons-admin-generic) :</label><br>
             <input type="text" name="etb_icon" value="<?php echo esc_attr( $icon ); ?>" class="widefat" placeholder="dashicons-...">
         </p>
-        <hr style="margin: 15px 0;">
-        <p>
-            <label><strong>🏷️ ID LimoExpress (Extra / Service additionnel) :</strong></label><br>
-            <input type="text" name="etb_limo_extra_id" value="<?php echo esc_attr( get_post_meta( $post->ID, '_etb_limo_extra_id', true ) ); ?>" class="widefat" placeholder="Ex: a1b2c3d4-...">
-            <span class="description">UUID de l'Extra correspondant dans LimoExpress (Settings > Extra Fees).</span>
-        </p>
+        
         <?php
     }
 
@@ -400,10 +396,16 @@ class ETB_Meta_Manager {
 
     public function render_promo_box( $post ) {
         wp_nonce_field( 'etb_save_meta', 'etb_nonce' );
-        $type   = get_post_meta( $post->ID, '_etb_promo_type', true ) ?: 'percentage';
-        $value  = get_post_meta( $post->ID, '_etb_promo_value', true );
-        $active = get_post_meta( $post->ID, '_etb_promo_active', true );
+        $type        = get_post_meta( $post->ID, '_etb_promo_type', true ) ?: 'percentage';
+        $value       = get_post_meta( $post->ID, '_etb_promo_value', true );
+        $active      = get_post_meta( $post->ID, '_etb_promo_active', true );
         if ( $active === '' ) $active = '1';
+
+        // Nouveautés : Dates et Quotas
+        $valid_from  = get_post_meta( $post->ID, '_etb_promo_valid_from', true );
+        $valid_to    = get_post_meta( $post->ID, '_etb_promo_valid_to', true );
+        $usage_limit = get_post_meta( $post->ID, '_etb_promo_usage_limit', true );
+        $remaining   = get_post_meta( $post->ID, '_etb_promo_remaining', true );
         ?>
         <p>
             <label>Type de réduction :</label><br>
@@ -424,13 +426,40 @@ class ETB_Meta_Manager {
             </select>
         </p>
         <hr style="margin: 15px 0;">
-        <p>
-            <label><strong>🎟️ ID LimoExpress (Code de réduction / Discount) :</strong></label><br>
-            <input type="text" name="etb_limo_promo_id" value="<?php echo esc_attr( get_post_meta( $post->ID, '_etb_limo_promo_id', true ) ); ?>" class="widefat" placeholder="Ex: f9e8d7c6-...">
-            <span class="description">UUID du code promo dans LimoExpress (Settings > Discount Codes).</span>
-        </p>
+        
+        <!-- Dates de validité -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 12px;">
+            <div>
+                <label><strong>📅 Valide à partir du :</strong></label><br>
+                <input type="date" name="etb_promo_valid_from" value="<?php echo esc_attr( $valid_from ); ?>" class="widefat">
+                <span class="description" style="font-size: 11px;">Laisser vide si actif immédiatement.</span>
+            </div>
+            <div>
+                <label><strong>📅 Expire le (inclus) :</strong></label><br>
+                <input type="date" name="etb_promo_valid_to" value="<?php echo esc_attr( $valid_to ); ?>" class="widefat">
+                <span class="description" style="font-size: 11px;">Laisser vide pour aucune date de fin.</span>
+            </div>
+        </div>
+
+        <!-- Quotas d'utilisations -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 12px;">
+            <div>
+                <label><strong>🔢 Nombre total d'utilisations :</strong></label><br>
+                <input type="number" min="0" name="etb_promo_usage_limit" value="<?php echo esc_attr( $usage_limit ); ?>" class="widefat" placeholder="Illimité si vide">
+                <span class="description" style="font-size: 11px;">Nombre total autorisé (ex: 30).</span>
+            </div>
+            <div>
+                <label><strong>⏳ Utilisations restantes :</strong></label><br>
+                <input type="number" min="0" name="etb_promo_remaining" value="<?php echo esc_attr( $remaining ); ?>" class="widefat" placeholder="Calculé auto">
+                <span class="description" style="font-size: 11px;">Se décrémente à chaque commande.</span>
+            </div>
+        </div>
+
+    
+        
         <?php
     }
+
 
     public function render_booking_box( $post ) {
         wp_nonce_field( 'etb_save_meta', 'etb_nonce' );
@@ -478,14 +507,27 @@ class ETB_Meta_Manager {
             .etb-status-box { background: #e7f5ff; border: 1px solid #74c0fc; padding: 12px; border-radius: 4px; margin-bottom: 15px; }
         </style>
 
-        <div class="etb-status-box">
-            <label for="etb_status"><strong>Statut de la réservation :</strong></label>
-            <select name="etb_status" id="etb_status" style="margin-left: 10px; font-weight: bold;">
-                <option value="pending" <?php selected( $status, 'pending' ); ?>>⏳ En attente</option>
-                <option value="confirmed" <?php selected( $status, 'confirmed' ); ?>>✅ Confirmée</option>
-                <option value="completed" <?php selected( $status, 'completed' ); ?>>🏁 Terminée</option>
-                <option value="cancelled" <?php selected( $status, 'cancelled' ); ?>>❌ Annulée</option>
-            </select>
+        <?php 
+        $invoice_url = wp_nonce_url( 
+            admin_url( 'admin-post.php?action=etb_print_invoice&booking_id=' . $post->ID ), 
+            'etb_print_invoice_' . $post->ID 
+        );
+        ?>
+        <div class="etb-status-box" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div>
+                <label for="etb_status"><strong>Statut de la réservation :</strong></label>
+                <select name="etb_status" id="etb_status" style="margin-left: 10px; font-weight: bold;">
+                    <option value="pending" <?php selected( $status, 'pending' ); ?>>⏳ En attente</option>
+                    <option value="confirmed" <?php selected( $status, 'confirmed' ); ?>>✅ Confirmée</option>
+                    <option value="completed" <?php selected( $status, 'completed' ); ?>>🏁 Terminée</option>
+                    <option value="cancelled" <?php selected( $status, 'cancelled' ); ?>>❌ Annulée</option>
+                </select>
+            </div>
+            <div>
+                <a href="<?php echo esc_url( $invoice_url ); ?>" target="_blank" class="button button-primary" style="background: #0f172a; border-color: #0f172a; font-weight: 600;">
+                    📄 Voir / Imprimer la Facture
+                </a>
+            </div>
         </div>
 
         <div class="etb-admin-grid">
@@ -501,17 +543,89 @@ class ETB_Meta_Manager {
                 <p><strong>Prestation :</strong> <?php echo $circuit_option_id ? '<span style="background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px;">' . esc_html( $option_label ) . '</span>' : '<span style="color: #64748b;"><em>Transfert standard (1.0h)</em></span>'; ?></p>
 
 
-                <p><strong>LimoExpress :</strong> 
-                    <?php if ( $limo_status === 'synced' ) : ?>
-                        <span style="background: #dcfce7; color: #15803d; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px;">✅ Synchronisé (Course #<?php echo esc_html( $limo_id ); ?>)</span>
-                    <?php elseif ( $limo_status === 'failed' ) : ?>
-                        <span style="background: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px;">❌ Échec : <?php echo esc_html( $limo_error ?: 'Erreur de connexion' ); ?></span>
-                    <?php else : ?>
-                        <span style="color: #94a3b8;"><em>Non synchronisé / Inactif</em></span>
-                    <?php endif; ?>
-                </p>
-                
+                <div style="margin-bottom: 12px; padding: 8px; background: #fff; border: 1px solid #e2e8f0; border-radius: 4px;">
+                    <p style="margin: 0 0 8px 0;"><strong>LimoExpress :</strong> 
+                        <span id="etb-limo-status-badge">
+                            <?php if ( $limo_status === 'synced' ) : ?>
+                                <span style="background: #dcfce7; color: #15803d; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px;">✅ Synchronisé (Course #<?php echo esc_html( $limo_id ); ?>)</span>
+                            <?php elseif ( $limo_status === 'failed' ) : ?>
+                                <span style="background: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px;">❌ Échec : <?php echo esc_html( $limo_error ?: 'Erreur de connexion' ); ?></span>
+                            <?php else : ?>
+                                <span style="color: #94a3b8;"><em>Non synchronisé / En attente</em></span>
+                            <?php endif; ?>
+                        </span>
+                    </p>
 
+                    <!-- Bouton de transfert manuel avec bouclier anti-doublon -->
+                    <div>
+                        <?php 
+                        $is_already_synced = ( 'synced' === $limo_status && ! empty( $limo_id ) );
+                        $btn_label         = $is_already_synced ? '⚠️ Forcer un re-transfert LimoExpress' : '🔄 Transférer vers LimoExpress';
+                        ?>
+                        <button type="button" 
+                                class="button button-secondary" 
+                                id="etb-btn-resync-limo" 
+                                data-post-id="<?php echo esc_attr( $post->ID ); ?>" 
+                                data-nonce="<?php echo esc_attr( wp_create_nonce( 'etb_resync_nonce_' . $post->ID ) ); ?>"
+                                data-is-synced="<?php echo $is_already_synced ? '1' : '0'; ?>"
+                                data-limo-id="<?php echo esc_attr( $limo_id ); ?>">
+                            <?php echo esc_html( $btn_label ); ?>
+                        </button>
+                        <span id="etb-resync-spinner" class="spinner" style="float: none; margin: 0 5px; vertical-align: middle;"></span>
+                        <span id="etb-resync-feedback" style="font-weight: 600; font-size: 12px;"></span>
+                    </div>
+                </div>
+
+                <script>
+                jQuery(document).ready(function($) {
+                    $('#etb-btn-resync-limo').on('click', function(e) {
+                        e.preventDefault();
+                        var $btn = $(this);
+                        var isSynced = $btn.data('is-synced');
+                        var limoId = $btn.data('limo-id');
+
+                        // Bouclier Anti-Doublon : confirmation obligatoire si déjà synchronisé
+                        if (isSynced == '1' || isSynced === 1) {
+                            var confirmMsg = "⚠️ ATTENTION ANTI-DOUBLON :\n\nCette commande est DÉJÀ synchronisée dans LimoExpress (Course #" + limoId + ").\n\nVoulez-vous vraiment générer une DEUXIÈME course en doublon ?";
+                            if (!confirm(confirmMsg)) {
+                                return; // Annule immédiatement sans envoyer de requête
+                            }
+                        }
+
+                        var postId = $btn.data('post-id');
+                        var nonce = $btn.data('nonce');
+                        var $spinner = $('#etb-resync-spinner');
+                        var $feedback = $('#etb-resync-feedback');
+
+                        $btn.prop('disabled', true);
+                        $spinner.addClass('is-active');
+                        $feedback.text('').css('color', '');
+
+                        $.post(ajaxurl, {
+                            action: 'etb_resync_booking',
+                            booking_id: postId,
+                            nonce: nonce
+                        }, function(res) {
+                            $btn.prop('disabled', false);
+                            $spinner.removeClass('is-active');
+                            if (res.success) {
+                                $feedback.text('✓ Synchronisé avec succès (Course #' + res.data.limo_id + ')').css('color', '#15803d');
+                                $('#etb-limo-status-badge').html('<span style="background: #dcfce7; color: #15803d; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px;">✅ Synchronisé (Course #' + res.data.limo_id + ')</span>');
+                                
+                                // Mise à jour de l'état du bouton pour protéger les clics suivants
+                                $btn.text('⚠️ Forcer un re-transfert LimoExpress').data('is-synced', '1').data('limo-id', res.data.limo_id);
+                            } else {
+                                $feedback.text('⚠ ' + (res.data.message || 'Erreur')).css('color', '#dc2626');
+                                $('#etb-limo-status-badge').html('<span style="background: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px;">❌ Échec : ' + (res.data.message || 'Erreur') + '</span>');
+                            }
+                        }).fail(function() {
+                            $btn.prop('disabled', false);
+                            $spinner.removeClass('is-active');
+                            $feedback.text('⚠ Erreur réseau.').css('color', '#dc2626');
+                        });
+                    });
+                });
+                </script>
                 <p><strong>Lieu de départ :</strong> <?php echo esc_html( $pickup ); ?></p>
                 <p><strong>Lieu de dépose :</strong> <?php echo $dropoff_info ? nl2br( esc_html( $dropoff_info ) ) : '<em>Identique au lieu de départ</em>'; ?></p>
                 <p><strong>Date & Heure :</strong> <?php echo esc_html( $date ); ?> à <?php echo esc_html( $time ); ?></p>
@@ -706,7 +820,7 @@ class ETB_Meta_Manager {
                 update_post_meta( $post_id, '_etb_price_type', $type );
                 update_post_meta( $post_id, '_etb_max_qty', max( 1, absint( $_POST['etb_max_qty'] ) ) );
                 update_post_meta( $post_id, '_etb_icon', sanitize_text_field( $_POST['etb_icon'] ) );
-                update_post_meta( $post_id, '_etb_limo_extra_id', sanitize_text_field( $_POST['etb_limo_extra_id'] ?? '' ) );
+                
 
                 break;
 
@@ -721,7 +835,7 @@ class ETB_Meta_Manager {
             case 'tour_promo':
                 $valid_promo_types = array( 'fixed', 'percentage' );
                 $p_type = ( isset( $_POST['etb_promo_type'] ) && in_array( $_POST['etb_promo_type'], $valid_promo_types ) ) ? $_POST['etb_promo_type'] : 'percentage';
-                $p_value = floatval( $_POST['etb_promo_value'] );
+                $p_value = floatval( $_POST['etb_promo_value'] ?? 0 );
                 if ( $p_type === 'percentage' ) {
                     $p_value = max( 0, min( 100, $p_value ) );
                 } else {
@@ -729,8 +843,26 @@ class ETB_Meta_Manager {
                 }
                 update_post_meta( $post_id, '_etb_promo_type', $p_type );
                 update_post_meta( $post_id, '_etb_promo_value', $p_value );
-                update_post_meta( $post_id, '_etb_promo_active', ( $_POST['etb_promo_active'] === '0' ) ? '0' : '1' );
-                update_post_meta( $post_id, '_etb_limo_promo_id', sanitize_text_field( $_POST['etb_limo_promo_id'] ?? '' ) );
+                update_post_meta( $post_id, '_etb_promo_active', ( isset( $_POST['etb_promo_active'] ) && $_POST['etb_promo_active'] === '0' ) ? '0' : '1' );
+               
+
+                // Sauvegarde des dates de validité
+                $valid_from = ! empty( $_POST['etb_promo_valid_from'] ) ? sanitize_text_field( $_POST['etb_promo_valid_from'] ) : '';
+                $valid_to   = ! empty( $_POST['etb_promo_valid_to'] ) ? sanitize_text_field( $_POST['etb_promo_valid_to'] ) : '';
+                update_post_meta( $post_id, '_etb_promo_valid_from', $valid_from );
+                update_post_meta( $post_id, '_etb_promo_valid_to', $valid_to );
+
+                // Sauvegarde et initialisation intelligente des quotas
+                $usage_limit = isset( $_POST['etb_promo_usage_limit'] ) && '' !== trim( $_POST['etb_promo_usage_limit'] ) ? absint( $_POST['etb_promo_usage_limit'] ) : '';
+                $remaining   = isset( $_POST['etb_promo_remaining'] ) && '' !== trim( $_POST['etb_promo_remaining'] ) ? absint( $_POST['etb_promo_remaining'] ) : '';
+
+                // Si un total est défini et que le restant est vide, on initialise le restant au total
+                if ( '' !== $usage_limit && '' === $remaining ) {
+                    $remaining = $usage_limit;
+                }
+
+                update_post_meta( $post_id, '_etb_promo_usage_limit', $usage_limit );
+                update_post_meta( $post_id, '_etb_promo_remaining', $remaining );
                 break;
 
             case 'tour_booking':
@@ -795,5 +927,25 @@ class ETB_Meta_Manager {
             esc_html( $name ), $booking_id, esc_html( $status_title ), esc_html( $status_message ), esc_html( $date ), esc_html( $time ), $formatted_total
         );
         wp_mail( $email, $subject, $message, $headers );
+    }
+
+
+    /**
+     * Affiche la vue imprimable de la facture
+     */
+    public function handle_print_invoice() {
+        if ( ! current_user_can( 'edit_posts' ) ) {
+            wp_die( 'Accès refusé.' );
+        }
+        $booking_id = absint( $_GET['booking_id'] ?? 0 );
+        check_admin_referer( 'etb_print_invoice_' . $booking_id );
+
+        $invoice_file = ETB_PATH . 'templates/invoice-print.php';
+        if ( file_exists( $invoice_file ) ) {
+            include $invoice_file;
+            exit;
+        } else {
+            wp_die( 'Fichier de facture introuvable.' );
+        }
     }
 }

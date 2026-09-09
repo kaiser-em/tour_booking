@@ -47,11 +47,19 @@ class ETB_Settings {
         }
 
         // Réglages LimoExpress
-        $new_input['limo_enabled']   = isset( $input['limo_enabled'] ) && $input['limo_enabled'] === '1' ? '1' : '0';
-        $new_input['limo_api_token'] = ! empty( $input['limo_api_token'] ) ? sanitize_text_field( trim( $input['limo_api_token'] ) ) : '';
+        $new_input['limo_enabled']           = isset( $input['limo_enabled'] ) && $input['limo_enabled'] === '1' ? '1' : '0';
+        $new_input['limo_api_token']         = ! empty( $input['limo_api_token'] ) ? sanitize_text_field( trim( $input['limo_api_token'] ) ) : '';
+        $new_input['limo_client_id']         = ! empty( $input['limo_client_id'] ) ? sanitize_text_field( trim( $input['limo_client_id'] ) ) : '';
+        $new_input['limo_booking_type_id']   = ! empty( $input['limo_booking_type_id'] ) ? sanitize_text_field( trim( $input['limo_booking_type_id'] ) ) : '';
+        $new_input['limo_booking_status_id'] = ! empty( $input['limo_booking_status_id'] ) ? sanitize_text_field( trim( $input['limo_booking_status_id'] ) ) : '';
 
-        // Sauvegarde du client LimoExpress par défaut
-        $new_input['limo_client_id'] = ! empty( $input['limo_client_id'] ) ? sanitize_text_field( trim( $input['limo_client_id'] ) ) : '';
+        // Purge automatique des caches à chaque enregistrement des réglages
+        delete_transient( 'etb_limo_clients_cache' );
+        delete_transient( 'etb_limo_classes_cache' );
+        delete_transient( 'etb_limo_types_cache' );
+        delete_transient( 'etb_limo_statuses_cache' );
+
+        return $new_input;
 
         return $new_input;
     }
@@ -161,6 +169,54 @@ class ETB_Settings {
                         </tr>
 
                         
+                        <?php 
+                        $limo_types = ( class_exists( 'ETB_LimoExpress' ) && method_exists( 'ETB_LimoExpress', 'get_booking_types' ) ) 
+                            ? ETB_LimoExpress::get_booking_types() 
+                            : array();
+                        $current_type_id = $options['limo_booking_type_id'] ?? '';
+
+                        $limo_statuses = ( class_exists( 'ETB_LimoExpress' ) && method_exists( 'ETB_LimoExpress', 'get_booking_statuses' ) ) 
+                            ? ETB_LimoExpress::get_booking_statuses() 
+                            : array();
+                        $current_status_id = $options['limo_booking_status_id'] ?? '';
+                        ?>
+                        <tr>
+                            <th scope="row">Type de réservation LimoExpress</th>
+                            <td>
+                                <?php if ( ! empty( $limo_types ) ) : ?>
+                                    <select name="etb_general_settings[limo_booking_type_id]" class="regular-text">
+                                        <?php foreach ( $limo_types as $type ) : ?>
+                                            <option value="<?php echo esc_attr( $type['id'] ); ?>" <?php selected( $current_type_id, $type['id'] ); ?>>
+                                                📋 <?php echo esc_html( $type['name'] ); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <p class="description">Type de prestation appliqué dans LimoExpress (ex: Transfert).</p>
+                                <?php else : ?>
+                                    <input type="text" name="etb_general_settings[limo_booking_type_id]" value="<?php echo esc_attr( $current_type_id ); ?>" class="regular-text">
+                                    <p class="description">Enregistrez votre jeton API pour charger automatiquement les types de réservation.</p>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Statut initial LimoExpress</th>
+                            <td>
+                                <?php if ( ! empty( $limo_statuses ) ) : ?>
+                                    <select name="etb_general_settings[limo_booking_status_id]" class="regular-text">
+                                        <?php foreach ( $limo_statuses as $st ) : ?>
+                                            <option value="<?php echo esc_attr( $st['id'] ); ?>" <?php selected( $current_status_id, $st['id'] ); ?>>
+                                                ⏳ <?php echo esc_html( $st['name'] ); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <p class="description">Statut sous lequel la course est créée (ex: Pending / En attente).</p>
+                                <?php else : ?>
+                                    <input type="text" name="etb_general_settings[limo_booking_status_id]" value="<?php echo esc_attr( $current_status_id ); ?>" class="regular-text">
+                                    <p class="description">Enregistrez votre jeton API pour charger automatiquement les statuts.</p>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+
                     </table>
                 <?php } else { 
                     settings_fields( 'etb_form_settings_group' );

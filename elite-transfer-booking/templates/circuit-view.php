@@ -47,14 +47,7 @@ $currency     = ! empty( $gen_settings['currency'] ) ? sanitize_text_field( $gen
                         <span>👤 <?php echo esc_html( $max_pax ); ?> Pers. max</span>
                         <span>🧳 <?php echo esc_html( $max_bag ); ?> Bagages</span>
                     </div>
-                    <div class="etb-vehicle-qty">
-                        <span>Quantité</span>
-                        <div class="etb-qty-control mini">
-                            <button type="button" class="etb-qty-btn etb-minus" aria-label="Diminuer">-</button>
-                            <input type="number" name="etb_car_qty[<?php echo $vehicle->ID; ?>]" value="0" min="0" readonly>
-                            <button type="button" class="etb-qty-btn etb-plus" aria-label="Augmenter">+</button>
-                        </div>
-                    </div>
+                     <input type="hidden" name="etb_car_qty[<?php echo $vehicle->ID; ?>]" value="0">
                 </div>
             <?php endforeach; ?>
         </div>

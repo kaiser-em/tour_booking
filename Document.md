@@ -1,5 +1,5 @@
 # 📖 DOCUMENTATION TECHNIQUE & FONCTIONNELLE OFFICIELLE
-# Elite Transfer Booking (Unified) — Version 1.1.0
+# Elite Transfer Booking (Unified) — Version 2.0.0 (Jalon LimoExpress)
 
 ---
 
@@ -9,398 +9,310 @@
 | :--- | :--- |
 | **Nom de l'extension** | **Elite Transfer Booking (Unified)** |
 | **Identifiant / Text Domain** | `elite-transfer-booking` |
-| **Version actuelle** | **`1.1.0`** *(Version consolidée, sécurisée, autonome et nettoyée)* |
-| **Dépôts de référence** | [https://github.com/kaiser-em/tour_booking](https://github.com/kaiser-em/tour_booking) / [https://github.com/kaiser-em/etb](https://github.com/kaiser-em/etb) |
-| **Auteur** | Kaiser EM |
-| **Type de solution** | Moteur WordPress complet, 100 % autonome, dédié à la réservation d'excursions touristiques privatisées, circuits multi-villes et transferts VTC VIP |
+| **Version actuelle** | **`2.0.0`** *(Version consolidée, sécurisée, intégration LimoExpress complète, facture Option C, UX véhicule unique)* |
+| **Auteur** | Kaiser EM / Reich C |
+| **Type de solution** | Moteur WordPress 100 % autonome pour la réservation d'excursions touristiques privées, circuits multi-villes et transferts VTC VIP avec dispatch API |
 | **Compatibilité WP / PHP** | WordPress 5.8+ (testé 6.x+) / PHP 7.4, 8.0, 8.1, 8.2+ |
-| **Dépendances externes** | **0 dépendance** (Vanilla JS ES6+ natif, Dashicons, CSS3 tokenisé, Fetch API, WordPress APIs) |
+| **Dépendances externes** | **0 dépendance** (Vanilla JS ES6+ natif, Dashicons, CSS3 tokenisé, Fetch API, WordPress Core APIs) |
 
 ---
 
 ## 📑 TABLE DES MATIÈRES
 
-1. [Vue d'Ensemble & Périmètre Métier](#1-vue-densemble--périmètre-métier)
-2. [Arborescence Réelle du Codebase](#2-arborescence-réelle-du-codebase)
-3. [Modèle de Données & Base de Données (CPTs & Métadonnées)](#3-modèle-de-données--base-de-données-cpts--métadonnées)
-4. [Moteur de Tarification (ETB_Pricing_Engine)](#4-moteur-de-tarification-etb_pricing_engine)
-5. [Architecture de Sécurité & Anti-Spam (ETB_Security)](#5-architecture-de-sécurité--anti-spam-etb_security)
-6. [Gestionnaire des Circuits & Options de Départ](#6-gestionnaire-des-circuits--options-de-départ)
-7. [Expérience Frontend (Split Layout & Design Photo 1)](#7-expérience-frontend-split-layout--design-photo-1)
-8. [Moteur JavaScript Réactif (`booking-widget.js`)](#8-moteur-javascript-réactif-booking-widgetjs)
-9. [Système CSS, Design Tokens & Bouclier Anti-Thème](#9-système-css-design-tokens--bouclier-anti-thème)
-10. [Pipeline AJAX & Notifications E-mail](#10-pipeline-ajax--notifications-e-mail)
-11. [Administration Back-Office WordPress](#11-administration-back-office-wordpress)
-12. [Guide des Shortcodes & Intégration](#12-guide-des-shortcodes--intégration)
-13. [État de Nettoyage & Roadmap Immédiate](#13-état-de-nettoyage--roadmap-immédiate)
+1. [Vue d'Ensemble & Changements Majeurs v2.0.0](#1-vue-densemble--changements-majeurs-v200)
+2. [Arborescence Réelle et Assainie du Codebase](#2-arborescence-réelle-et-assainie-du-codebase)
+3. [Modèle de Données & Dictionnaire des Métadonnées](#3-modèle-de-données--dictionnaire-des-métadonnées)
+4. [Moteur Frontend & Expérience "Véhicule Unique"](#4-moteur-frontend--expérience-véhicule-unique)
+5. [Connecteur API LimoExpress (Spécifications & Flux)](#5-connecteur-api-limoexpress-spécifications--flux)
+6. [Système de Facturation Détaillée (Option C)](#6-système-de-facturation-détaillée-option-c)
+7. [Boucliers Anti-Duplication & Résilience](#7-boucliers-anti-duplication--résilience)
+8. [Architecture de Sécurité & Anti-Spam Triangulaire](#8-architecture-de-sécurité--anti-spam-triangulaire)
+9. [Administration Back-Office WordPress](#9-administration-back-office-wordpress)
+10. [Feuille de Route Future (Architecture Multi-Dispatch)](#10-feuille-de-route-future-architecture-multi-dispatch)
 
 ---
 
-## 1. VUE D'ENSEMBLE & PÉRIMÈTRE MÉTIER
+## 1. VUE D'ENSEMBLE & CHANGEMENTS MAJEURS v2.0.0
 
-L'extension **Elite Transfer Booking (v1.1.0)** est l'aboutissement de l'unification technique d'ETB et de Circuit Options. Elle ne dépend plus d'aucun second plugin.
+La version **2.0.0** marque la stabilisation complète du module de dispatching externe et la refonte de l'expérience de réservation :
 
-### Les 5 Piliers Métier de la Solution :
-1. **Flotte Multi-Véhicules & Facturation Horaire** : Sélection interactive de véhicules avec quantités multiples, calcul du coût au prorata de la durée réelle de l'excursion (`Taux horaire × Heures × Quantité`), et validation stricte des capacités en passagers et bagages.
-2. **Circuits & Villes de Départ Multiples** : Gestion d'itinéraires avec choix de ville de départ (chacune disposant de sa durée propre, de son supplément éventuel, de ses 4 badges, de sa timeline dynamique recalculée et de ses inclusions/exclusions).
-3. **Ergonomie "Split Layout" (Design Photo 1)** : Grille supérieure de véhicules en cartes blanches lumineuses avec sélection réactive au clic, colonne gauche pour les détails du circuit, et colonne droite sticky pour la réservation en direct.
-4. **Sécurité Native & Anti-Spam Triangulaire** : Protection invisible pour l'utilisateur sans CAPTCHA intrusif (Honeypot, vérification de vélocité par jeton d'horodatage signé, et Rate Limiting par Transients IP non bloquant pour les réseaux partagés).
-5. **Autonomie Absolue** : Aucun résidu de code tiers orphelin. Le système fonctionne de manière fluide, légère et isolée.
+1. **Sélection de Véhicule Unique (Single Vehicle UX)** : Fin des compteurs multiples `[- 1 +]`. Le client choisit un seul véhicule exclusif par réservation (comportement radio élégant).
+2. **Liaison LimoExpress Validée de Bout en Bout** :
+   * Endpoint de synchronisation : `PUT /api/integration/booking-with-fees/`.
+   * Création et détection dynamique des clients via `PUT /api/integration/clients`.
+   * Points de passage (`checkpoints`) injectés chronologiquement avec calcul automatique des heures d'arrivée ajustées.
+   * Auto-découverte dynamique des classes de véhicules, types de réservation, statuts et clients sans aucun UUID en dur dans le code (*Zero-Hardcode*).
+3. **Facturation Détaillée Décomposée (Option C)** : Moteur de facturation natif WordPress générant un document officiel imprimable et exportable en PDF avec ventilation ligne par ligne (véhicule, suppléments, extras, remises).
+4. **Bouclier Anti-Duplication Double Niveau** : Mémorisation locale de l'UUID client (`_etb_limo_client_id`) et confirmation préventive obligatoire sur le bouton de transfert pour empêcher la création de courses en doublon.
+5. **Collecte du Téléphone Client** : Champ téléphone natif intégré au formulaire, sauvegardé en base, affiché dans l'administration et transmis au chauffeur LimoExpress.
+6. **Assainissement du Codebase** : Suppression définitive des fichiers orphelins (`class-elite-transfer-booking.php` et `class-etb-assets.php`) et élimination du code mort du carrousel dans le moteur JavaScript.
 
 ---
 
-## 2. ARBORESCENCE RÉELLE DU CODEBASE
-
-Le plugin est structuré selon les standards WordPress officiels les plus stricts :
+## 2. ARBORESCENCE RÉELLE ET ASSAINIE DU CODEBASE
 
 ```text
 wp-content/plugins/elite-transfer-booking/
 │
-├── elite-transfer-booking.php          # Bootstrap orchestrateur (Singleton, constantes, activation, flush)
+├── elite-transfer-booking.php          # Point d'entrée orchestrateur (Singleton, hooks, enqueue)
 │
 ├── includes/                           # Modules PHP métier (Préfixe homogène class-etb-*.php)
-│   ├── class-etb-cpt-manager.php       # Enregistrement de TOUS les CPTs & colonnes d'administration
-│   ├── class-etb-settings.php          # Réglages (Onglets "Général" et "Configuration du Formulaire")
-│   ├── class-etb-security.php          # Module de sécurité (Honeypot, Timestamp signé, Rate Limiting)
-│   ├── class-etb-pricing-engine.php    # Calculateur tarifaire autonome (Recherche BDD et formule horaire)
-│   ├── class-etb-meta-manager.php      # Metaboxes Admin (Éditeur Circuits, Véhicules, Fiche Réservation)
-│   ├── class-etb-ajax.php              # Contrôleur AJAX (Validation stricte, création réservation, e-mails)
-│   └── class-etb-shortcode.php         # Gestion des shortcodes [circuit_view] et [tour_booking]
+│   ├── class-etb-cpt-manager.php       # Enregistrement des 6 CPTs & colonnes administratives
+│   ├── class-etb-settings.php          # Réglages (Général, Formulaire, LimoExpress dynamique)
+│   ├── class-etb-security.php          # Sécurité (Honeypot, Timestamp signé, Rate Limiting IP)
+│   ├── class-etb-pricing-engine.php    # Calculateur financier serveur et résolution des circuits
+│   ├── class-etb-meta-manager.php      # Metaboxes, boutons d'action (Facture, Resync Limo)
+│   ├── class-etb-limoexpress.php       # Connecteur API LimoExpress complet et autonome
+│   ├── class-etb-ajax.php              # Contrôleur AJAX (Validation, création CPT, resync, e-mails)
+│   └── class-etb-shortcode.php         # Shortcodes [circuit_view] et [tour_booking] dynamiques
 │
-├── admin/                              # Assets d'administration
+├── admin/                              # Assets d'administration WordPress
 │   ├── css/
-│   │   └── etb-admin.css               # Styles du gestionnaire d'onglets de circuits en back-office
+│   │   └── etb-admin.css               # Styles du gestionnaire d'onglets et répéteur back-office
 │   └── js/
-│       └── etb-admin.js                # Répéteur interactif d'onglets et de timeline dans l'admin
+│       └── etb-admin.js                # Répéteur interactif d'options et timeline de circuit
 │
-├── public/                             # Assets Frontend unifiés
+├── public/                             # Assets Frontend publics
 │   ├── css/
-│   │   └── booking-widget.css          # Design System tokenisé, layout 2 colonnes, animations Photo 1
+│   │   └── booking-widget.css          # Design System tokenisé, Shield Anti-Thème, Split Layout
 │   └── js/
-│       └── booking-widget.js           # Moteur réactif client (Onglets, sélection cartes, live pricing, Fetch)
+│       └── booking-widget.js           # Moteur réactif client (Véhicule unique, live pricing, Fetch)
 │
 └── templates/                          # Gabarits de vues HTML
-    ├── circuit-view.php                # Layout principal (Grille haute + Détails gauche + Sidebar)
-    └── booking-form.php                # Formulaire latéral droit de réservation
+    ├── circuit-view.php                # Split layout (Grille haute véhicules + Détails gauche + Widget droit)
+    ├── booking-form.php                # Formulaire latéral droit (Téléphone, passagers, options, récapitulatif)
+    └── invoice-print.php               # Facture officielle décomposée, imprimable et téléchargeable en PDF
 ```
 
 ---
 
-## 3. MODÈLE DE DONNÉES & BASE DE DONNÉES (CPTS & MÉTADONNÉES)
+## 3. MODÈLE DE DONNÉES & DICTIONNAIRE DES MÉTADONNÉES
 
 ### A. Les 6 Custom Post Types (CPTs)
 
-| CPT | Identifiant | Visibilité / Menu | Rôle & Description |
+| CPT | Identifiant | Visibilité / Menu | Rôle |
 | :--- | :--- | :--- | :--- |
-| **Circuit** | `circuit` | Public (`/circuits/%slug%/`) | Fiches des circuits touristiques, options de départ et programmes. |
+| **Circuit** | `circuit` | Public (`/circuits/%slug%/`) | Fiches descriptives des circuits et options de départ. |
 | **Réservation** | `tour_booking` | Menu `Tour Booking` | Commandes et dossiers de réservation passés par les clients. |
-| **Véhicule** | `tour_vehicle` | Sous-menu `Tour Booking` | Flotte de véhicules (taux horaires, passagers et bagages max). |
-| **Option / Extra** | `tour_extra` | Sous-menu `Tour Booking` | Services additionnels (Siège bébé, Champagne, Guide privé...). |
-| **Code Promo** | `tour_promo` | Sous-menu `Tour Booking` | Coupons de réduction (% ou montant fixe) avec statut actif/inactif. |
-| **Point de départ** | `tour_pickup` | Masqué | *(Legacy)* Ancien CPT technique conservé pour rétrocompatibilité. |
+| **Véhicule** | `tour_vehicle` | Sous-menu `Tour Booking` | Flotte (tarifs horaires, passagers/bagages max, classe LimoExpress). |
+| **Option / Extra** | `tour_extra` | Sous-menu `Tour Booking` | Services additionnels (Guide, Champagne, Siège bébé...). |
+| **Code Promo** | `tour_promo` | Sous-menu `Tour Booking` | Coupons de réduction (% ou montant fixe) avec statut d'activation. |
+| **Point de départ** | `tour_pickup` | Masqué | *(Legacy)* Ancien CPT conservé pour rétrocompatibilité. |
 
 ---
 
-### B. Dictionnaire Complet des Méta-clés (`wp_postmeta`)
+### B. Dictionnaire des Méta-clés (`wp_postmeta`)
 
-#### 1. Méta-clé du CPT `circuit` :
-* **`_circuit_options_data`** *(array sérialisé)* : Contient toutes les options de départ associées au circuit :
-  * `city_name` *(string)* : Nom de la ville de départ (ex: `Cannes`).
-  * `duration_hours` *(float)* : Durée du circuit en heures (ex: `4.0`, `6.5`).
-  * `departure_time` *(string)* : Heure conseillée par défaut (format `HH:MM`).
-  * `additional_price` *(float)* : Supplément tarifaire éventuel pour cette ville.
-  * `badge_1` à `badge_4` *(string)* : Textes des 4 badges récapitulatifs.
-  * `timeline` *(array)* : Liste ordonnée des étapes `[ ['time' => '09:00', 'title' => '...', 'desc' => '...'], ... ]`.
-  * `inclusions` / `exclusions` *(string)* : Éléments inclus et non inclus (ligne par ligne).
-
-#### 2. Méta-clés du CPT `tour_vehicle` :
-* `_etb_hourly_rate` *(float)* : Taux horaire du véhicule ($/h ou €/h).
-* `_etb_base_price` *(float)* : *(Fallback)* Ancien tarif fixe utilisé si le taux horaire vaut `0`.
-* `_etb_max_pax` *(int)* : Nombre maximal de passagers autorisés.
-* `_etb_max_baggage` *(int)* : Nombre maximal de bagages autorisés.
-* `_etb_allowed_extras` *(array d'IDs)* : IDs des options autorisées pour ce véhicule.
-
-#### 3. Méta-clés du CPT `tour_extra` :
-* `_etb_price` *(float)* : Prix unitaire de l'option.
-* `_etb_price_type` *(string)* : `fixed` (par réservation), `per_day` (par jour), `per_quantity` (par unité).
-* `_etb_max_qty` *(int)* : Quantité maximale sélectionnable.
-* `_etb_icon` *(string)* : Classe Dashicons (ex: `dashicons-tag`).
-
-#### 4. Méta-clés du CPT `tour_promo` :
-* `_etb_promo_type` *(string)* : `percentage` (%) ou `fixed` ($/€).
-* `_etb_promo_value` *(float)* : Valeur de la remise.
-* `_etb_promo_active` *(string)* : Statut d'activation (`1` = Actif, `0` = Inactif).
-* `_etb_promo_code` *(string)* : Code promo normalisé en majuscules.
-
-#### 5. Méta-clés du CPT `tour_booking` (Dossier de Commande) :
+#### 1. Dossier de Réservation (`tour_booking`) :
 * `_etb_customer_name` *(string)* : Nom complet du client.
 * `_etb_customer_email` *(string)* : E-mail du client.
-* `_etb_booking_date` *(string)* : Date souhaitée (`YYYY-MM-DD`).
-* `_etb_booking_time` *(string)* : Heure de départ (`HH:MM`).
-* `_etb_pickup_address` *(string)* : Adresse de prise en charge saisie.
-* `_etb_pickup_id` *(int)* : *(Fallback)* ID de pickup legacy si utilisé.
-* `_etb_dropoff_info` *(string)* : Adresse de dépose spécifique (ou vide si identique au départ).
-* `_etb_circuit_id` *(int)* : ID du post `circuit` lié (`0` si transfert standard).
+* `_etb_customer_phone` *(string)* : Numéro de téléphone international du client.
+* `_etb_booking_date` *(string)* : Date de la prestation (`YYYY-MM-DD`).
+* `_etb_booking_time` *(string)* : Heure de prise en charge (`HH:MM`).
+* `_etb_pickup_address` *(string)* : Adresse ou hôtel de départ.
+* `_etb_dropoff_info` *(string)* : Lieu de dépose (ou vide si identique au départ).
+* `_etb_circuit_id` *(int)* : ID du post `circuit` (`0` si transfert simple).
 * `_etb_circuit_option_id` *(string)* : Identifiant unique de l'option choisie (`opt_...`).
-* `_etb_duration_hours` *(float)* : Durée exacte facturée.
-* `_etb_adults` *(int)* : Nombre d'adultes.
-* `_etb_children` *(int)* : Nombre d'enfants.
-* `_etb_luggage` *(int)* : Nombre total de bagages.
-* `_etb_vehicles` *(array)* : Dictionnaire `[ vehicle_id => quantite ]`.
-* `_etb_extras` *(array)* : Dictionnaire `[ extra_id => quantite ]`.
-* `_etb_note` *(string)* : Demande spéciale ou note du client.
-* `_etb_total_price` *(float)* : Montant total final facturé.
+* `_etb_duration_hours` *(float)* : Durée totale facturée en heures.
+* `_etb_adults` *(int)* / `_etb_children` *(int)* / `_etb_luggage` *(int)* : Capacités réservées.
+* `_etb_vehicles` *(array)* : `[ vehicle_id => 1 ]` (Véhicule unique sélectionné).
+* `_etb_extras` *(array)* : `[ extra_id => quantite ]`.
+* `_etb_total_price` *(float)* : Montant net final facturé.
 * `_etb_pricing_details` *(array)* : Snapshot complet de la décomposition financière.
-* `_etb_promo_code` *(string)* : Code promo appliqué.
-* `_etb_discount_amount` *(float)* : Montant de la remise déduite.
-* `_etb_status` *(string)* : Statut (`pending`, `confirmed`, `completed`, `cancelled`).
+* `_etb_promo_code` *(string)* : Code promo validé.
+* `_etb_discount_amount` *(float)* : Montant déduit par la réduction.
+* `_etb_status` *(string)* : `pending`, `confirmed`, `completed`, `cancelled`.
+* `_etb_limo_status` *(string)* : `synced` ou `failed`.
+* `_etb_limo_booking_id` *(string)* : Numéro de course LimoExpress (ex: `47fb308210e9c3`).
+* `_etb_limo_client_id` *(string)* : UUID du client LimoExpress mémorisé pour anti-duplication.
+* `_etb_limo_error` *(string)* : Dernier message d'erreur API en cas d'échec.
+
+#### 2. Véhicule (`tour_vehicle`) :
+* `_etb_hourly_rate` *(float)* : Tarif horaire ($/h ou €/h).
+* `_etb_base_price` *(float)* : *(Fallback)* Tarif de base si taux horaire non renseigné.
+* `_etb_max_pax` *(int)* : Capacité passagers maximale.
+* `_etb_max_baggage` *(int)* : Capacité bagages maximale.
+* `_etb_limo_class_id` *(string)* : UUID de la classe LimoExpress associée (`S Class`, `Van Class`, etc.).
 
 ---
 
-### C. Options WordPress Globales (`wp_options`)
+### C. Options Globales (`wp_options`)
 
-* **`etb_general_settings`** *(array)* :
-  * `currency` : Symbole de la devise configuré (ex: `$`, `€`).
-  * `min_delay` : Délai minimum avant réservation en heures (ex: `24`).
-  * `admin_email` : E-mail destinataire des notifications de commande.
-* **`etb_form_settings`** *(array)* :
-  * Drapeaux booléens pour afficher/masquer chaque champ dans le formulaire frontend (`show_vehicle`, `show_adults`, `show_children`, etc.).
-
----
-
-## 4. MOTEUR DE TARIFICATION (ETB_PRICING_ENGINE)
-
-Classe : `ETB_Pricing_Engine` (`includes/class-etb-pricing-engine.php`)
-
-### A. La Formule Mathématique Officielle
-
-$$\text{Montant Total} = \left( \sum_{i=1}^{n} (\text{Taux\_Horaire}_i \times \text{Durée\_Circuit} \times \text{Quantité}_i) \right) + \text{Supplément\_Ville} + \text{Total\_Extras} - \text{Remise\_Promo}$$
-
-### B. Mécanismes d'Exécution :
-1. **Autonomie BDD** : La méthode `find_circuit_option_data($option_id, $circuit_id)` lit directement les données de durée et de supplément dans `_circuit_options_data` (avec lecture ciblée par `circuit_id` et fallback SQL sécurisé par `$wpdb->prepare()`).
-2. **Sécurité financière absolue** : Aucun montant envoyé par le navigateur n'est accepté. Le serveur recharge tous les taux horaires des véhicules et les prix des extras directement depuis la base de données.
-3. **Contrôle d'activation promo** : Si un code promo a `_etb_promo_active = '0'`, le moteur refuse d'appliquer la réduction même si le code est envoyé.
-4. **Plafonnement des quantités** : Les véhicules sont bornés à un maximum de 50 et les extras à 20 pour éviter tout débordement numérique.
+* **`etb_general_settings`** :
+  * `currency` : Symbole monétaire (`€`, `$`).
+  * `min_delay` : Délai minimum avant réservation en heures.
+  * `admin_email` : Destinataire des alertes de commande et d'échec API.
+  * `limo_enabled` : Activation de la passerelle LimoExpress (`1` ou `0`).
+  * `limo_api_token` : Jeton Bearer Token LimoExpress.
+  * `limo_client_id` : UUID du client par défaut choisi en menu déroulant.
+  * `limo_booking_type_id` : UUID du type de réservation choisi en menu déroulant.
+  * `limo_booking_status_id` : UUID du statut initial choisi en menu déroulant.
+* **`etb_form_settings`** :
+  * Drapeaux booléens (`show_name`, `show_phone`, `show_email`, `show_adults`, `show_children`, `show_extras`, `show_promo`, `show_note`...) appliqués dynamiquement via `wp_parse_args()`.
 
 ---
 
-## 5. ARCHITECTURE DE SÉCURITÉ & ANTI-SPAM (ETB_SECURITY)
+## 4. MOTEUR FRONTEND & EXPÉRIENCE "VÉHICULE UNIQUE"
 
-Classe : `ETB_Security` (`includes/class-etb-security.php`)
+### A. Ergonomie "Radio Card" Exclusive
+Dans `templates/circuit-view.php` et `public/js/booking-widget.js` :
+* La grille supérieure présente les véhicules sous forme de cartes blanches épurées.
+* La pilule `[- 1 +]` a été supprimée au profit d'un champ caché `<input type="hidden" name="etb_car_qty[ID]" value="0">`.
+* **Comportement exclusif au clic** :
+  * Clic sur un véhicule inactif $\rightarrow$ Sa quantité passe à `1`, bordure orange, halo lumineux et coche animée.
+  * **Toutes les autres cartes de véhicules sont immédiatement remises à `0` et désélectionnées**.
+  * Le récapitulatif latéral et le prix recalculent instantanément le devis pour ce véhicule unique.
+  * Clic sur le véhicule actif $\rightarrow$ Désélection (remise à 0).
+
+### B. Moteur Réactif Client
+* **Timeline Dynamique Relative** : Si le client modifie son heure de départ, `updateTimelineTimes()` recalcule et décale en temps réel chaque étape de la journée.
+* **Protection Capacités** : Si les passagers (adultes + enfants) ou les bagages dépassent la capacité du véhicule choisi, le bouton de réservation est verrouillé avec un message d'alerte explicite.
+* **Sécurisation Anti-Antériorité** : `dateInput.setAttribute('min', todayStr)` bloque les dates passées.
+
+---
+
+## 5. CONNECTEUR API LIMOEXPRESS (SPÉCIFICATIONS & FLUX)
+
+Classe : `ETB_LimoExpress` (`includes/class-etb-limoexpress.php`)
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                                REQUÊTE POST ENTRANTE                                   │
+│                              RESERVATION VALIDEE DANS WP                               │
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
                                             │
                                             ▼
-                    [ ÉTAPE 1 : VÉRIFICATION DU NONCE CSRF ]
-                    check_ajax_referer( 'etb_booking_nonce', 'nonce' )
+                    [ ETAPE 1 : RESOLUTION DU CLIENT VOYAGEUR ]
+                    ETB_LimoExpress::get_or_create_client()
+                    1. Vérifie si _etb_limo_client_id existe déjà sur la commande WP.
+                    2. Sinon, cherche si l'email existe déjà dans LimoExpress (anti-doublon).
+                    3. Sinon, appelle PUT /api/integration/clients (name, email, phone, type: natural_person).
+                    4. Mémorise l'UUID obtenu dans _etb_limo_client_id.
                                             │
                                             ▼
-                    [ ÉTAPE 2 : CONTRÔLE DU CHAMP HONEYPOT ]
-                    ETB_Security::verify_honeypot( 'etb_hp_email' )
-                    • Si rempli (Bot détecté) ──► REJET IMMÉDIAT
+                    [ ETAPE 2 : PREPARATION DES POINTS DE PASSAGE ]
+                    • Extrait les étapes du circuit (timeline).
+                    • Calcule les horaires d'arrivée ajustés (HH:MM).
+                    • Génère les checkpoints ordonnés (location.name pur, arrival_time, order_number).
                                             │
                                             ▼
-                    [ ÉTAPE 3 : CONTRÔLE DE VÉLOCITÉ (TIMESTAMP SIGNÉ) ]
-                    ETB_Security::verify_timestamp_token( $time, $token, 2, 86400 )
-                    • Vérifie la signature cryptographique wp_hash()
-                    • Si soumis en < 2 secondes (Bot script) ──► REJET IMMÉDIAT
-                    • Si formulaire ouvert depuis > 24h ──────► REJET IMMÉDIAT
+                    [ ETAPE 3 : FORMATAGE DU PAYLOAD OFFICIEL ]
+                    • Endpoint : PUT /api/integration/booking-with-fees/
+                    • Types stricts : round_trip (bool), price (int arrondi net), duration (HH:MM).
+                    • Notes : note_for_driver (synthèse mission) & note (détail complet + remise).
+                    • Passagers : 1 seul passager principal propre (nom, prénom, email, téléphone).
                                             │
                                             ▼
-                    [ ÉTAPE 4 : RATE LIMITING DYNAMIQUE (TRANSIENTS) ]
-                    ETB_Security::check_rate_limit( 'booking', 10, 600 )
-                    • Limite Réservation : 10 réservations / 10 minutes par IP
-                    • Limite Promo       : 15 échecs / 10 minutes par IP
-                                            │
-                                            ▼
-                    [ ÉTAPE 5 : VALIDATION MÉTIER & SANITIZATION ]
-                    • Plafonnement des quantités (Véhicules max 50, Extras max 20)
-                    • Validation stricte des dates (Rejet des dates passées)
-                    • Recalcul 100% serveur du prix par ETB_Pricing_Engine
+                    [ ETAPE 4 : EXECUTION & TRACABILITE ]
+                    • Succès (HTTP 200/201) ──► Postmeta _etb_limo_status = 'synced', course #ID.
+                    • Échec (HTTP 4xx/5xx)  ──► Postmeta _etb_limo_status = 'failed', erreur loggée,
+                                                Alerte e-mail rouge envoyée à l'administrateur.
 ```
 
 ---
 
-## 6. GESTIONNAIRE DES CIRCUITS & OPTIONS DYNAMIQUES
+## 6. SYSTÈME DE FACTURATION DÉTAILLÉE (OPTION C)
 
-Géré par `ETB_Meta_Manager` (`class-etb-meta-manager.php`) dans **Circuits & Tours**.
+Gabarit : `templates/invoice-print.php`  
+Contrôleur : `ETB_Meta_Manager::handle_print_invoice()`
 
-Chaque fiche de circuit permet de configurer une infinité d'options de départ grâce à un gestionnaire d'onglets dynamique :
-* **Identifiant unique automatique** : Chaque option génère un ID unique (`opt_a1b2c3d4`) évitant toute collision entre deux circuits distincts.
-* **Paramètres de liaison** : Ville de départ, Durée en heures (décimale acceptée : `1.75`, `4.0`, `6.5`), Heure conseillée par défaut, Supplément financier.
-* **Contenu éditorial** : 4 Badges récapitulatifs structurés, Programme/Timeline par étapes (Horaire, Titre, Description), Listes des éléments Inclus (✓) et Non Inclus (✕).
-* **Affichage dans l'onglet de départ** : Si la ville a un supplément de prix, son onglet affiche automatiquement son coût additionnel (ex: `Cannes (+50 $)`).
+Comme l'API LimoExpress ne permet pas d'injecter des lignes de facturation personnalisées (seuls 2 endpoints `GET invoices` et `POST mark-as-paid` existent), WordPress prend en charge l'édition de la facture client officielle :
+
+* **Accessibilité** : Bouton noir **`📄 Voir / Imprimer la Facture`** présent sur chaque commande dans WordPress (`admin-post.php?action=etb_print_invoice`).
+* **Numérotation Officielle** : Format `INV-YYYY-XXXX` (ex: `INV-2026-0031`) avec référence de dossier WP et numéro de course LimoExpress associée.
+* **Tableau d'Articles Décomposé Ligne par Ligne** :
+  1. *Ligne(s) Véhicule(s)* : Nom du véhicule, mise à disposition horaire, quantité, tarif horaire $\times$ durée, sous-total.
+  2. *Ligne Supplément départ circuit* : Frais de liaison kilométrique pour la ville de départ.
+  3. *Ligne Supplément prise en charge* : Si pickup personnalisé hors zone.
+  4. *Lignes Extras / Options* : Chaque option (Guide, Champagne, Siège bébé...) avec quantité et montant total.
+  5. *Ligne Remise Code Promo* : Affichage en vert de la déduction avec le nom du coupon.
+  6. *Ligne Total Net* : Montant final à payer avec symbole de la devise configurée.
+* **Prêt pour l'Impression / PDF** : Feuille de style optimisée `@media print` avec bouton d'export direct en PDF vectoriel sans barre d'outils parasite.
 
 ---
 
-## 7. EXPÉRIENCE FRONTEND (SPLIT LAYOUT & DESIGN PHOTO 1)
+## 7. BOUCLIERS ANTI-DUPLICATION & RÉSILIENCE
 
-Gabarit : `templates/circuit-view.php`
+### A. Anti-Duplication des Réservations (Courses)
+* **Détection d'état** : Si une commande est déjà synchronisée (`_etb_limo_status === 'synced'`), le bouton de transfert de la commande affiche `⚠️ Forcer un re-transfert LimoExpress`.
+* **Confirmation bloquante** : Un clic déclenche un dialogue d'avertissement :  
+  `"⚠️ ATTENTION ANTI-DOUBLON : Cette commande est DÉJÀ synchronisée dans LimoExpress (Course #XXXX). Voulez-vous vraiment générer une DEUXIÈME course en doublon ?"`.
+* Si l'administrateur clique sur **Annuler**, la requête est avortée sans aucun appel réseau.
+
+### B. Anti-Duplication des Clients
+* Dès qu'un client voyageur est créé ou identifié dans LimoExpress, son UUID est enregistré dans `_etb_limo_client_id`.
+* Lors de tout transfert ou re-synchronisation ultérieur de cette commande, le connecteur lit directement cette métadonnée locale : **aucun nouvel appel de création client n'est envoyé à LimoExpress**.
+
+### C. Alerte E-mail Administrateur en Cas d'Échec Réseau
+* Si la synchronisation LimoExpress échoue lors de la commande d'un client (ex: coupure réseau, API indisponible), la réservation **est conservée en toute sécurité dans WordPress**.
+* L'administrateur reçoit immédiatement un e-mail avec objet préfixé `[Action Requise - Échec LimoExpress]` contenant un encadré rouge détaillant l'erreur et l'invitant à relancer le transfert en un clic dès le rétablissement de la connexion.
+
+---
+
+## 8. ARCHITECTURE DE SÉCURITÉ & ANTI-SPAM TRIANGULAIRE
 
 ```text
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│ [ 1. GRILLE HAUTE : CHOISISSEZ VOTRE VÉHICULE (Pleine Largeur) ]                         │
-│ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐                     │
-│ │ [ ] S class  │ │ [✓] Sprinter │ │ [ ] V class  │ │ [ ] Coach    │  (Cartes Blanches   │
-│ │ 79 $ /h      │ │ 72 $ /h      │ │ 50 $ /h      │ │ 30 $ /h      │   Sélection Orange  │
-│ │ 👤 3  🧳 2   │ │ 👤 20 🧳 10  │ │ 👤 7  🧳 4   │ │ 👤 40 🧳 20  │   Pilule [- 1 +])   │
-│ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘                     │
-│                                                                                         │
-│ [ 2. SECTION BASSE : LAYOUT 2 COLONNES (Grille 1.4fr / 1fr) ]                           │
-│ ┌──────────────────────────────────────────────┐ ┌────────────────────────────────────┐ │
-│ │ COLONNE GAUCHE (Détails de l'Itinéraire)     │ │ COLONNE DROITE (Widget Sticky ETB) │ │
-│ │                                              │ │ ┌────────────────────────────────┐ │ │
-│ │ • Villes de départ : [ Cannes ] [ Monaco ]   │ │ │ $ 288                          │ │ │
-│ │ • 4 Badges (Durée, Langue, Type, Véhicule)   │ │ │ passager maximum : 20          │ │ │
-│ │                                              │ │ ├────────────────────────────────┤ │ │
-│ │ • PROGRAMME / TIMELINE (Heures dynamiques)   │ │ │ 👥 NOMBRE DE PASSAGERS         │ │ │
-│ │   08:00 - Prise en charge à l'hôtel          │ │ │ Adultes [- 1 +]  Enfants [0]   │ │ │
-│ │   10:00 - Visite du Château                  │ │ │                                │ │ │
-│ │                                              │ │ │ 📍 ADRESSE DE PRISE EN CHARGE  │ │ │
-│ │ • CE QUI EST INCLUS / NON INCLUS             │ │ │ [ Ex: Hôtel des Thermes... ]   │ │ │
-│ │   ✓ Véhicule privé et chauffeur              │ │ │ [ ] Lieu de dépose différent   │ │ │
-│ │   ✓ Guide                                    │ │ │                                │ │ │
-│ │   ✗ Repas                                    │ │ │ ★ OPTIONS SUPPLÉMENTAIRES      │ │ │
-│ │                                              │ │ │ [ Siège bébé ] [ Champagne ]   │ │ │
-│ │                                              │ │ │                                │ │ │
-│ │                                              │ │ │ 👤 COORDONNÉES & DATE          │ │ │
-│ │                                              │ │ │                                │ │ │
-│ │                                              │ │ │ [ RÉSERVER MAINTENANT ]        │ │ │
-│ │                                              │ │ └────────────────────────────────┘ │ │
-│ └──────────────────────────────────────────────┴──────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────────────────────┘
+REQUÊTE POST ENTRANTE
+ │
+ ├──► 1. VÉRIFICATION DU NONCE CSRF (check_ajax_referer)
+ │
+ ├──► 2. CONTRÔLE HONEYPOT INVISIBLE (Champ piège etb_hp_email non vide ──► Rejet)
+ │
+ ├──► 3. CONTRÔLE DE VÉLOCITÉ PAR TIMESTAMP SIGNÉ (Signature wp_hash(), soumission < 2s ──► Rejet)
+ │
+ ├──► 4. RATE LIMITING PAR TRANSIENTS IP (Max 10 réservations / 10 min, Max 15 promos échouées / 10 min)
+ │
+ └──► 5. RECALCUL 100 % SERVEUR (ETB_Pricing_Engine ignore tout prix envoyé par le navigateur)
 ```
 
 ---
 
-## 8. MOTEUR JAVASCRIPT RÉACTIF (`booking-widget.js`)
+## 9. ADMINISTRATION BACK-OFFICE WORDPRESS
 
-Fichier : `wp-content/plugins/elite-transfer-booking/public/js/booking-widget.js`
+### A. Menus Unifiés
+* **Tour Booking**
+  * *Toutes les Réservations* : Tableau de bord avec statuts, montants, coordonnées avec téléphone `📞` et statut LimoExpress.
+  * *Circuits & Tours* : Fiches circuits avec gestionnaire d'onglets de villes de départ et répéteur de timeline.
+  * *Véhicules* : Gestion de la flotte avec sélecteur de classe LimoExpress automatique et bouton de rafraîchissement `🔄`.
+  * *Options* : Extras avec types de tarification (fixe, par unité).
+  * *Codes Promo* : Remises fixes ou en pourcentage.
+  * *Réglages* :
+    * Onglet Général : Devise, délai minimum, e-mail admin, activation LimoExpress, Token API, et menus déroulants automatiques (*Client par défaut*, *Type de réservation*, *Statut initial*).
+    * Onglet Configuration du Formulaire : Cases à cocher pour afficher/masquer chaque champ frontend.
 
-Le script est encapsulé dans une IIFE en JavaScript Vanilla natif ES6+ (0 dépendance jQuery en frontend).
-
-### Fonctionnalités Réactives Majeures :
-1. **Ordre d'Initialisation Sécurisé (Anti-TDZ)** : Les fonctions de calcul (`updateSummary`, `refreshAll`) sont déclarées avant `syncCircuitOption` pour éliminer toute erreur `ReferenceError` au chargement.
-2. **Sélection / Désélection 2-Voies des Véhicules** :
-   * Clic sur une carte inactive (`qté = 0`) $\rightarrow$ Activation instantanée (`qté = 1`), image qui rétrécit doucement de 105px à 68px, apparition de la pilule orange et de la coche avec rebond élastique.
-   * Clic sur une carte déjà active (`qté >= 1`) $\rightarrow$ Remise à `0` et désélection immédiate.
-   * Clics sur les boutons `+` / `-` $\rightarrow$ Protégés par `e.stopPropagation()` pour éviter toute désélection involontaire.
-3. **Timeline Dynamique Relative à l'Heure de Départ (`updateTimelineTimes`)** :
-   * Si le client (ou l'option) modifie l'heure de départ (ex: passe de `09:00` à `08:00`), le script calcule le delta en minutes et **décale automatiquement chaque étape horaire de la timeline en temps réel** !
-4. **Synchronisation Synchrone des Villes** : Clic sur un onglet de ville $\rightarrow$ Bascule instantanée de la timeline, mise à jour de `state.circuit`, injection des champs cachés `etb_circuit_id` et `etb_option_id`, et recalcul immédiat du prix.
-5. **Verrouillage Anti-Antériorité** : `dateInput.setAttribute('min', todayStr)` bloque les dates passées dans le calendrier natif.
-6. **Avertissement Passagers sans Véhicule** : Clic sur `+` passagers sans véhicule choisi $\rightarrow$ Blocage et affichage du message rouge d'erreur sous le titre "NOMBRE DE PASSAGERS".
-7. **Code Promo Réactif avec État de Chargement** : Clic sur "APPLIQUER" $\rightarrow$ Bouton affichant *"Vérification..."*, validation AJAX et feedback stylisé (vert `✓` succès, rouge `⚠` erreur).
-8. **Auto-Scroll & Reset après Commande** : À la confirmation de réservation, la fenêtre remonte automatiquement en douceur (`scrollIntoView({ behavior: 'smooth' })`) au sommet de la page et remet toutes les cartes de véhicules à zéro.
-
----
-
-## 9. SYSTÈME CSS, DESIGN TOKENS & BOUCLIER ANTI-THÈME
-
-Fichier : `wp-content/plugins/elite-transfer-booking/public/css/booking-widget.css`
-
-### A. Variables CSS Centralisées (`:root`)
-
-```css
-:root,
-.co-circuit-wrapper,
-.etb-booking-widget {
-    --etb-primary: #052021;              /* Titres et boutons foncés */
-    --etb-primary-dark: #0F172A;         /* Noir ardoise (Titres cartes) */
-    --etb-accent: #E65A15;               /* Orange vif (Prix, sélections, boutons) */
-    --etb-accent-hover: #D1541F;         /* Orange foncé au survol */
-    --etb-accent-glow: rgba(230, 90, 21, 0.18);
-    --etb-bg-light: #F8F9FA;             /* Fond doux badges et conteneurs */
-    --etb-white: #FFFFFF;                /* Fond des cartes et inputs */
-    --etb-border: #E2E8F0;               /* Bordures subtiles standard */
-    --etb-border-input: #D1D5DB;         /* Bordures des champs de saisie */
-    --etb-text-main: #172326;            /* Texte principal */
-    --etb-text-muted: #5F6B6B;           /* Textes secondaires */
-    --etb-text-specs: #64748B;           /* Spécifications passagers/bagages */
-    --etb-radius-sm: 8px;
-    --etb-radius-md: 14px;
-    --etb-radius-pill: 50px;
-}
-```
-
-### B. Bouclier Anti-Thème :
-* `box-sizing: border-box !important` forcé sur 100 % des balises internes.
-* Protection stricte de `font-family: dashicons !important; display: inline-flex !important; float: none !important; position: static !important;`.
-* `padding-left: 42px !important` sur les champs avec icônes (évite que le texte saisi ne chevauche les icônes).
-* Dimensions strictes `255px` avec transitions continues `cubic-bezier(0.25, 1, 0.5, 1)` sur les cartes pour éliminer tout saut visuel.
+### B. Boîte de Détail de Commande (`render_booking_box`)
+* Statut de réservation modifiable (`En attente`, `Confirmée`, `Terminée`, `Annulée`) avec envoi automatique d'e-mail au client.
+* Bouton **`📄 Voir / Imprimer la Facture`** (Option C).
+* Badge LimoExpress dynamique avec bouton **`🔄 Transférer vers LimoExpress`** (ou `⚠️ Forcer un re-transfert`) et spinner interactif.
+* Affichage du client (Nom, E-mail, Téléphone), trajet, véhicule, options, et décomposition financière.
+* Grand bloc récapitulatif du programme avec timeline aux horaires recalculés.
 
 ---
 
-## 10. PIPELINE AJAX & NOTIFICATIONS E-MAIL
+## 10. FEUILLE DE ROUTE FUTURE (ARCHITECTURE MULTI-DISPATCH)
 
-Classe : `ETB_Ajax` (`includes/class-etb-ajax.php`)
-
-### Traitement de la Soumission (`etb_submit_booking`) :
-1. **Contrôles de Sécurité** : Vérification Nonce + Vérification Honeypot + Vérification Timestamp vélocité + Vérification Rate Limiting IP.
-2. **Validation Métier** : Nom, Email valide, Date non passée, Heure, Adresse, Véhicules sélectionnés (`array_sum > 0`), Capacités passagers et bagages respectées.
-3. **Calcul & Insertion** : Recalcul par `ETB_Pricing_Engine`, création du post `tour_booking` (statut `pending`), enregistrement des métadonnées `_etb_*`.
-4. **Formatage du Libellé** : Génération de **`Prestation : Nom du Circuit — Départ : [Ville] ([Durée]h)`**.
-5. **Expédition E-mail** : Envoi au client et à l'administrateur via `wp_mail()` avec en-têtes `Reply-To` nettoyés.
-6. **Réponse JSON** : Renvoi du numéro de dossier `#ID` pour affichage du bandeau vert de confirmation.
-
----
-
-## 11. ADMINISTRATION BACK-OFFICE WORDPRESS
-
-Le menu d'administration est unifié sous une seule entrée principale :
+Le socle ETB v2.0.0 a été conçu pour accueillir la transition vers le **Design Pattern "Adapter" (Multi-Dispatch)** :
 
 ```text
-🚗 Tour Booking
-   ├── Toutes les Réservations   (Liste des commandes, statuts colorés, dates, montants)
-   ├── Circuits & Tours          (Éditeur des fiches circuits et répéteur d'options)
-   ├── Véhicules                 (Gestion de la flotte, images, capacités et taux horaires)
-   ├── Options                   (Gestion des extras et types de tarification)
-   ├── Codes Promo               (Gestion des remises fixes/% et statuts actif/inactif)
-   └── Réglages                  (2 onglets : "Général" et "Configuration du Formulaire")
+                     [ SOCLE CENTRAL ETB ]
+      (Circuits, Pricing Engine, Formulaires, Sécurité, Factures PDF)
+                               │
+                               ▼
+                 [ INTERFACE UNIVERSELLE DISPATCH ]
+                 interface-etb-dispatcher.php
+                               │
+         ┌─────────────────────┼─────────────────────┐
+         ▼                     ▼                     ▼
+[ CONNECTEUR LIMOEXPRESS ] [ CONNECTEUR KYMARK ] [ 100% AUTONOME ]
+ class-etb-limoexpress.php  class-etb-kymark.php  (Aucun dispatch)
 ```
 
-### Fiche Détail Réservation (`render_booking_box`) :
-* Encadré de statut (`⏳ En attente`, `✅ Confirmée`, `🏁 Terminée`, `❌ Annulée`) déclenchant un e-mail automatique au client lors d'une modification.
-* Ligne Prestation explicite : **`Prestation : Nom du Circuit — Départ : [Ville] ([Durée]h)`** *(ex: "Un Circuits — Départ : Cannes (4h)")*.
-* **Grand bloc en bas "🗺️ Programme & Détails du Circuit"** : affiche les badges, les inclusions/exclusions et la **timeline dont les heures sont automatiquement recalculées** en fonction de l'heure réservée par le client.
-* Décomposition financière complète au centime près.
+1. **Phase Suivante (Kymark / Multi-App)** :
+   * Création de l'interface `ETB_Dispatcher_Interface` standardisant les méthodes `send_booking()`, `get_vehicles()`, `get_settings()`.
+   * Intégration du sélecteur d'application dans les réglages : `[ Autonome | LimoExpress | Kymark ]`.
+   * Développement du connecteur dédié Kymark sans toucher au cœur d'ETB.
+2. **Synchronisation Bidirectionnelle WP $\rightarrow$ LimoExpress** :
+   * Détection des modifications de date, heure ou statut dans WordPress pour mise à jour de la course existante via l'API.
 
 ---
 
-## 12. GUIDE DES SHORTCODES & INTÉGRATION
-
-### 1. `[circuit_view id="XX"]`
-* **Rôle** : Affiche la vue complète en split layout (Grille haute des véhicules + Détails itinéraire à gauche + Formulaire de réservation sticky à droite).
-* **Utilisation** :
-  * Dans une Page standard / Elementor : `[circuit_view id="85"]` *(où 85 est l'ID du circuit)*.
-  * Automatique : Tout post de type `circuit` affiche cette vue nativement sur son URL `/circuits/%slug%/`.
-
-### 2. `[tour_booking]`
-* **Rôle** : Affiche le formulaire latéral seul (En-tête prix, Passagers, Prise en charge, Extras, Coordonnées, Récapitulatif).
-* **Utilisation** : Dans une barre latérale ou une page de transfert direct.
-
----
-
-## 13. ÉTAT DE NETTOYAGE & ROADMAP IMMÉDIATE
-
-### A. État de Nettoyage (OctopusPro)
-* ✅ Le fichier `class-etb-octopus.php` a été **supprimé**.
-* ✅ Les appels d'envoi en arrière-plan dans `class-etb-ajax.php` ont été **supprimés**.
-* ✅ Les champs d'options dans `class-etb-settings.php` ont été **supprimés**.
-* ✅ L'affichage de badge dans `class-etb-meta-manager.php` a été **supprimé**.
-* 👉 **Le code source est 100 % sain, propre et sans dépendances orphelines.**
-
-### B. Feuille de Route Immédiate (Prochaine Étape) :
-* **Intégration Chauffeur / Dispatch LimoExpress** :
-  * Endpoint validé : `PUT https://api.limoexpress.me/api/integration/bookings/` (Status 201 Created).
-  * Création du connecteur dédié `class-etb-limoexpress.php` basé sur la matrice de correspondance validée (`from_location`, `to_location`, `start`, `end`, `duration`, `price`, `passenger_count`, `suitcase_count`, `baby_seat_count`, `checkpoints`).
-
----
-
-*Documentation technique officielle et exhaustive — **Elite Transfer Booking v1.1.0** — Source de vérité absolue.*
-
-
-# Liaison API avec Limoexpress etablie - basique mais deja une grande etape
+*Documentation technique et fonctionnelle officielle — **Elite Transfer Booking v2.0.0** — Source de vérité absolue du projet.*

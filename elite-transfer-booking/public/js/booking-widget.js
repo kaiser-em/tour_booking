@@ -202,15 +202,21 @@
                 submitButton.classList.toggle('etb-disabled', isBlocked);
             }
 
-            // Options supplémentaires (Extras)
+            // Options supplémentaires (Extras) : calcul et illumination visuelle dynamique
             let extrasHtml = '';
             root.querySelectorAll('input[name^="etb_extra_"]').forEach(inp => {
-                const qty = parseInt(inp.value) || 0;
+                const qty    = parseInt(inp.value) || 0;
+                const parent = inp.closest('.etb-extra-item') || inp.closest('.etb-pax-card');
+
+                // Illumination orange dès que la quantité est >= 1, extinction si 0
+                if (parent) {
+                    parent.classList.toggle('etb-selected', qty > 0);
+                }
+
                 if (qty > 0) {
-                    const parent = inp.closest('.etb-extra-item') || inp.closest('.etb-pax-card');
-                    const name = parent?.querySelector('strong')?.textContent.trim() || 'Option';
+                    const name      = parent?.querySelector('strong')?.textContent.trim() || 'Option';
                     const priceSpan = parent?.querySelector('.etb-price-tag');
-                    const price = parsePrice(priceSpan?.textContent || '0');
+                    const price     = parsePrice(priceSpan?.textContent || '0');
                     
                     total += (price * qty);
                     extrasHtml += `<div class="etb-summary-row"><span>${qty}x ${name}</span><span>+ ${(price * qty).toFixed(0)} ${state.currency}</span></div>`;
@@ -483,12 +489,12 @@
         // 7. ÉCOUTEURS D'ÉVÉNEMENTS UTILISATEURS (CLIC CARTES & QUANTITÉ)
         // ------------------------------------------------------------------------
 
-        // 1. Toggle complet sur la carte véhicule (Sélection & Désélection au clic)
+        // 1. Sélection exclusive d'un véhicule unique (1 réservation = 1 véhicule)
         document.addEventListener('click', (e) => {
             const card = e.target.closest('.etb-vehicle-card');
             if (!card) return;
 
-            // Si clic dans les boutons +/- ou l'input quantité, ne pas basculer la carte
+            // Si clic dans les boutons +/- ou l'input quantité, ne pas basculer
             if (e.target.closest('.etb-qty-control')) {
                 return;
             }
@@ -497,18 +503,28 @@
             if (!input) return;
 
             const currentQty = parseInt(input.value) || 0;
-            const isCheckClicked = !!e.target.closest('.etb-selection-check');
+            const allCards   = document.querySelectorAll('.etb-vehicle-card');
 
-            // Si clic sur la coche OU si la carte est déjà sélectionnée -> Désélectionne (0)
-            if (isCheckClicked || currentQty > 0) {
+            if (currentQty > 0) {
+                // Si le véhicule était déjà sélectionné, on le désélectionne (remise à zéro)
                 input.value = 0;
+                card.classList.remove('etb-selected');
             } else {
-                // Si la carte était inactive -> Active à 1
+                // DÉSÉLECTION AUTOMATIQUE DE TOUS LES AUTRES VÉHICULES
+                allCards.forEach(c => {
+                    const otherInput = c.querySelector('input[name^="etb_car_qty"]');
+                    if (otherInput) otherInput.value = 0;
+                    c.classList.remove('etb-selected');
+                });
+
+                // Sélection exclusive du véhicule cliqué (quantité = 1)
                 input.value = 1;
+                card.classList.add('etb-selected');
             }
 
             refreshAll();
         });
+        
 
         // 2. Boutons de quantité +/- (Gestion isolée sans conflit)
         document.addEventListener('click', (e) => {

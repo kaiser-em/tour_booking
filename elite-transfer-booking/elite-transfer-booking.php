@@ -3,7 +3,7 @@
  * Plugin Name: Elite Transfer Booking (Unified)
  * Plugin URI:  https://github.com/kaiser-em/tour_booking
  * Description: Système unifié de réservation d'excursions, circuits touristiques et transferts privés. avec lien API Octopuspro
- * Version:     1.0.4
+ * Version:     2.0.0
  * Author:      Reich C
  * Text Domain: elite-transfer-booking
  */
