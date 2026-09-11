@@ -34,14 +34,21 @@ $currency     = ! empty( $gen_settings['currency'] ) ? sanitize_text_field( $gen
                 $display_price = ( $hourly_rate > 0 ) ? $hourly_rate : $base_price;
                 $max_pax       = get_post_meta( $vehicle->ID, '_etb_max_pax', true ) ?: 1;
                 $max_bag       = get_post_meta( $vehicle->ID, '_etb_max_baggage', true ) ?: 0;
-                $img_url       = get_the_post_thumbnail_url( $vehicle->ID, 'medium' ) ?: ( defined('ETB_URL') ? ETB_URL . 'public/images/default-car.png' : '' );
+                $img_url       = get_the_post_thumbnail_url( $vehicle->ID, 'full' ) ?: ( defined('ETB_URL') ? ETB_URL . 'public/images/default-car.png' : '' );
+                $hover_img     = get_post_meta( $vehicle->ID, '_etb_hover_image', true );
             ?>
                 <div class="etb-vehicle-card" data-id="<?php echo $vehicle->ID; ?>" data-max-pax="<?php echo esc_attr( $max_pax ); ?>" data-max-baggage="<?php echo esc_attr( $max_bag ); ?>">
                     <span class="etb-selection-check"><i class="dashicons dashicons-yes"></i></span>
                     <?php if ( $img_url ) : ?>
-                        <img src="<?php echo esc_url( $img_url ); ?>" class="etb-vehicle-image" alt="<?php echo esc_attr( $vehicle->post_title ); ?>">
+                        <div class="etb-vehicle-image-wrapper">
+                            <img src="<?php echo esc_url( $img_url ); ?>" class="etb-vehicle-image etb-img-static" alt="<?php echo esc_attr( $vehicle->post_title ); ?>">
+                            <?php if ( ! empty( $hover_img ) ) : ?>
+                                <img src="<?php echo esc_url( $hover_img ); ?>" class="etb-vehicle-image etb-img-hover" alt="<?php echo esc_attr( $vehicle->post_title ); ?> (animé)">
+                            <?php endif; ?>
+                        </div>
                     <?php endif; ?>
                     <h3 class="etb-vehicle-name"><?php echo esc_html( $vehicle->post_title ); ?></h3>
+                    
                     <p class="etb-vehicle-price"><?php echo esc_html( $display_price ); ?> <?php echo esc_html( $currency ); ?> /h</p>
                     <div class="etb-vehicle-specs">
                         <span>👤 <?php echo esc_html( $max_pax ); ?> Pers. max</span>

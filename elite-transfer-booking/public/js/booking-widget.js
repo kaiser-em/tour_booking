@@ -681,6 +681,24 @@
                 });
             });
         }
+        // 9. Animation automatique au centre de l'écran pour Mobile & Tablette
+        if ('IntersectionObserver' in window) {
+            const observerOptions = {
+                root: null,
+                rootMargin: '-40% 0px -40% 0px', // Cible la bande centrale de 50% de l'écran
+                threshold: 0.2
+            };
+
+            const vehicleObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    entry.target.classList.toggle('etb-in-viewport', entry.isIntersecting);
+                });
+            }, observerOptions);
+
+            document.querySelectorAll('.etb-vehicle-card').forEach(card => {
+                vehicleObserver.observe(card);
+            });
+        }
 
         // Lancement initial
         refreshAll();

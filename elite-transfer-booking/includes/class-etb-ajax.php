@@ -371,25 +371,31 @@ class ETB_Ajax {
             . '<hr><p><a href="' . esc_url( $admin_edit_url ) . '" style="display:inline-block; padding:10px 15px; background:#0073aa; color:#fff; text-decoration:none; border-radius:3px;">Consulter le dossier dans WordPress</a></p>';
 
             
-        // 1. Transmission préalable à LimoExpress pour évaluer le statut
-        $limo_synced = false;
-        $limo_err    = '';
-        if ( class_exists( 'ETB_LimoExpress' ) ) {
-            $limo_synced = ETB_LimoExpress::send_booking( $booking_id, $data );
-            if ( ! $limo_synced ) {
-                $limo_err = get_post_meta( $booking_id, '_etb_limo_error', true );
-            }
+        // 1. Transmission à l'Application de Dispatch sélectionnée
+        if ( ! class_exists( 'ETB_Dispatcher_Manager' ) ) {
+            require_once ETB_PATH . 'includes/class-etb-dispatcher-manager.php';
+        }
+        $dispatch_result = ETB_Dispatcher_Manager::dispatch_booking( $booking_id, $data );
+
+        // Sauvegarde immédiate du statut pour qu'il s'affiche dans WordPress !
+        if ( $dispatch_result['success'] ) {
+            update_post_meta( $booking_id, '_etb_limo_status', 'synced' );
+        } else {
+            update_post_meta( $booking_id, '_etb_limo_status', 'failed' );
+            update_post_meta( $booking_id, '_etb_limo_error', $dispatch_result['message'] );
         }
 
-        // 2. Alerte e-mail administrateur si le transfert LimoExpress a échoué
-        if ( ! $limo_synced && ! empty( $limo_err ) ) {
-            $subject_admin = '[Action Requise - Échec LimoExpress] Dossier #' . $booking_id . ' - ' . $data['name'];
+        // 2. Alerte e-mail administrateur si le dispatch externe a échoué
+        if ( ! $dispatch_result['success'] ) {
+            $subject_admin = '[Action Requise - Échec Dispatch] Dossier #' . $booking_id . ' - ' . $data['name'];
             $alert_box     = '<div style="background:#fee2e2; border-left:4px solid #dc2626; padding:12px; margin-bottom:15px; color:#991b1b;">'
-                . '<strong>⚠️ ATTENTION : La synchronisation automatique vers LimoExpress a échoué.</strong><br>'
-                . 'Motif : ' . esc_html( $limo_err ) . '<br>'
-                . '👉 <em>Vous pouvez relancer le transfert en un clic depuis WordPress via le bouton "Transférer vers LimoExpress".</em>'
+                . '<strong>⚠️ ATTENTION : La synchronisation vers votre application externe a échoué.</strong><br>'
+                . 'Motif : ' . esc_html( $dispatch_result['message'] ) . '<br>'
+                . '👉 <em>Vous pouvez relancer le transfert depuis la commande WordPress.</em>'
                 . '</div>';
             $message_admin = $alert_box . $message_admin;
+        } else {
+            $subject_admin = '[Nouvelle Réservation] Dossier #' . $booking_id . ' - ' . $data['name'];
         }
 
         // 3. Expédition des e-mails
@@ -442,13 +448,13 @@ class ETB_Ajax {
             'pricing'        => $pricing,
         );
 
-        if ( ! class_exists( 'ETB_LimoExpress' ) ) {
-            wp_send_json_error( array( 'message' => 'Module LimoExpress introuvable.' ) );
+        if ( ! class_exists( 'ETB_Dispatcher_Manager' ) ) {
+            wp_send_json_error( array( 'message' => 'Gestionnaire de dispatch introuvable.' ) );
         }
 
-        $success = ETB_LimoExpress::send_booking( $booking_id, $data );
+        $dispatch_result = ETB_Dispatcher_Manager::dispatch_booking( $booking_id, $data );
 
-        if ( $success ) {
+        if ( $dispatch_result['success'] ) {
             $limo_id      = get_post_meta( $booking_id, '_etb_limo_booking_id', true );
             $client_debug = get_post_meta( $booking_id, '_etb_limo_client_debug', true );
             wp_send_json_success( array( 
@@ -456,8 +462,7 @@ class ETB_Ajax {
                 'client_debug' => $client_debug,
             ) );
         } else {
-            $error_msg = get_post_meta( $booking_id, '_etb_limo_error', true ) ?: 'Erreur de communication API';
-            wp_send_json_error( array( 'message' => $error_msg ) );
+            wp_send_json_error( array( 'message' => $dispatch_result['message'] ) );
         }
     }
 }

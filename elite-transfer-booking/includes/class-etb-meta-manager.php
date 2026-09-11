@@ -288,42 +288,55 @@ class ETB_Meta_Manager {
         </p>
         
         <p>
-            <label>Nombre max bagages :</label><br>
-            <input type="number" min="0" name="etb_max_bag" value="<?php echo esc_attr( $max_bag ); ?>" class="widefat">
+                <label>Nombre max bagages :</label><br>
+                <input type="number" min="0" name="etb_max_bag" value="<?php echo esc_attr( $max_bag ); ?>" class="widefat">
+            </p>
+            <p>
+            <label><strong>🎬 GIF / Image animée au survol (Optionnel) :</strong></label><br>
+            <input type="url" name="etb_hover_image" value="<?php echo esc_url( get_post_meta( $post->ID, '_etb_hover_image', true ) ); ?>" class="widefat" placeholder="https://.../mon-vehicule-anime.gif">
+            <span class="description">Collez l'URL de votre fichier GIF animé (téléversé dans Médias WP).</span>
         </p>
-        <hr style="margin: 15px 0;">
-        <?php 
-        // Si l'utilisateur clique sur "Rafraîchir", on force la requête vers LimoExpress
-        $force_refresh = ! empty( $_GET['refresh_limo'] );
-        $limo_classes  = class_exists( 'ETB_LimoExpress' ) ? ETB_LimoExpress::get_vehicle_classes( $force_refresh ) : array();
-        $refresh_url   = add_query_arg( 'refresh_limo', '1' );
-        ?>
-        <p>
-            <label><strong>🚙 Classe de Véhicule LimoExpress :</strong></label><br>
-            <?php if ( ! empty( $limo_classes ) ) : ?>
-                <select name="etb_limo_class_id" class="widefat" style="margin-top: 5px;">
-                    <option value="">-- Aucune liaison LimoExpress --</option>
-                    <?php foreach ( $limo_classes as $cls ) : ?>
-                        <option value="<?php echo esc_attr( $cls['id'] ); ?>" <?php selected( $limo_class_id, $cls['id'] ); ?>>
-                            🚙 <?php echo esc_html( $cls['name'] ); ?> (<?php echo esc_html( substr( $cls['id'], 0, 8 ) ); ?>...)
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-                <span style="display: block; margin-top: 6px;">
-                    <a href="<?php echo esc_url( $refresh_url ); ?>" class="button button-small" style="vertical-align: middle;">
-                        🔄 Rafraîchir la liste LimoExpress
-                    </a>
-                    <span class="description" style="color: #166534; margin-left: 6px;">Classes synchronisées en temps réel.</span>
-                </span>
-            <?php else : ?>
-                <input type="text" name="etb_limo_class_id" value="<?php echo esc_attr( $limo_class_id ); ?>" class="widefat" placeholder="Ex: 9c50c90c-ffaf-4523-b573-0177fea64541">
-                <span class="description">Saisissez le jeton API dans les Réglages pour charger automatiquement vos classes de véhicules.</span>
-            <?php endif; ?>
-        </p>
-        <hr style="margin: 15px 0;">
+
         
-        <p>
-            <label>Options autorisées pour ce véhicule :</label><br>
+            <?php 
+            // Vérification de l'application de dispatch active
+            $gen_settings      = get_option( 'etb_general_settings', array() );
+            $active_dispatcher = $gen_settings['active_dispatcher'] ?? 'none';
+
+            // Affichage UNIQUEMENT si LimoExpress est sélectionné dans les Réglages
+            if ( 'limoexpress' === $active_dispatcher ) :
+                $force_refresh = ! empty( $_GET['refresh_limo'] );
+                $limo_classes  = class_exists( 'ETB_LimoExpress' ) ? ETB_LimoExpress::get_vehicle_classes( $force_refresh ) : array();
+                $refresh_url   = add_query_arg( 'refresh_limo', '1' );
+            ?>
+                <hr style="margin: 15px 0;">
+                <p>
+                    <label><strong>🚙 Classe de Véhicule LimoExpress :</strong></label><br>
+                    <?php if ( ! empty( $limo_classes ) ) : ?>
+                        <select name="etb_limo_class_id" class="widefat" style="margin-top: 5px;">
+                            <option value="">-- Aucune liaison LimoExpress --</option>
+                            <?php foreach ( $limo_classes as $cls ) : ?>
+                                <option value="<?php echo esc_attr( $cls['id'] ); ?>" <?php selected( $limo_class_id, $cls['id'] ); ?>>
+                                    🚙 <?php echo esc_html( $cls['name'] ); ?> (<?php echo esc_html( substr( $cls['id'], 0, 8 ) ); ?>...)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <span style="display: block; margin-top: 6px;">
+                            <a href="<?php echo esc_url( $refresh_url ); ?>" class="button button-small" style="vertical-align: middle;">
+                                🔄 Rafraîchir la liste LimoExpress
+                            </a>
+                            <span class="description" style="color: #166534; margin-left: 6px;">Classes synchronisées en temps réel.</span>
+                        </span>
+                    <?php else : ?>
+                        <input type="text" name="etb_limo_class_id" value="<?php echo esc_attr( $limo_class_id ); ?>" class="widefat" placeholder="Ex: 9c50c90c-ffaf-4523-b573-0177fea64541">
+                        <span class="description">Saisissez le jeton API dans les Réglages pour charger automatiquement vos classes de véhicules.</span>
+                    <?php endif; ?>
+                </p>
+                <hr style="margin: 15px 0;">
+            <?php endif; ?>
+            
+            <p>
+                <label>Options autorisées pour ce véhicule :</label><br>
             <div style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; background: #fff;">
                 <?php if ( $extras ) : foreach ( $extras as $extra ) : ?>
                     <label style="display: block; margin-bottom: 5px;">
@@ -794,6 +807,7 @@ class ETB_Meta_Manager {
                 update_post_meta( $post_id, '_etb_hourly_rate', $hourly_rate );
                 update_post_meta( $post_id, '_etb_max_pax', absint( $_POST['etb_max_pax'] ) );
                 update_post_meta( $post_id, '_etb_max_baggage', absint( $_POST['etb_max_bag'] ) );
+                update_post_meta( $post_id, '_etb_hover_image', esc_url_raw( $_POST['etb_hover_image'] ?? '' ) );
 
                 // Sauvegarde de l'ID LimoExpress
                 $limo_class_id = isset( $_POST['etb_limo_class_id'] ) ? sanitize_text_field( trim( $_POST['etb_limo_class_id'] ) ) : '';
@@ -852,18 +866,25 @@ class ETB_Meta_Manager {
                 update_post_meta( $post_id, '_etb_promo_valid_from', $valid_from );
                 update_post_meta( $post_id, '_etb_promo_valid_to', $valid_to );
 
-                // Sauvegarde et initialisation intelligente des quotas
+                // Sauvegarde et contrôle strict de cohérence des quotas
                 $usage_limit = isset( $_POST['etb_promo_usage_limit'] ) && '' !== trim( $_POST['etb_promo_usage_limit'] ) ? absint( $_POST['etb_promo_usage_limit'] ) : '';
                 $remaining   = isset( $_POST['etb_promo_remaining'] ) && '' !== trim( $_POST['etb_promo_remaining'] ) ? absint( $_POST['etb_promo_remaining'] ) : '';
 
-                // Si un total est défini et que le restant est vide, on initialise le restant au total
-                if ( '' !== $usage_limit && '' === $remaining ) {
+                // Règle 1 : Si le total est 0, le restant est obligatoirement 0
+                if ( 0 === $usage_limit ) {
+                    $remaining = 0;
+                }
+                // Règle 2 : Si un total est défini (ex: 10) et que le restant est vide, initialisation au total
+                elseif ( '' !== $usage_limit && '' === $remaining ) {
+                    $remaining = $usage_limit;
+                }
+                // Règle 3 : Le restant ne peut JAMAIS être supérieur au total autorisé
+                elseif ( '' !== $usage_limit && '' !== $remaining && $remaining > $usage_limit ) {
                     $remaining = $usage_limit;
                 }
 
                 update_post_meta( $post_id, '_etb_promo_usage_limit', $usage_limit );
                 update_post_meta( $post_id, '_etb_promo_remaining', $remaining );
-                break;
 
             case 'tour_booking':
                 if ( isset( $_POST['etb_status'] ) ) {

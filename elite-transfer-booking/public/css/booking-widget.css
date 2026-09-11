@@ -42,7 +42,7 @@
     
     /* Ombres */
     --etb-shadow-sm: 0 4px 15px rgba(0, 0, 0, 0.04);
-    --etb-shadow-md: 0 10px 25px rgb(255 105 0 / 32%);
+    --etb-shadow-md: 0 10px 25px rgb(124 124 124 / 41%);
     --etb-shadow-lg: 0 10px 30px rgba(5, 32, 33, 0.05);
 }
 
@@ -152,11 +152,12 @@
     height: 22px !important;
 }
 
-/* Grille responsive */
+
+/* Grille responsive fluide */
 .co-vehicles-grid {
     display: grid !important;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 250px)) !important;
-    gap: 10px !important;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+    gap: 12px !important;
     width: 100% !important;
     position: relative !important;
 }
@@ -164,13 +165,14 @@
 /* 1. Carte Véhicule (Cadre fixe 255px avec transition douce) */
 .co-vehicles-grid .etb-vehicle-card {
     background: var(--etb-white) !important;
-    border: 3px solid var(--etb-border) !important;
+    border: 2px solid var(--etb-border) !important;
     border-radius: var(--etb-radius-md) !important;
     height: 255px !important;
     min-height: 255px !important;
     max-height: 255px !important;
-    max-width: 250px !important;
-    padding: 14px 16px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 10px 10px !important;
     color: var(--etb-text-main) !important;
     display: flex !important;
     flex-direction: column !important;
@@ -232,17 +234,52 @@
     transform: scale(1) rotate(0deg) !important;
 }
 
-/* 4. Image du véhicule : Rétrécissement fluide */
-.co-vehicles-grid .etb-vehicle-image {
+/* 4. Image du véhicule & Animation au survol (Hover GIF) */
+.co-vehicles-grid .etb-vehicle-image-wrapper {
+    position: relative !important;
     width: 100% !important;
     height: 135px !important;
     max-height: 135px !important;
-    object-fit: contain !important;
     margin: 0 auto 8px auto !important;
-    display: block !important;
-    transition: height 0.3s cubic-bezier(0.25, 1, 0.5, 1), 
-                margin 0.3s cubic-bezier(0.25, 1, 0.5, 1) !important;
+    border-radius: var(--etb-radius-sm);
+    overflow: hidden !important;
 }
+
+.co-vehicles-grid .etb-vehicle-image-wrapper .etb-vehicle-image {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important;
+    margin: 0 !important;
+    display: block !important;
+    transition: opacity 0.35s ease, transform 0.3s ease !important;
+}
+
+.co-vehicles-grid .etb-vehicle-image-wrapper .etb-img-static {
+    opacity: 1 !important;
+    z-index: 1 !important;
+}
+
+.co-vehicles-grid .etb-vehicle-image-wrapper .etb-img-hover {
+    opacity: 0 !important;
+    z-index: 2 !important;
+    pointer-events: none !important;
+}
+
+/* 1. Sur Ordinateur (Desktop) : Animation UNIQUEMENT au survol de la souris ou si sélectionnée */
+.co-vehicles-grid .etb-vehicle-card:hover .etb-vehicle-image-wrapper .etb-img-hover,
+.co-vehicles-grid .etb-vehicle-card.etb-selected .etb-vehicle-image-wrapper .etb-img-hover {
+    opacity: 1 !important;
+}
+
+.co-vehicles-grid .etb-vehicle-card:hover .etb-vehicle-image-wrapper .etb-img-static,
+.co-vehicles-grid .etb-vehicle-card.etb-selected .etb-vehicle-image-wrapper .etb-img-static {
+    opacity: 0 !important;
+}
+
+
 
 
 
@@ -1184,7 +1221,27 @@
    7. RESPONSIVE MOBILE & TABLETTE
    ========================================================================== */
 
+/* 1. TABLETTE & ÉCRANS MOYENS (<= 992px) */
+
+/* Neutralisation du padding excessif du thème Gutenberg sur Mobile/Tablette */
+@media (max-width: 768px) {
+    .wp-block-post-content.has-global-padding,
+    .entry-content.has-global-padding,
+    .has-global-padding {
+        padding-left: 10px !important;
+        padding-right: 10px !important;
+    }
+}
+
+
 @media (max-width: 992px) {
+    .co-circuit-wrapper {
+        padding: 0 12px !important;
+         padding: 0 4px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 10px auto !important;
+    }
     .co-main-layout {
         grid-template-columns: 1fr !important;
         gap: 30px !important;
@@ -1195,9 +1252,68 @@
     .co-inclusions-grid {
         grid-template-columns: 1fr !important;
     }
+    /* Animation au défilement mobile/tablette */
+    .co-vehicles-grid .etb-vehicle-card.etb-in-viewport .etb-vehicle-image-wrapper .etb-img-hover {
+        opacity: 1 !important;
+    }
+    .co-vehicles-grid .etb-vehicle-card.etb-in-viewport .etb-vehicle-image-wrapper .etb-img-static {
+        opacity: 0 !important;
+    }
 }
 
-@media (max-width: 600px) {
+/* 2. TABLETTE EN PORTRAIT (641px à 768px) */
+@media (min-width: 641px) and (max-width: 768px) {
+    .co-vehicles-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 14px !important;
+    }
+    .co-vehicles-grid .etb-vehicle-card {
+        height: auto !important;
+        min-height: 240px !important;
+        padding: 12px !important;
+    }
+}
+
+/* 3. MOBILES & PHABLETTES (<= 640px, inclut 575px, 480px, 375px) */
+@media (max-width: 640px) {
+    /* 1 seule grande carte pleine largeur par véhicule */
+    .co-vehicles-grid {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+        justify-items: center !important;
+    }
+    .co-vehicles-grid .etb-vehicle-card {
+
+        width: 100% !important;
+        max-width: 280px !important;
+        height: auto !important;
+        min-height: 250px !important;
+        padding: 16px !important;
+
+    }
+    .co-vehicles-grid .etb-vehicle-image-wrapper {
+        height: 140px !important;
+        max-height: 140px !important;
+        margin-bottom: 10px !important;
+    }
+    .co-vehicles-grid .etb-vehicle-card h3.etb-vehicle-name {
+        font-size: 17px !important;
+    }
+    .co-vehicles-grid .etb-vehicle-price {
+        font-size: 15px !important;
+    }
+    .co-vehicles-grid .etb-vehicle-specs {
+        font-size: 12px !important;
+        margin-top: 4px !important;
+    }
+
+    /* Formulaire fluide sur mobile */
+    .etb-booking-widget {
+        min-width: 0 !important;
+        width: 100% !important;
+        padding: 20px 14px !important;
+    }
     .etb-pax-grid,
     .etb-grid-2 {
         grid-template-columns: 1fr !important;

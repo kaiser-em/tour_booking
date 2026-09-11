@@ -46,20 +46,12 @@ class ETB_Settings {
             $new_input['admin_email'] = isset( $existing['admin_email'] ) ? $existing['admin_email'] : get_option( 'admin_email' );
         }
 
-        // Réglages LimoExpress
-        $new_input['limo_enabled']           = isset( $input['limo_enabled'] ) && $input['limo_enabled'] === '1' ? '1' : '0';
-        $new_input['limo_api_token']         = ! empty( $input['limo_api_token'] ) ? sanitize_text_field( trim( $input['limo_api_token'] ) ) : '';
-        $new_input['limo_client_id']         = ! empty( $input['limo_client_id'] ) ? sanitize_text_field( trim( $input['limo_client_id'] ) ) : '';
-        $new_input['limo_booking_type_id']   = ! empty( $input['limo_booking_type_id'] ) ? sanitize_text_field( trim( $input['limo_booking_type_id'] ) ) : '';
-        $new_input['limo_booking_status_id'] = ! empty( $input['limo_booking_status_id'] ) ? sanitize_text_field( trim( $input['limo_booking_status_id'] ) ) : '';
+        // Application de dispatch choisie (Autonome, LimoExpress...)
+        $new_input['active_dispatcher'] = isset( $input['active_dispatcher'] ) ? sanitize_text_field( $input['active_dispatcher'] ) : 'none';
 
-        // Purge automatique des caches à chaque enregistrement des réglages
-        delete_transient( 'etb_limo_clients_cache' );
-        delete_transient( 'etb_limo_classes_cache' );
-        delete_transient( 'etb_limo_types_cache' );
-        delete_transient( 'etb_limo_statuses_cache' );
-
-        return $new_input;
+        // Crochet WordPress (Hook) : on laisse l'application sélectionnée sauvegarder ses propres champs
+        // Si LimoExpress est branché, c'est lui qui interceptera ce hook pour sauvegarder son Token.
+        $new_input = apply_filters( 'etb_sanitize_dispatcher_settings', $new_input, $input );
 
         return $new_input;
     }
@@ -126,97 +118,27 @@ class ETB_Settings {
                             <td><input type="email" name="etb_general_settings[admin_email]" value="<?php echo esc_attr( $options['admin_email'] ?? get_option('admin_email') ); ?>" class="regular-text"></td>
                         </tr>
                         <tr>
-                            <th scope="row" colspan="2"><hr style="margin: 20px 0; border: 0; border-top: 1px solid #dcdcde;"><h3>🚙 Intégration LimoExpress</h3></th>
+                            <th scope="row" colspan="2">
+                                <hr style="margin: 20px 0; border: 0; border-top: 1px solid #dcdcde;">
+                                <h3>🔌 Système de Dispatch (Application externe)</h3>
+                            </th>
                         </tr>
                         <tr>
-                            <th scope="row">Activer la synchronisation</th>
+                            <th scope="row">Application sélectionnée</th>
                             <td>
-                                <label>
-                                    <input type="checkbox" name="etb_general_settings[limo_enabled]" value="1" <?php checked( $options['limo_enabled'] ?? '0', '1' ); ?>>
-                                    Transmettre automatiquement chaque réservation validée vers LimoExpress
-                                </label>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th scope="row">Jeton API (Bearer Token)</th>
-                            <td>
-                                <input type="password" name="etb_general_settings[limo_api_token]" value="<?php echo esc_attr( $options['limo_api_token'] ?? '' ); ?>" class="regular-text" placeholder="Collez votre Token ici...">
-                                <p class="description">Généré dans LimoExpress (Administration &gt; Organization &gt; Advanced Settings &gt; API Integration).</p>
+                                <?php $active_dispatcher = $options['active_dispatcher'] ?? 'none'; ?>
+                                <select name="etb_general_settings[active_dispatcher]" class="regular-text" style="font-weight: bold; border-color: #0f172a;">
+                                    <option value="none" <?php selected( $active_dispatcher, 'none' ); ?>>⚪ Aucune (Mode 100% Autonome)</option>
+                                    <option value="limoexpress" <?php selected( $active_dispatcher, 'limoexpress' ); ?>>🔴 LimoExpress</option>
+                                </select>
+                                <p class="description">Choisissez le logiciel qui recevra vos réservations. En mode Autonome, ETB gère tout en interne sans appel externe.</p>
                             </td>
                         </tr>
 
                         <?php 
-                        $limo_clients = class_exists( 'ETB_LimoExpress' ) ? ETB_LimoExpress::get_clients() : array();
-                        $current_client_id = $options['limo_client_id'] ?? ( defined('ETB_LimoExpress::DEFAULT_REGULAR_CLIENT_ID') ? ETB_LimoExpress::DEFAULT_REGULAR_CLIENT_ID : 'e56ea49f-8533-41b9-97c9-17343ee35a4e' );
+                        // C'est ici que l'application sélectionnée branchera et affichera ses propres réglages !
+                        do_action( 'etb_render_dispatcher_settings', $options ); 
                         ?>
-                        <tr>
-                            <th scope="row">Client par défaut LimoExpress</th>
-                            <td>
-                                <?php if ( ! empty( $limo_clients ) ) : ?>
-                                    <select name="etb_general_settings[limo_client_id]" class="regular-text">
-                                        <?php foreach ( $limo_clients as $client ) : ?>
-                                            <option value="<?php echo esc_attr( $client['id'] ); ?>" <?php selected( $current_client_id, $client['id'] ); ?>>
-                                                👤 <?php echo esc_html( $client['name'] ); ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                    <p class="description">✅ Chargé automatiquement depuis votre compte LimoExpress.</p>
-                                <?php else : ?>
-                                    <input type="text" name="etb_general_settings[limo_client_id]" value="<?php echo esc_attr( $current_client_id ); ?>" class="regular-text">
-                                    <p class="description">Enregistrez votre Jeton API ci-dessus pour charger automatiquement vos clients.</p>
-                                <?php endif; ?>
-                            </td>
-                        </tr>
-
-                        
-                        <?php 
-                        $limo_types = ( class_exists( 'ETB_LimoExpress' ) && method_exists( 'ETB_LimoExpress', 'get_booking_types' ) ) 
-                            ? ETB_LimoExpress::get_booking_types() 
-                            : array();
-                        $current_type_id = $options['limo_booking_type_id'] ?? '';
-
-                        $limo_statuses = ( class_exists( 'ETB_LimoExpress' ) && method_exists( 'ETB_LimoExpress', 'get_booking_statuses' ) ) 
-                            ? ETB_LimoExpress::get_booking_statuses() 
-                            : array();
-                        $current_status_id = $options['limo_booking_status_id'] ?? '';
-                        ?>
-                        <tr>
-                            <th scope="row">Type de réservation LimoExpress</th>
-                            <td>
-                                <?php if ( ! empty( $limo_types ) ) : ?>
-                                    <select name="etb_general_settings[limo_booking_type_id]" class="regular-text">
-                                        <?php foreach ( $limo_types as $type ) : ?>
-                                            <option value="<?php echo esc_attr( $type['id'] ); ?>" <?php selected( $current_type_id, $type['id'] ); ?>>
-                                                📋 <?php echo esc_html( $type['name'] ); ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                    <p class="description">Type de prestation appliqué dans LimoExpress (ex: Transfert).</p>
-                                <?php else : ?>
-                                    <input type="text" name="etb_general_settings[limo_booking_type_id]" value="<?php echo esc_attr( $current_type_id ); ?>" class="regular-text">
-                                    <p class="description">Enregistrez votre jeton API pour charger automatiquement les types de réservation.</p>
-                                <?php endif; ?>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th scope="row">Statut initial LimoExpress</th>
-                            <td>
-                                <?php if ( ! empty( $limo_statuses ) ) : ?>
-                                    <select name="etb_general_settings[limo_booking_status_id]" class="regular-text">
-                                        <?php foreach ( $limo_statuses as $st ) : ?>
-                                            <option value="<?php echo esc_attr( $st['id'] ); ?>" <?php selected( $current_status_id, $st['id'] ); ?>>
-                                                ⏳ <?php echo esc_html( $st['name'] ); ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                    <p class="description">Statut sous lequel la course est créée (ex: Pending / En attente).</p>
-                                <?php else : ?>
-                                    <input type="text" name="etb_general_settings[limo_booking_status_id]" value="<?php echo esc_attr( $current_status_id ); ?>" class="regular-text">
-                                    <p class="description">Enregistrez votre jeton API pour charger automatiquement les statuts.</p>
-                                <?php endif; ?>
-                            </td>
-                        </tr>
-
                     </table>
                 <?php } else { 
                     settings_fields( 'etb_form_settings_group' );

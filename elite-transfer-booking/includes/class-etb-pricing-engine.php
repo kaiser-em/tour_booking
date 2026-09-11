@@ -143,9 +143,28 @@ class ETB_Pricing_Engine {
                 $promo_query->the_post();
                 $promo_id = get_the_ID();
 
-                // Contrôle strict de l'état actif du code promo en BDD
+                // 1. Contrôle du statut actif
                 $is_active = get_post_meta( $promo_id, '_etb_promo_active', true );
-                if ( '0' !== $is_active ) {
+
+                // 2. Contrôle strict des dates de validité
+                $today      = current_time( 'Y-m-d' );
+                $valid_from = get_post_meta( $promo_id, '_etb_promo_valid_from', true );
+                $valid_to   = get_post_meta( $promo_id, '_etb_promo_valid_to', true );
+                $is_date_ok = ( empty( $valid_from ) || $today >= $valid_from ) && ( empty( $valid_to ) || $today <= $valid_to );
+
+                // 3. Contrôle strict du quota d'utilisations
+                $usage_limit = get_post_meta( $promo_id, '_etb_promo_usage_limit', true );
+                $remaining   = get_post_meta( $promo_id, '_etb_promo_remaining', true );
+                $is_quota_ok = true;
+
+                if ( '' !== $usage_limit && (int) $usage_limit === 0 ) {
+                    $is_quota_ok = false; // Désactivé si quota total = 0
+                } elseif ( '' !== $remaining && is_numeric( $remaining ) && (int) $remaining <= 0 ) {
+                    $is_quota_ok = false; // Épuisé si restant <= 0
+                }
+
+                // Application de la réduction UNIQUEMENT si toutes les conditions sont réunies
+                if ( '0' !== $is_active && $is_date_ok && $is_quota_ok ) {
                     $discount_type = get_post_meta( $promo_id, '_etb_discount_type', true );
                     if ( empty( $discount_type ) ) {
                         $discount_type = get_post_meta( $promo_id, '_etb_promo_type', true ) ?: 'fixed';
@@ -165,6 +184,10 @@ class ETB_Pricing_Engine {
                     } else {
                         $discount_amount = $discount_val;
                     }
+                } else {
+                    // Si le code est expiré ou épuisé : annulation complète de la remise et du code
+                    $promo_code      = '';
+                    $discount_amount = 0;
                 }
                 wp_reset_postdata();
             }

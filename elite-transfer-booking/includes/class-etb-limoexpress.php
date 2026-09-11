@@ -9,17 +9,132 @@ class ETB_LimoExpress {
     const API_ENDPOINT = 'https://api.limoexpress.me/api/integration/booking-with-fees/';
 
     /**
+     * Branche le module LimoExpress sur le socle ETB (Hooks WordPress)
+     */
+    public static function init_hooks() {
+        add_filter( 'etb_sanitize_dispatcher_settings', array( __CLASS__, 'sanitize_settings' ), 10, 2 );
+        add_action( 'etb_render_dispatcher_settings', array( __CLASS__, 'render_settings' ) );
+    }
+
+    /**
+     * Sauvegarde des réglages propres à LimoExpress
+     */
+    public static function sanitize_settings( $new_input, $raw_input ) {
+        if ( isset( $new_input['active_dispatcher'] ) && 'limoexpress' === $new_input['active_dispatcher'] ) {
+            $new_input['limo_api_token']         = ! empty( $raw_input['limo_api_token'] ) ? sanitize_text_field( trim( $raw_input['limo_api_token'] ) ) : '';
+            $new_input['limo_client_id']         = ! empty( $raw_input['limo_client_id'] ) ? sanitize_text_field( trim( $raw_input['limo_client_id'] ) ) : '';
+            $new_input['limo_booking_type_id']   = ! empty( $raw_input['limo_booking_type_id'] ) ? sanitize_text_field( trim( $raw_input['limo_booking_type_id'] ) ) : '';
+            $new_input['limo_booking_status_id'] = ! empty( $raw_input['limo_booking_status_id'] ) ? sanitize_text_field( trim( $raw_input['limo_booking_status_id'] ) ) : '';
+
+            // Purge automatique des caches
+            delete_transient( 'etb_limo_clients_cache' );
+            delete_transient( 'etb_limo_classes_cache' );
+            delete_transient( 'etb_limo_types_cache' );
+            delete_transient( 'etb_limo_statuses_cache' );
+        }
+        return $new_input;
+    }
+
+    /**
+     * Affiche l'interface de réglages LimoExpress dans WordPress
+     */
+    public static function render_settings( $options ) {
+        if ( empty( $options['active_dispatcher'] ) || 'limoexpress' !== $options['active_dispatcher'] ) {
+            return;
+        }
+        ?>
+        <tr class="etb-dispatcher-row limoexpress-row">
+            <th scope="row" colspan="2">
+                <div style="background: #fff0f0; border-left: 4px solid #dc2626; padding: 12px; margin-top: 10px;">
+                    <h4 style="margin: 0 0 5px 0; color: #991b1b;">🔴 Configuration LimoExpress</h4>
+                    <p style="margin: 0; font-size: 13px;">Module connecté. Remplissez votre jeton pour charger automatiquement vos données.</p>
+                </div>
+            </th>
+        </tr>
+        <tr class="etb-dispatcher-row limoexpress-row">
+            <th scope="row">Jeton API (Bearer Token)</th>
+            <td>
+                <input type="password" name="etb_general_settings[limo_api_token]" value="<?php echo esc_attr( $options['limo_api_token'] ?? '' ); ?>" class="regular-text" placeholder="Collez votre Token ici...">
+                <p class="description">Généré dans LimoExpress (Administration &gt; Organization &gt; Advanced Settings &gt; API Integration).</p>
+            </td>
+        </tr>
+
+        <?php 
+        $limo_clients = self::get_clients();
+        $current_client_id = $options['limo_client_id'] ?? '';
+        ?>
+        <tr class="etb-dispatcher-row limoexpress-row">
+            <th scope="row">Client par défaut LimoExpress</th>
+            <td>
+                <?php if ( ! empty( $limo_clients ) ) : ?>
+                    <select name="etb_general_settings[limo_client_id]" class="regular-text">
+                        <option value="">-- Automatique (Détecté par LimoExpress) --</option>
+                        <?php foreach ( $limo_clients as $client ) : ?>
+                            <option value="<?php echo esc_attr( $client['id'] ); ?>" <?php selected( $current_client_id, $client['id'] ); ?>>
+                                👤 <?php echo esc_html( $client['name'] ); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                <?php else : ?>
+                    <input type="text" name="etb_general_settings[limo_client_id]" value="<?php echo esc_attr( $current_client_id ); ?>" class="regular-text">
+                <?php endif; ?>
+            </td>
+        </tr>
+
+        <?php 
+        $limo_types        = self::get_booking_types();
+        $current_type_id   = $options['limo_booking_type_id'] ?? '';
+        $limo_statuses     = self::get_booking_statuses();
+        $current_status_id = $options['limo_booking_status_id'] ?? '';
+        ?>
+        <tr class="etb-dispatcher-row limoexpress-row">
+            <th scope="row">Type de réservation LimoExpress</th>
+            <td>
+                <?php if ( ! empty( $limo_types ) ) : ?>
+                    <select name="etb_general_settings[limo_booking_type_id]" class="regular-text">
+                        <?php foreach ( $limo_types as $type ) : ?>
+                            <option value="<?php echo esc_attr( $type['id'] ); ?>" <?php selected( $current_type_id, $type['id'] ); ?>>
+                                📋 <?php echo esc_html( $type['name'] ); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                <?php else : ?>
+                    <input type="text" name="etb_general_settings[limo_booking_type_id]" value="<?php echo esc_attr( $current_type_id ); ?>" class="regular-text">
+                <?php endif; ?>
+            </td>
+        </tr>
+        <tr class="etb-dispatcher-row limoexpress-row">
+            <th scope="row">Statut initial LimoExpress</th>
+            <td>
+                <?php if ( ! empty( $limo_statuses ) ) : ?>
+                    <select name="etb_general_settings[limo_booking_status_id]" class="regular-text">
+                        <?php foreach ( $limo_statuses as $st ) : ?>
+                            <option value="<?php echo esc_attr( $st['id'] ); ?>" <?php selected( $current_status_id, $st['id'] ); ?>>
+                                ⏳ <?php echo esc_html( $st['name'] ); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                <?php else : ?>
+                    <input type="text" name="etb_general_settings[limo_booking_status_id]" value="<?php echo esc_attr( $current_status_id ); ?>" class="regular-text">
+                <?php endif; ?>
+            </td>
+        </tr>
+        <?php
+    }
+
+    /**
      * Transmet une réservation WordPress vers LimoExpress
-     *
-     * @param int   $booking_id ID de la réservation WordPress
-     * @param array $data       Données assainies du formulaire
-     * @return bool
      */
     public static function send_booking( $booking_id, $data ) {
         $settings = get_option( 'etb_general_settings', array() );
 
-        // 1. Contrôle d'activation
-        if ( empty( $settings['limo_enabled'] ) || '1' !== $settings['limo_enabled'] ) {
+        // 1. Contrôle d'activation (compatible Dispatcher Manager)
+        $is_active = ( ! empty( $settings['active_dispatcher'] ) && 'limoexpress' === $settings['active_dispatcher'] )
+                  || ( ! empty( $settings['limo_enabled'] ) && '1' === $settings['limo_enabled'] );
+
+        if ( ! $is_active ) {
+            update_post_meta( $booking_id, '_etb_limo_status', 'failed' );
+            update_post_meta( $booking_id, '_etb_limo_error', 'LimoExpress n\'est pas sélectionné comme application active dans les réglages.' );
             return false;
         }
 
@@ -50,11 +165,10 @@ class ETB_LimoExpress {
             return false;
         }
 
-        // 2bis. Création ou détection automatique du client voyageur dans LimoExpress (avec ID de commande pour anti-duplication)
+        // 2bis. Création ou détection automatique du client voyageur dans LimoExpress
         $client_id = self::get_or_create_client( $data, $settings, $booking_id );
 
-
-        // 3. Gestion des dates, heures et durée (Format : YYYY-MM-DD HH:MM:SS)
+        // 3. Gestion des dates, heures et durée
         $time_val           = ! empty( $data['time'] ) ? $data['time'] : '09:00';
         $start_datetime_sec = sprintf( '%s %s:00', $data['date'], substr( $time_val, 0, 5 ) );
 
@@ -67,7 +181,7 @@ class ETB_LimoExpress {
         $dur_m              = round( ( $duration_hours - $dur_h ) * 60 );
         $duration_formatted = sprintf( '%02d:%02d', $dur_h, $dur_m );
 
-        // 4. Extraction du nom client
+        // 4. Extraction du nom client (Sans forcer aucun texte par défaut)
         $name_parts = explode( ' ', trim( $data['name'] ), 2 );
         $first_name = ! empty( $name_parts[0] ) ? $name_parts[0] : 'Client';
         $last_name  = ! empty( $name_parts[1] ) ? $name_parts[1] : '--';
@@ -76,9 +190,7 @@ class ETB_LimoExpress {
             ? ETB_Pricing_Engine::get_circuit_option_label( $data['option_id'], $data['circuit_id'] )
             : 'Transfert standard';
 
-       // ====================================================================
-        // 5. POINTS DE PASSAGE (CHECKPOINTS / TIMELINE DU CIRCUIT)
-        // ====================================================================
+        // 5. Points de passage (Checkpoints / Timeline du circuit)
         $checkpoints = array();
         if ( ! empty( $data['option_id'] ) ) {
             $circuit_data = ETB_Pricing_Engine::find_circuit_option_data( $data['option_id'], $data['circuit_id'] );
@@ -92,24 +204,21 @@ class ETB_LimoExpress {
                     $step_title = ! empty( $step['title'] ) ? trim( $step['title'] ) : '';
                     if ( empty( $step_title ) ) continue;
 
-                    // Calcul de l'heure ajustée selon le départ réel (Format HH:MM)
                     $step_raw_time = ! empty( $step['time'] ) ? $step['time'] : '09:00';
                     $step_ts       = strtotime( $step_raw_time );
                     $adjusted_hm   = $step_ts ? date( 'H:i', $step_ts + $delta_sec ) : substr( $step_raw_time, 0, 5 );
 
-                    // TITRE PUR SEUL + CLEF OFFICIELLE arrival_time + NUMÉRO D'ORDRE
                     $checkpoints[] = array(
                         'location'     => array(
-                            'name' => mb_substr( $step_title, 0, 100 ), // Titre pur sans description
+                            'name' => mb_substr( $step_title, 0, 100 ),
                         ),
-                        'arrival_time' => $adjusted_hm,              // Vraie colonne LimoExpress (07:08)
-                        'time'         => $adjusted_hm,              // Doublon de secours Swagger
-                        'order_number' => $order_index++,            // 1, 2, 3, 4...
+                        'arrival_time' => $adjusted_hm,
+                        'time'         => $adjusted_hm,
+                        'order_number' => $order_index++,
                     );
                 }
             }
         }
-        
 
         // 6. Traitement des Extras & Siège Bébé
         $baby_seat_count = 0;
@@ -119,20 +228,18 @@ class ETB_LimoExpress {
         if ( ! empty( $data['extras'] ) ) {
             foreach ( $data['extras'] as $e_id => $qty ) {
                 if ( $qty > 0 ) {
-                    $e_name        = get_the_title( $e_id );
-                    $e_price       = floatval( get_post_meta( $e_id, '_etb_price', true ) );
-                    $line_total    = $e_price * $qty;
-                    $limo_extra_id = trim( get_post_meta( $e_id, '_etb_limo_extra_id', true ) );
+                    $e_name     = get_the_title( $e_id );
+                    $e_price    = floatval( get_post_meta( $e_id, '_etb_price', true ) );
+                    $line_total = $e_price * $qty;
 
                     $extras_summary .= sprintf( '%s x %d, ', $e_name, $qty );
 
-                    // Siège bébé (compteur natif LimoExpress)
                     if ( stripos( $e_name, 'bébé' ) !== false || stripos( $e_name, 'bebe' ) !== false || stripos( $e_name, 'baby' ) !== false ) {
                         $baby_seat_count += $qty;
                     }
 
                     if ( $line_total > 0 ) {
-                        $category_slug = ! empty( $limo_extra_id ) ? $limo_extra_id : str_replace( '-', '_', sanitize_title( $e_name ) );
+                        $category_slug = str_replace( '-', '_', sanitize_title( $e_name ) );
                         $extra_fees[]  = array(
                             'category' => $category_slug,
                             'amount'   => (float) round( $line_total, 2 ),
@@ -143,7 +250,7 @@ class ETB_LimoExpress {
         }
         $extras_summary = rtrim( $extras_summary, ', ' );
 
-        // 7. Gestion du Code Promo (Traçabilité texte avec devise)
+        // 7. Gestion du Code Promo
         $grand_total     = floatval( $data['pricing']['grand_total'] ?? 0 );
         $discount_amount = floatval( $data['pricing']['discount_amount'] ?? 0 );
         $promo_code      = ! empty( $data['pricing']['promo_code'] ) ? $data['pricing']['promo_code'] : '';
@@ -154,7 +261,7 @@ class ETB_LimoExpress {
             $promo_text = sprintf( "\n🏷️ Remise appliquée : %s (-%s %s)", $promo_code, $discount_amount, $currency_symbol );
         }
 
-        // Préparation des résumés textuels
+        // Préparation des résumés
         $vehicles_summary = '';
         if ( ! empty( $data['vehicles'] ) ) {
             foreach ( $data['vehicles'] as $v_id => $qty ) {
@@ -170,11 +277,11 @@ class ETB_LimoExpress {
         $total_passengers = intval( $data['adults'] ) + intval( $data['children'] );
         $client_note      = ! empty( $data['note'] ) ? trim( $data['note'] ) : 'Aucune';
 
-        // Notes professionnelles
+        // Notes pour le chauffeur et le répartiteur
         $note_for_driver = sprintf(
-            "◾ DOSSIER WP #%d\n" .
-            "◾Extras: %s\n" .
-            "◾Note client : %s",
+            "📋 DOSSIER WP #%d\n" .
+            "⭐ Extras : %s\n" .
+            "📝 Note client : %s",
             $booking_id,
             $extras_summary ?: 'Aucun',
             $client_note
@@ -182,13 +289,13 @@ class ETB_LimoExpress {
 
         $dispatcher_note = sprintf(
             "══════ DÉTAILS RÉSERVATION #%d ══════\n" .
-            "🔹Prestation : %s\n" .
-            "🔹Véhicule(s) : %s\n" .
-            "🔹Passagers : %d Adulte(s), %d Enfant(s) (Total : %d)\n" .
-            "🔹Bagages : %d\n" .
-            "🔹Extras : %s" .
+            "📍 Prestation : %s\n" .
+            "🚘 Véhicule(s) : %s\n" .
+            "👥 Passagers : %d Adulte(s), %d Enfant(s) (Total : %d)\n" .
+            "🧳 Bagages : %d\n" .
+            "⭐ Extras : %s" .
             "%s\n" .
-            "🔸Demande spéciale : %s",
+            "💬 Demande spéciale : %s",
             $booking_id,
             $prestation_label,
             $vehicles_summary ?: 'Non spécifié',
@@ -211,14 +318,14 @@ class ETB_LimoExpress {
             ),
         );
 
-        // 1. Résolution 100% dynamique du Type de réservation (Zéro-Hardcode)
+        // Résolution dynamique du Type de réservation (Zéro-Hardcode)
         $booking_type_id = ! empty( $settings['limo_booking_type_id'] ) ? trim( $settings['limo_booking_type_id'] ) : '';
         if ( empty( $booking_type_id ) ) {
             $available_types = self::get_booking_types();
             $booking_type_id = ! empty( $available_types[0]['id'] ) ? $available_types[0]['id'] : '';
         }
 
-        // 2. Résolution 100% dynamique du Statut initial (Zéro-Hardcode)
+        // Résolution dynamique du Statut initial (Zéro-Hardcode)
         $booking_status_id = ! empty( $settings['limo_booking_status_id'] ) ? trim( $settings['limo_booking_status_id'] ) : '';
         if ( empty( $booking_status_id ) ) {
             $available_statuses = self::get_booking_statuses();
@@ -233,10 +340,9 @@ class ETB_LimoExpress {
             }
         }
 
-        // Sécurité : si le compte n'a aucun type ou statut configuré dans LimoExpress
         if ( empty( $booking_type_id ) || empty( $booking_status_id ) ) {
             update_post_meta( $booking_id, '_etb_limo_status', 'failed' );
-            update_post_meta( $booking_id, '_etb_limo_error', 'Impossible de déterminer le type ou le statut de réservation. Veuillez vérifier la connexion LimoExpress.' );
+            update_post_meta( $booking_id, '_etb_limo_error', 'Impossible de déterminer le type ou statut de réservation LimoExpress.' );
             return false;
         }
 
@@ -261,11 +367,11 @@ class ETB_LimoExpress {
             'note_for_driver'        => substr( $note_for_driver, 0, 500 ),
             'waiting_board_text'     => substr( $data['name'], 0, 50 ),
             'passengers'             => $passengers_array,
-            'checkpoints'            => $checkpoints, // <-- Injection automatique des étapes du circuit !
+            'checkpoints'            => $checkpoints,
             'extra_fees'             => $extra_fees,
         );
 
-        // 10. Requête HTTP PUT vers LimoExpress 
+        // 10. Requête HTTP PUT vers LimoExpress
         $response = wp_remote_request( self::API_ENDPOINT, array(
             'method'    => 'PUT',
             'headers'   => array(
@@ -280,7 +386,7 @@ class ETB_LimoExpress {
 
         if ( is_wp_error( $response ) ) {
             update_post_meta( $booking_id, '_etb_limo_status', 'failed' );
-            update_post_meta( $booking_id, '_etb_limo_error', $response->get_error_message() );
+            update_post_meta( $booking_id, '_etb_limo_error', 'Erreur WP HTTP: ' . $response->get_error_message() );
             return false;
         }
 
@@ -295,28 +401,26 @@ class ETB_LimoExpress {
             delete_post_meta( $booking_id, '_etb_limo_error' );
             return true;
         } else {
-            $error_details = '';
+            $err_details = '';
             if ( isset( $body['errors'] ) && is_array( $body['errors'] ) ) {
                 $err_parts = array();
                 foreach ( $body['errors'] as $f => $m ) {
                     $err_parts[] = sprintf( '[%s: %s]', $f, is_array( $m ) ? implode( ', ', $m ) : $m );
                 }
-                $error_details = implode( ' ', $err_parts );
+                $err_details = implode( ' ', $err_parts );
             } elseif ( isset( $body['message'] ) ) {
-                $error_details = $body['message'];
+                $err_details = $body['message'];
             } else {
-                $error_details = substr( strip_tags( $raw_body ), 0, 200 );
+                $err_details = substr( strip_tags( $raw_body ), 0, 200 );
             }
-
-            $error_log_msg = sprintf( 'HTTP %d: %s', $status_code, $error_details );
             update_post_meta( $booking_id, '_etb_limo_status', 'failed' );
-            update_post_meta( $booking_id, '_etb_limo_error', $error_log_msg );
+            update_post_meta( $booking_id, '_etb_limo_error', sprintf( 'HTTP %s: %s', $status_code, $err_details ) );
             return false;
         }
     }
 
     /**
-     * Récupère la liste des clients depuis LimoExpress (avec cache WordPress de 1 heure)
+     * Récupère la liste des clients depuis LimoExpress (Simple GET propre)
      */
     public static function get_clients( $force_refresh = false ) {
         if ( ! $force_refresh ) {
@@ -332,42 +436,13 @@ class ETB_LimoExpress {
             return array();
         }
 
-        $response = wp_remote_request( 'https://api.limoexpress.me/api/integration/clients', array(
-            'method'  => 'PUT',
+        $response = wp_remote_get( 'https://api.limoexpress.me/api/integration/clients', array(
             'headers' => array(
-                'Content-Type'  => 'application/json',
                 'Accept'        => 'application/json',
                 'Authorization' => 'Bearer ' . $token,
             ),
-            'body'    => wp_json_encode( $client_payload ),
             'timeout' => 10,
         ) );
-
-        if ( is_wp_error( $response ) ) {
-            if ( $booking_id ) {
-                update_post_meta( $booking_id, '_etb_limo_client_debug', 'Erreur WP: ' . $response->get_error_message() );
-            }
-            return $default_fallback_id;
-        }
-
-        $status_code = wp_remote_retrieve_response_code( $response );
-        $raw_body    = wp_remote_retrieve_body( $response );
-        $body        = json_decode( $raw_body, true );
-
-        // On mémorise la réponse exacte pour le diagnostic direct
-        if ( $booking_id ) {
-            update_post_meta( $booking_id, '_etb_limo_client_debug', sprintf( 'HTTP %s: %s', $status_code, substr( $raw_body, 0, 300 ) ) );
-        }
-
-        if ( $status_code >= 200 && $status_code < 300 && ! empty( $body['data']['id'] ) ) {
-            delete_transient( 'etb_limo_clients_cache' );
-            if ( $booking_id ) {
-                delete_post_meta( $booking_id, '_etb_limo_client_debug' ); // Effacé si succès
-            }
-            return sanitize_text_field( $body['data']['id'] );
-        }
-
-        return $default_fallback_id;
 
         if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
             return array();
@@ -393,7 +468,7 @@ class ETB_LimoExpress {
     }
 
     /**
-     * Récupère la liste des classes de véhicules depuis LimoExpress (avec cache WordPress de 1 heure)
+     * Récupère la liste des classes de véhicules depuis LimoExpress (Simple GET propre)
      */
     public static function get_vehicle_classes( $force_refresh = false ) {
         if ( ! $force_refresh ) {
@@ -440,7 +515,7 @@ class ETB_LimoExpress {
     }
 
     /**
-     * Récupère la liste des types de réservation depuis LimoExpress (avec cache de 1 heure)
+     * Récupère la liste des types de réservation depuis LimoExpress (Simple GET propre)
      */
     public static function get_booking_types( $force_refresh = false ) {
         if ( ! $force_refresh ) {
@@ -487,7 +562,7 @@ class ETB_LimoExpress {
     }
 
     /**
-     * Récupère la liste des statuts de réservation depuis LimoExpress (avec cache de 1 heure)
+     * Récupère la liste des statuts de réservation depuis LimoExpress (Simple GET propre)
      */
     public static function get_booking_statuses( $force_refresh = false ) {
         if ( ! $force_refresh ) {
@@ -533,8 +608,8 @@ class ETB_LimoExpress {
         return $statuses;
     }
 
-     /**
-     * Recherche ou crée automatiquement le client voyageur dans LimoExpress (avec bouclier anti-doublon)
+    /**
+     * Recherche ou crée automatiquement le client voyageur dans LimoExpress (Méthode PUT officielle isolée)
      *
      * @param array $data       Données du formulaire
      * @param array $settings   Réglages généraux
@@ -544,7 +619,7 @@ class ETB_LimoExpress {
     public static function get_or_create_client( $data, $settings, $booking_id = 0 ) {
         $token = $settings['limo_api_token'] ?? '';
         
-        // Client de secours par défaut si la création échoue
+        // Client de secours par défaut
         $default_fallback_id = ! empty( $settings['limo_client_id'] ) 
             ? trim( $settings['limo_client_id'] ) 
             : 'e56ea49f-8533-41b9-97c9-17343ee35a4e';
@@ -553,22 +628,17 @@ class ETB_LimoExpress {
             return $default_fallback_id;
         }
 
-        // --------------------------------------------------------------------
-        // ANTI-DOUBLON NIVEAU 1 : Mémoire locale WordPress
-        // Si cette commande a déjà son client LimoExpress enregistré, on le réutilise directement
-        // --------------------------------------------------------------------
+        // 1. Mémoire locale WordPress (Anti-doublon)
         if ( $booking_id ) {
             $saved_client_uuid = get_post_meta( $booking_id, '_etb_limo_client_id', true );
             if ( ! empty( $saved_client_uuid ) ) {
-                return trim( $saved_client_uuid ); // Réutilisation directe, zéro appel API !
+                return trim( $saved_client_uuid );
             }
         }
 
         $customer_email = ! empty( $data['email'] ) ? strtolower( trim( $data['email'] ) ) : '';
 
-        // --------------------------------------------------------------------
-        // ANTI-DOUBLON NIVEAU 2 : Recherche dans LimoExpress par email
-        // --------------------------------------------------------------------
+        // 2. Recherche par e-mail dans la liste existante
         if ( ! empty( $customer_email ) ) {
             $existing_clients = self::get_clients();
             if ( ! empty( $existing_clients ) && is_array( $existing_clients ) ) {
@@ -576,7 +646,7 @@ class ETB_LimoExpress {
                     if ( ! empty( $client['email'] ) && strtolower( $client['email'] ) === $customer_email ) {
                         $found_uuid = trim( $client['id'] );
                         if ( $booking_id ) {
-                            update_post_meta( $booking_id, '_etb_limo_client_id', $found_uuid ); // Mémorisé dans WP
+                            update_post_meta( $booking_id, '_etb_limo_client_id', $found_uuid );
                         }
                         return $found_uuid;
                     }
@@ -584,9 +654,7 @@ class ETB_LimoExpress {
             }
         }
 
-        // --------------------------------------------------------------------
-        // CRÉATION DU NOUVEAU CLIENT (uniquement si le client n'existe pas)
-        // --------------------------------------------------------------------
+        // 3. Création du nouveau client via PUT /api/integration/clients
         $client_payload = array(
             'name'   => sanitize_text_field( $data['name'] ),
             'type'   => 'natural_person',
@@ -604,7 +672,7 @@ class ETB_LimoExpress {
         }
 
         $response = wp_remote_request( 'https://api.limoexpress.me/api/integration/clients', array(
-            'method'  => 'PUT', // Méthode officielle Swagger
+            'method'  => 'PUT',
             'headers' => array(
                 'Content-Type'  => 'application/json',
                 'Accept'        => 'application/json',
@@ -619,13 +687,14 @@ class ETB_LimoExpress {
         }
 
         $status_code = wp_remote_retrieve_response_code( $response );
-        $body        = json_decode( wp_remote_retrieve_body( $response ), true );
+        $raw_body    = wp_remote_retrieve_body( $response );
+        $body        = json_decode( $raw_body, true );
 
         if ( $status_code >= 200 && $status_code < 300 && ! empty( $body['data']['id'] ) ) {
             $new_client_uuid = sanitize_text_field( $body['data']['id'] );
             delete_transient( 'etb_limo_clients_cache' );
             if ( $booking_id ) {
-                update_post_meta( $booking_id, '_etb_limo_client_id', $new_client_uuid ); // Mémorisé dans WP
+                update_post_meta( $booking_id, '_etb_limo_client_id', $new_client_uuid );
             }
             return $new_client_uuid;
         }
