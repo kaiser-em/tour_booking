@@ -79,16 +79,13 @@ class ETB_Pricing_Engine {
         $duration_hours           = apply_filters( 'etb_circuit_duration_hours', $default_duration, $option_id, $circuit_id );
         $circuit_additional_price = apply_filters( 'etb_circuit_additional_price', $default_add_price, $option_id, $circuit_id );
 
-        // 1. Calcul des véhicules (plafonné à 50)
+        // 1. Calcul des véhicules avec support des paliers (Forfait 10h & heures sup.)
         if ( ! empty( $data['vehicles'] ) && is_array( $data['vehicles'] ) ) {
             foreach ( $data['vehicles'] as $vehicle_id => $qty ) {
                 $qty = min( 50, max( 0, (int) $qty ) );
                 if ( $qty > 0 ) {
-                    $hourly_rate = (float) get_post_meta( $vehicle_id, '_etb_hourly_rate', true );
-                    if ( $hourly_rate <= 0 ) {
-                        $hourly_rate = (float) get_post_meta( $vehicle_id, '_etb_base_price', true );
-                    }
-                    $vehicles_total += ( $hourly_rate * $duration_hours * $qty );
+                    $vehicle_unit_price = self::calculate_vehicle_price( $vehicle_id, $duration_hours );
+                    $vehicles_total    += ( $vehicle_unit_price * $qty );
                 }
             }
         }
@@ -205,5 +202,32 @@ class ETB_Pricing_Engine {
             'promo_code'               => $promo_code,
             'grand_total'              => $grand_total,
         );
+    }
+
+    /**
+     * Calcule le prix unitaire d'un véhicule selon la durée et les paliers tarifaires (10h / heures sup.)
+     */
+    public static function calculate_vehicle_price( $vehicle_id, $duration_hours ) {
+        $duration      = max( 0.25, floatval( $duration_hours ) );
+        $hourly_rate   = floatval( get_post_meta( $vehicle_id, '_etb_hourly_rate', true ) );
+        $base_price    = floatval( get_post_meta( $vehicle_id, '_etb_base_price', true ) );
+        $pack_10h      = floatval( get_post_meta( $vehicle_id, '_etb_pack_10h', true ) );
+        $sup_hour_rate = floatval( get_post_meta( $vehicle_id, '_etb_sup_hour_rate', true ) );
+
+        $standard_hourly = $hourly_rate > 0 ? $hourly_rate : $base_price;
+
+        // Si un forfait 10h est défini et que la durée atteint ou dépasse 10 heures
+        if ( $pack_10h > 0 ) {
+            if ( $duration == 10.0 ) {
+                return $pack_10h;
+            } elseif ( $duration > 10.0 ) {
+                $extra_hours = $duration - 10.0;
+                $extra_rate  = $sup_hour_rate > 0 ? $sup_hour_rate : $standard_hourly;
+                return $pack_10h + ( $extra_hours * $extra_rate );
+            }
+        }
+
+        // Tarification standard horaire (< 10h ou si pas de forfait 10h)
+        return $standard_hourly * $duration;
     }
 }

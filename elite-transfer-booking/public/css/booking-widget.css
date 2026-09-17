@@ -1218,6 +1218,1043 @@
 }
 
 /* ==========================================================================
+   WIDGET MINIMAL : DESIGN SYSTEM OFFICIEL "EDEN CAB" (DESIGN TOKENS)
+   ========================================================================== */
+
+.etb-quick-widget {
+    /* --- VARIABLES CENTRALISÉES DU WIDGET (MODIFIABLES EN 1 SEUL ENDROIT) --- */
+    --etb-qw-bg-bar: rgba(11, 15, 25, 0.88);       /* Fond barre flottante nuit */
+    --etb-qw-bg-capsule: rgba(10, 14, 22, 0.85);   /* Fond capsule mode */
+    --etb-qw-bg-card: #111622;                     /* Fond des cartes de véhicules */
+    --etb-qw-bg-card-selected: #141b2b;            /* Fond carte sélectionnée */
+    --etb-qw-bg-dropdown: #0f1420;                 /* Fond menu suggestions adresses */
+    --etb-qw-bg-hover: #1a2336;                    /* Survol et surbrillance clavier */
+    
+    --etb-qw-accent: #f7a100;                      /* Bleu royal éclatant Eden Cab */
+    --etb-qw-accent-hover: #ff6900;                /* Bleu foncé au clic */
+    --etb-qw-accent-glow: rgba(0, 114, 229, 0.4);  /* Halo lumineux */
+    
+    --etb-qw-border: #232a3b;                      /* Bordures principales */
+    --etb-qw-border-subtle: rgba(255, 255, 255, 0.16); /* Bordures translucides */
+    --etb-qw-border-input: rgba(255, 255, 255, 0.25);  /* Soulignement des champs */
+    
+    --etb-qw-text-white: #ffffff;                  /* Titres et textes clairs */
+    --etb-qw-text-muted: #94a3b8;                  /* Textes secondaires argentés */
+    --etb-qw-text-dark: #0f172a;                   /* Textes sur fond clair */
+
+    position: relative !important;
+    z-index: 9999 !important; /* Priorité absolue sur tous les blocs suivants de la page */
+    width: 100% !important;
+    max-width: 1150px !important;
+    margin: 35px auto !important;
+    padding: 16px !important;
+    border: 1px solid var(--etb-qw-border) !important;
+    border-radius: 20px !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+
+.etb-quick-widget * {
+    box-sizing: border-box !important;
+}
+
+/* 1. Toggle Capsule supérieure (Trajet simple / À l'heure) */
+.etb-quick-mode-capsule {
+    display: inline-flex !important;
+    background: rgba(10, 14, 22, 0.85) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    border-radius:30px !important;
+    padding: 5px !important;
+    margin: 0 auto 16px auto !important;
+    gap: 4px !important;
+    max-height: 45px !important;
+   /* box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;*/
+}
+
+.etb-quick-mode-btn {
+    display: flex !important;
+    align-items: center !important;
+    background: transparent !important;
+    border: none !important;
+    color: #94a3b8 !important;
+    padding: 9px 22px !important;
+    border-radius: 20px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.25s ease !important;
+}
+
+.etb-quick-mode-btn:hover {
+    color: #ffffff !important;
+}
+
+.etb-quick-mode-btn.active {
+    background: #fbac18 !important; /* Bleu Eden Cab */
+    color: #ffffff !important;
+    /*box-shadow: 0 4px 15px rgba(0, 114, 229, 0.45) !important;*/
+}
+
+/* 2. Barre Horizontale Flottante Translucide */
+.etb-quick-glass-bar {
+    position: relative !important;
+    z-index: 100 !important; /* Priorité absolue sur la flotte en dessous */
+    display: flex !important;
+    align-items: center !important;
+    background: rgba(11, 15, 25, 0.88) !important; /* Fond nuit Eden Cab */
+    backdrop-filter: blur(18px) !important;
+    -webkit-backdrop-filter: blur(18px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.16) !important;
+    border-radius: 16px !important;
+    padding: 18px 24px !important;
+    gap: 18px !important;
+    /*box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45) !important;*/
+    width: 100% !important;
+}
+
+.etb-quick-col {
+    flex: 1 !important;
+    display: flex;
+    flex-direction: column !important;
+    position: relative !important;
+    max-height: 70px !important;
+}
+
+
+/* La colonne qui a le focus passe immédiatement au premier plan absolu */
+.etb-quick-col:focus-within {
+    z-index: 1000 !important;
+}
+ 
+.etb-quick-col[style*="display: none"] {
+    display: none !important;
+}
+
+.etb-quick-col.etb-col-date {
+    max-width: 160px !important;
+}
+
+.etb-quick-col.etb-col-time {
+    max-width: 130px !important;
+}
+
+/* Affichage du format de date personnalisé (ex: 15 Sep 2026) */
+.etb-quick-date-wrapper {
+    position: relative !important;
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+.etb-quick-date-display {
+    color: var(--etb-qw-text-white, #ffffff) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    padding: 6px 0 !important;
+    border-bottom: 1.5px solid var(--etb-qw-border-input, rgba(255, 255, 255, 0.25)) !important;
+    width: 100% !important;
+    white-space: nowrap !important;
+    pointer-events: none !important;
+}
+
+/* Le champ de calendrier natif devient transparent pour capter le clic sur la date */
+.etb-quick-date-wrapper input[type="date"] {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    opacity: 0 !important;
+    cursor: pointer !important;
+    z-index: 2 !important;
+}
+
+.etb-quick-label {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    color: #94a3b8 !important; /* Argenté clair */
+    margin-bottom: 5px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.06em !important;
+}
+
+/* Inputs épurés soulignés */
+.etb-quick-col input,
+.etb-quick-col select {
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 1.5px solid rgba(255, 255, 255, 0.25) !important;
+    border-radius: 0 !important;
+    color: #ffffff !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    padding: 6px 0 !important;
+    outline: none !important;
+    width: 100% !important;
+    transition: all 0.25s ease !important;
+    max-height: 40px !important;
+}
+
+.etb-quick-col input::placeholder {
+    color: rgba(148, 163, 184, 0.6) !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
+}
+
+.etb-quick-col input:focus,
+.etb-quick-col select:focus {
+    border-bottom-color: #fbac18 !important;
+}
+
+.etb-quick-col select option {
+    background: #0f172a !important;
+    color: #ffffff !important;
+}
+
+/* Séparateur vertical élégant */
+.etb-quick-divider {
+    width: 1px !important;
+    height: 38px !important;
+    background: rgba(255, 255, 255, 0.14) !important;
+    margin: 0 4px !important;
+}
+
+/* Bouton bleu "Voir les options" */
+.etb-quick-btn-col {
+    display: flex !important;
+    align-items: center !important;
+}
+
+.etb-quick-submit-btn {
+    background: #fbac18 !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 50px !important;
+    padding: 13px 26px !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    transition: all 0.25s ease !important;
+    /*box-shadow: 0 6px 20px rgba(0, 114, 229, 0.4) !important;*/
+}
+
+.etb-quick-submit-btn:hover {
+    background: #e39402 !important;
+    transform: translateY(-2px) !important;
+   /* box-shadow: 0 8px 25px rgba(0, 114, 229, 0.55) !important;*/
+}
+
+/* Notice d'erreur */
+.etb-quick-error-notice {
+    background: rgba(220, 38, 38, 0.2) !important;
+    border: 1px solid rgba(220, 38, 38, 0.5) !important;
+    color: var(--etb-danger) !important;
+    padding: 12px 18px !important;
+    border-radius: 10px !important;
+    font-size: 13px !important;
+    margin-top: 15px !important;
+    text-align: center !important;
+}
+
+/* 3. Section Flotte de Véhicules (Style Eden Cab Sombre VIP) */
+.etb-quick-fleet-wrapper {
+    position: relative !important;
+    z-index: 1 !important; /* Reste en arrière-plan des menus déroulants */
+    margin-top: 10px !important;
+    width: 100% !important;
+}
+
+.etb-quick-fleet-heading {
+    font-size: 18px !important;
+    font-weight: 500 !important;
+    color: var(--etb-qw-text-dark) !important;
+    margin-bottom: 22px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.08em !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 10px !important;
+}
+
+.etb-quick-cars-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)) !important;
+    gap: 10px !important;
+    justify-items: center !important;
+}
+
+/* Cartes sombres de prestige Eden Cab */
+.etb-quick-car-item {
+    background: #111622 !important; /* Graphite nuit Eden Cab */
+    border: 1.5px solid #232a3b !important;
+    border-radius: 14px !important;
+    padding: 14px !important;
+    cursor: pointer !important;
+    position: relative !important;
+    display: flex;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    min-height: 260px !important;
+    max-width: 300px !important;
+    min-width: 280px !important;
+    transition: transform ease-in-out 0.23s;
+}
+
+/* Règle absolue : forcer le masquage des véhicules inéligibles */
+.etb-quick-car-item.etb-hidden,
+.etb-quick-car-item[style*="display: none"] {
+    display: none !important;
+}
+
+.etb-quick-car-item:hover {
+    transform: translateY(-8px) !important;
+    border-color: var(--etb-qw-accent) !important;
+    /*box-shadow: 0 12px 30px rgba(0, 114, 229, 0.22) !important;*/
+}
+
+.etb-quick-car-item.selected {
+    border-color: var(--etb-qw-accent) !important;
+    background: var(--etb-qw-bg-card) !important;
+    /*box-shadow: 0 0 0 2px #fbac18, 0 12px 35px rgba(0, 114, 229, 0.3) !important;*/
+}
+
+/* Coche de sélection (au premier plan au-dessus du GIF) */
+.etb-quick-card-check {
+    position: absolute !important;
+    top: 12px !important;
+    right: 12px !important;
+    width: 28px !important;
+    height: 28px !important;
+    background: #e65a15 !important;
+    color: #ffffff !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    opacity: 0 !important;
+    transform: scale(0.5) !important;
+    transition: all 0.25s ease !important;
+    z-index: 25 !important; /* Passe au premier plan absolu au-dessus du GIF */
+    pointer-events: none !important;
+}
+
+.etb-quick-card-check .dashicons {
+    font-size: 16px !important;
+    width: 16px !important;
+    height: 16px !important;
+    line-height: 1 !important;
+    color: #ffffff !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.etb-quick-car-item.selected .etb-quick-card-check {
+    opacity: 1 !important;
+    transform: scale(1) !important;
+}
+
+/* Image et animation au survol */
+.etb-quick-img-box {
+    width: 100% !important;
+    height: 125px !important;
+    position: relative !important;
+    margin-bottom: 12px !important;
+}
+
+.etb-quick-img-box img {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important;
+    transition: opacity 0.35s ease !important;
+}
+
+.etb-quick-img-box .etb-img-hover {
+    opacity: 0 !important;
+}
+
+.etb-quick-car-item:hover .etb-img-hover,
+.etb-quick-car-item.selected .etb-img-hover {
+    opacity: 1 !important;
+}
+
+.etb-quick-car-item:hover .etb-img-static,
+.etb-quick-car-item.selected .etb-img-static {
+    opacity: 0 !important;
+}
+
+.etb-quick-car-item h4 {
+    font-family: 'calibri', 'sans-serif';
+    font-size: 17px !important;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+    margin: 0 0 6px 0 !important;
+    letter-spacing: 0.02em !important;
+}
+
+.etb-quick-specs {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    color: #94a3b8 !important; /* Argenté */
+    display: flex !important;
+    justify-content: flex-start!important;
+    gap: 4px;
+    margin-bottom: 12px !important;
+}
+
+.etb-quick-specs span{
+    background-color: var(--etb-qw-bg-dropdown) !important;
+    border-radius: 10px !important;
+    padding: 2px 10px !important;
+}
+.etb-quick-km-info{
+    color: var(--etb-white) !important;
+}
+.etb-quick-price-display {
+    font-size: 22px !important;
+    font-weight: 900 !important;
+    color: #fbac18 !important; /* Bleu éclatant */
+    margin-bottom: 14px !important;
+    letter-spacing: -0.5px !important;
+}
+
+/* Détail du calcul de prix sous le montant */
+.etb-quick-price-detail {
+    font-size: 11px !important;
+    color: #cbd5e1 !important; /* Gris argenté très clair */
+    margin-top: -10px !important;
+    margin-bottom: 14px !important;
+    line-height: 1.4 !important;
+    font-weight: 500 !important;
+}
+
+.etb-quick-price-detail strong {
+    color: #ffffff !important;
+    font-weight: 600 !important;
+}
+
+/* Bouton de sélection de la carte */
+.etb-quick-select-btn {
+    width: 100% !important;
+    padding: 10px !important;
+    background: #1e2638 !important;
+    border: 1px solid #333f57 !important;
+    border-radius: 8px !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    color: #cbd5e1 !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+.etb-quick-select-btn:hover {
+    background: #28334b !important;
+    color: #ffffff !important;
+}
+
+.etb-quick-car-item.selected .etb-quick-select-btn {
+    background: #fbac18!important;
+    border-color: #fbac18 !important;
+    color: #ffffff !important;
+    /*box-shadow: 0 4px 15px rgba(0, 114, 229, 0.4) !important;*/
+}
+
+/* 4. Barre de Confirmation finale (Masquée par défaut tant qu'aucune voiture n'est choisie) */
+.etb-quick-confirm-bar {
+    display: none !important; /* Totalement invisible au départ */
+    justify-content: space-between !important;
+    align-items: center !important;
+    background: #0b0f19 !important;
+    border: 1px solid #232a3b !important;
+    color: #ffffff !important;
+    border-radius: 14px !important;
+    padding: 18px 26px !important;
+    margin-top: 30px !important;
+}
+
+.etb-quick-confirm-bar.is-visible {
+    display: flex !important; /* Apparaît uniquement si un véhicule est sélectionné */
+}
+
+.etb-quick-summary-info span {
+    font-size: 14px !important;
+    margin-right: 22px !important;
+    color: #94a3b8 !important;
+}
+
+.etb-quick-summary-info strong {
+    color: #ffffff !important;
+}
+
+.etb-quick-book-trip-btn {
+    background: #fbac18 !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 50px !important;
+    padding: 13px 30px !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    transition: all 0.25s ease !important;
+    /*box-shadow: 0 6px 20px rgba(0, 114, 229, 0.4) !important;*/
+}
+
+.etb-quick-book-trip-btn:hover {
+    background: var(--etb-accent-hover) !important;
+    transform: translateY(-2px) !important;
+}
+
+
+/* ==========================================================================
+   MODE SUR MESURE / CUSTOM QUOTE (OPTION C HYBRIDE)
+   ========================================================================== */
+
+/* 1. Bandeau d'information VIP (Masqué par défaut, affiché UNIQUEMENT via .is-visible) */
+.etb-quick-info-notice {
+    background: rgba(251, 172, 24, 0.08) !important;
+    border: 1px solid rgba(251, 172, 24, 0.35) !important;
+    color: var(--etb-qw-text-dark) !important;
+    padding: 14px 20px !important;
+    border-radius: 12px !important;
+    font-size: 13px !important;
+    line-height: 1.5 !important;
+    margin-bottom: 22px !important;
+    display: none !important; /* Masqué d'office sans laisser de boîte vide */
+    align-items: center !important;
+    gap: 12px !important;
+}
+
+.etb-quick-info-notice.is-visible {
+    display: flex !important; /* Apparaît uniquement lors d'un Custom Quote */
+}
+
+.etb-quick-info-notice .dashicons {
+    color: #fbac18 !important;
+    font-size: 20px !important;
+    width: 20px !important;
+    height: 20px !important;
+    flex-shrink: 0 !important;
+}
+
+/* 2. Badge "Custom Quote" dans les cartes de véhicules */
+.etb-quick-quote-badge {
+    display: inline-block !important;
+    background: rgba(251, 172, 24, 0.14) !important;
+    color: #fbac18 !important;
+    font-size: 8px !important;
+    font-weight: 800 !important;
+    padding: 4px 14px !important;
+    border-radius: 8px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+}
+
+/* 3. Bouton WhatsApp Option C (affiché dans la barre de confirmation) */
+.etb-quick-whatsapp-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    background: transparent !important;
+    border: 1px solid white !important;
+    color: #ffffff !important;
+    text-decoration: none !important;
+    padding: 13px 22px !important;
+    border-radius: 50px !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    transition: all 0.25s ease !important;
+    white-space: nowrap !important;
+}
+
+.etb-quick-whatsapp-btn:hover {
+    background: #1ebc59 !important;
+    transform: translateY(-2px) !important;
+    /*box-shadow: 0 6px 18px rgba(37, 211, 102, 0.35) !important;*/
+    color: #ffffff !important;
+}
+
+.etb-quick-whatsapp-btn .dashicons {
+    font-size: 18px !important;
+    width: 18px !important;
+    height: 18px !important;
+}
+
+.etb-quick-actions-row {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    flex-wrap: wrap !important;
+}
+
+
+/* Boîte de suggestions (Priorité absolue et capture totale des événements souris) */
+.etb-quick-suggestions-box {
+    position: absolute !important;
+    top: 100% !important;
+    left: 0 !important;
+    width: 100% !important;
+    min-width: 360px !important;
+    background: #0f1420 !important;
+    border: 1.5px solid #28334b !important;
+    border-radius: 12px !important;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7) !important;
+    max-height: 250px !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+    z-index: 99999 !important; /* Passe au-dessus de tout sans exception */
+    margin-top: 10px !important;
+    pointer-events: auto !important;
+}
+
+.etb-quick-suggestion-item {
+    padding: 10px 14px !important;
+    font-size: 13px !important;
+    color: #e2e8f0 !important;
+    cursor: pointer !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    transition: background 0.2s ease !important;
+}
+
+.etb-quick-suggestion-item:last-child {
+    border-bottom: none !important;
+}
+
+.etb-quick-suggestion-item {
+    padding: 12px 16px !important;
+    font-size: 13px !important;
+    color: var(--etb-qw-text-white) !important;
+    cursor: pointer !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    transition: background 0.15s ease, color 0.15s ease !important;
+    user-select: none !important;
+}
+
+/* Survol souris ET navigation au clavier (Flèche Haut / Flèche Bas) */
+.etb-quick-suggestion-item:hover,
+.etb-quick-suggestion-item.highlighted {
+    background: var(--etb-qw-bg-hover) !important;
+    border-left: 3px solid var(--etb-qw-accent) !important;
+}
+
+.etb-quick-suggestion-item:hover strong,
+.etb-quick-suggestion-item.highlighted strong {
+    color: var(--etb-qw-accent) !important;
+}
+
+.etb-quick-sug-text {
+    line-height: 1.35 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    flex: 1 !important;
+}
+
+.etb-quick-sug-title {
+    color: var(--etb-qw-text-white) !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+}
+
+.etb-quick-sug-sub {
+    color: var(--etb-qw-text-muted) !important;
+    font-size: 11px !important;
+}
+
+.etb-quick-suggestion-item .dashicons {
+    color: #0072e5 !important;
+    font-size: 16px !important;
+    width: 16px !important;
+    height: 16px !important;
+}
+
+/* Sélecteur d'heures et minutes 12H AM/PM (Style Eden Cab) */
+.etb-quick-time-picker-popup {
+    position: absolute !important;
+    top: 100% !important;
+    left: 0 !important;
+    width: 175px !important;
+    background: #0f1420 !important;
+    border: 1.5px solid #28334b !important;
+    border-radius: 12px !important;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7) !important;
+    display: none !important;
+    flex-direction: column !important;
+    padding: 10px !important;
+    z-index: 99999 !important;
+    margin-top: 10px !important;
+}
+
+.etb-quick-time-picker-popup.is-open {
+    display: flex !important;
+}
+
+/* Capsule AM / PM supérieure */
+.etb-quick-ampm-capsule {
+    display: flex !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    border-radius: 6px !important;
+    padding: 2px !important;
+    margin-bottom: 8px !important;
+    gap: 3px !important;
+}
+
+.etb-ampm-btn {
+    flex: 1 !important;
+    background: transparent !important;
+    border: none !important;
+    color: #94a3b8 !important;
+    padding: 5px 0 !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    text-align: center !important;
+}
+
+.etb-ampm-btn.active {
+    background: #0072e5 !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 6px rgba(0, 114, 229, 0.4) !important;
+}
+
+.etb-time-columns-row {
+    display: flex !important;
+    gap: 8px !important;
+    width: 100% !important;
+}
+
+.etb-time-col {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.etb-time-head {
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    color: #94a3b8 !important;
+    text-transform: uppercase !important;
+    text-align: center !important;
+    padding-bottom: 4px !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    margin-bottom: 4px !important;
+}
+
+.etb-time-scroll {
+    max-height: 160px !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+}
+
+.etb-time-opt {
+    padding: 6px 0 !important;
+    text-align: center !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: #e2e8f0 !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+}
+
+.etb-time-opt:hover,
+.etb-time-opt.active {
+    background: #0072e5 !important;
+    color: #ffffff !important;
+}
+
+/* ==========================================================================
+   STYLE SOMBRE EDEN CAB POUR LE MENU DÉROULANT GOOGLE PLACES (.pac-container)
+   ========================================================================== */
+
+.pac-container {
+    background-color: #0f1420 !important;
+    border: 1.5px solid #28334b !important;
+    border-radius: 12px !important;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7) !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    z-index: 999999 !important;
+    margin-top: 8px !important;
+    padding: 6px 0 !important;
+}
+
+.pac-item {
+    display: grid !important;
+    grid-template-columns: 20px 1fr !important;
+    grid-column-gap: 12px !important;
+    align-items: center !important;
+    padding: 10px 16px !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+    color: #94a3b8 !important;
+    cursor: pointer !important;
+    line-height: 1.35 !important;
+}
+
+.pac-item:hover,
+.pac-item-selected {
+    background-color: #1a2336 !important;
+    border-left: 3px solid #0072e5 !important;
+}
+
+.pac-icon {
+    grid-row: 1 / span 2 !important;
+    grid-column: 1 !important;
+    filter: invert(1) hue-rotate(180deg) !important;
+    margin: 0 !important;
+    align-self: center !important;
+}
+
+.pac-item-query {
+    grid-row: 1 !important;
+    grid-column: 2 !important;
+    color: #ffffff !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    padding-right: 0 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: block !important;
+}
+
+/* Détails d'adresse non gras (ville, région, pays) sur la 2e ligne */
+.pac-item > span:not(.pac-icon):not(.pac-item-query) {
+    grid-row: 2 !important;
+    grid-column: 2 !important;
+    font-size: 11px !important;
+    color: #94a3b8 !important;
+    display: block !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    margin-top: 2px !important;
+}
+
+.pac-matched {
+    color: #0072e5 !important;
+    font-weight: 800 !important;
+}
+
+/* Bouton d'effacement rapide (Petit x en rond) */
+.etb-quick-input-wrap {
+    position: relative !important;
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+.etb-quick-input-wrap input {
+    padding-right: 28px !important;
+}
+
+/* Bouton rond d'effacement vectoriel (Masqué par défaut) */
+.etb-quick-clear-btn {
+    position: absolute !important;
+    right: 4px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 20px !important;
+    height: 20px !important;
+    background: rgba(255, 255, 255, 0.16) !important;
+    color: rgba(255, 255, 255, 0.75) !important;
+    border: none !important;
+    border-radius: 50% !important;
+    display: none !important; /* Masqué par défaut */
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    padding: 0 !important;
+    transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1) !important;
+    z-index: 5 !important;
+}
+
+/* Affichage uniquement lorsqu'une adresse est validée */
+.etb-quick-clear-btn.is-visible {
+    display: inline-flex !important;
+    position: absolute !important;
+    right: 2px !important;
+    top: 20% !important;
+    transform: translateY(-50%) !important;
+    width: 20px !important;
+    height: 20px !important;
+    background: rgba(255, 255, 255, 0.16) !important;
+    color: rgba(255, 255, 255, 0.75) !important;
+    border: none !important;
+    border-radius: 50% !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    padding: 0 !important;
+    transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1) !important;
+    z-index: 5 !important;
+}
+
+.etb-quick-clear-btn svg {
+    display: block !important;
+    pointer-events: none !important;
+}
+
+.etb-quick-clear-btn:hover {
+    background: black !important;
+    color: #ffffff !important;
+    box-shadow: var(--etb-shadow-sm) !important;
+}
+
+/*lock selecteure de duration*/
+/* ==========================================================================
+   CUSTOM SELECT (DURÉE) - STYLE SOMBRE EDEN CAB
+   ========================================================================== */
+.etb-custom-select {
+    position: relative !important;
+    width: 100% !important;
+    user-select: none !important;
+}
+
+.etb-custom-select-trigger {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    background: transparent !important;
+    border-bottom: 1.5px solid var(--etb-qw-border-input, rgba(255, 255, 255, 0.25)) !important;
+    color: var(--etb-qw-text-white, #ffffff) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    padding: 6px 0 !important;
+    cursor: pointer !important;
+    transition: all 0.25s ease !important;
+}
+
+.etb-custom-select-trigger:hover,
+.etb-custom-select.is-open .etb-custom-select-trigger {
+    border-bottom-color: var(--etb-qw-accent, #0072e5) !important;
+}
+
+.etb-custom-select-trigger .dashicons {
+    font-size: 14px !important;
+    width: 14px !important;
+    height: 14px !important;
+    transition: transform 0.25s ease !important;
+    color: var(--etb-qw-text-muted, #94a3b8) !important;
+}
+
+.etb-custom-select.is-open .etb-custom-select-trigger .dashicons {
+    transform: rotate(180deg) !important;
+}
+
+.etb-custom-select-options {
+    position: absolute !important;
+    top: 100% !important;
+    left: 0 !important;
+    width: 100% !important;
+    background: var(--etb-qw-bg-dropdown, #0f1420) !important;
+    border: 1px solid var(--etb-qw-border, #28334b) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6) !important;
+    margin-top: 8px !important;
+    display: none !important; /* Masqué par défaut */
+    flex-direction: column !important;
+    z-index: 99999 !important;
+    overflow: hidden !important;
+}
+
+.etb-custom-select.is-open .etb-custom-select-options {
+    display: flex !important;
+}
+
+.etb-custom-option {
+    padding: 10px 14px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: var(--etb-qw-text-white, #ffffff) !important;
+    cursor: pointer !important;
+    transition: background 0.2s ease !important;
+}
+
+.etb-custom-option:hover {
+    background: var(--etb-qw-bg-hover, #1a2336) !important;
+    color: var(--etb-qw-accent, #0072e5) !important;
+}
+
+.etb-custom-option.selected {
+    background: var(--etb-qw-bg-card-selected, #141b2b) !important;
+    border-left: 3px solid var(--etb-qw-accent, #0072e5) !important;
+    color: var(--etb-qw-accent, #0072e5) !important;
+}
+
+
+#etb-quick-pickup.etb-quick-input:focus,
+#etb-quick-pickup.etb-quick-input:active,
+#etb-quick-pickup.etb-quick-input:focus-visible{
+    outline: none !important;
+    box-shadow: none !important;
+
+}
+#etb-quick-dropoff.etb-quick-input:focus,
+#etb-quick-dropoff.etb-quick-input:active,
+#etb-quick-dropoff.etb-quick-input:focus-visible{
+    outline: none !important;
+    box-shadow: none !important;
+
+}
+
+
+.etb-quick-col input:focus,
+.etb-quick-col input:active,
+.etb-quick-col input:focus-visible{
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Adaptation Responsive Mobile */
+@media (max-width: 900px) {
+    .etb-quick-glass-bar {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 16px !important;
+    }
+    .etb-quick-col.etb-col-date,
+    .etb-quick-col.etb-col-time {
+        max-width: 100% !important;
+    }
+    .etb-quick-divider {
+        display: none !important;
+    }
+    .etb-quick-submit-btn {
+        width: 100% !important;
+        justify-content: center !important;
+    }
+    .etb-quick-confirm-bar {
+        flex-direction: column !important;
+        gap: 14px !important;
+        text-align: center !important;
+    }
+}
+
+
+
+/* ==========================================================================
    7. RESPONSIVE MOBILE & TABLETTE
    ========================================================================== */
 
@@ -1323,3 +2360,7 @@
         align-items: flex-start !important;
     }
 }
+
+
+
+ 

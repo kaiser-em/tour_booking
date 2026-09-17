@@ -9,6 +9,11 @@ class ETB_Ajax {
         add_action( 'wp_ajax_nopriv_etb_validate_promo', array( $this, 'handle_validate_promo' ) );
 
         add_action( 'wp_ajax_etb_resync_booking', array( $this, 'handle_resync_booking' ) );
+
+
+        // Nouvelle route AJAX pour le calcul de prix en direct (Point A -> Point B)
+        add_action( 'wp_ajax_etb_quick_pricing', array( $this, 'handle_quick_pricing' ) );
+        add_action( 'wp_ajax_nopriv_etb_quick_pricing', array( $this, 'handle_quick_pricing' ) );
     }
 
     public function handle_validate_promo() {
@@ -287,8 +292,7 @@ class ETB_Ajax {
             }
         }
 
-        // Notifications E-mail
-        $general_settings = get_option( 'etb_general_settings', array() );
+     
         // Notifications E-mail
         $general_settings = get_option( 'etb_general_settings', array() );
         $currency_symbol  = ! empty( $general_settings['currency'] ) ? sanitize_text_field( $general_settings['currency'] ) : '€';
@@ -463,6 +467,66 @@ class ETB_Ajax {
             ) );
         } else {
             wp_send_json_error( array( 'message' => $dispatch_result['message'] ) );
+        }
+    }
+
+    /**
+     * Traitement AJAX : Calcul du prix de transfert via l'API LimoExpress
+     */
+    public function handle_quick_pricing() {
+        check_ajax_referer( 'etb_booking_nonce', 'nonce' );
+
+        // Protection Anti-Abus : Max 30 estimations de prix par tranche de 10 minutes par IP
+        if ( ! ETB_Security::check_rate_limit( 'quick_pricing', 30, 600 ) ) {
+            wp_send_json_error( array( 'message' => 'Trop de demandes de calcul de tarif. Veuillez patienter quelques instants avant de réessayer.' ) );
+        }
+        
+        $from_lat = floatval( $_POST['from_lat'] ?? 0 );
+        $from_lng = floatval( $_POST['from_lng'] ?? 0 );
+        $to_lat   = floatval( $_POST['to_lat'] ?? 0 );
+        $to_lng   = floatval( $_POST['to_lng'] ?? 0 );
+
+        if ( empty( $from_lat ) || empty( $from_lng ) || empty( $to_lat ) || empty( $to_lng ) ) {
+            wp_send_json_error( array( 'message' => 'Coordonnées GPS incomplètes pour calculer le trajet.' ) );
+        }
+
+        $settings = get_option( 'etb_general_settings', array() );
+        $token    = $settings['limo_api_token'] ?? '';
+        
+        if ( empty( $token ) ) {
+            wp_send_json_error( array( 'message' => 'Jeton API LimoExpress non configuré.' ) );
+        }
+
+        // On interroge LimoExpress pour récupérer la matrice de prix
+        $api_url = sprintf(
+            'https://api.limoexpress.me/api/integration/pricing?from_latitude=%s&from_longitude=%s&to_latitude=%s&to_longitude=%s',
+            $from_lat, $from_lng, $to_lat, $to_lng
+        );
+
+        $response = wp_remote_get( $api_url, array(
+            'headers' => array(
+                'Accept'        => 'application/json',
+                'Authorization' => 'Bearer ' . $token,
+            ),
+            'timeout' => 15,
+        ) );
+
+        if ( is_wp_error( $response ) ) {
+            wp_send_json_error( array( 'message' => 'Erreur de connexion au serveur de tarification.' ) );
+        }
+
+        $status_code = wp_remote_retrieve_response_code( $response );
+        $body        = json_decode( wp_remote_retrieve_body( $response ), true );
+
+        if ( $status_code >= 200 && $status_code < 300 && isset( $body['data'] ) ) {
+            // LimoExpress renvoie généralement un tableau ou un objet de prix par classe de véhicule
+            // Nous transmettons ces données brutes au JavaScript qui fera la correspondance avec l'affichage
+            wp_send_json_success( array(
+                'pricing_data' => $body['data']
+            ) );
+        } else {
+            $error_msg = isset( $body['message'] ) ? $body['message'] : 'Impossible d\'obtenir un tarif pour cet itinéraire.';
+            wp_send_json_error( array( 'message' => $error_msg ) );
         }
     }
 }

@@ -704,9 +704,989 @@
         refreshAll();
     };
 
+    /**
+     * Moteur interactif pour le Widget Minimal [etb_transfer] (Blacklane Style)
+     */
+    const initQuickWidget = function () {
+        const quickRoot = document.querySelector('#etb-quick-widget-app');
+        if (!quickRoot) return;
+
+        // 1. Éléments du DOM
+        const modeBtns       = quickRoot.querySelectorAll('.etb-quick-mode-btn');
+        const dropoffCol     = quickRoot.querySelector('#etb-quick-dropoff-col');
+        const durationCol    = quickRoot.querySelector('#etb-quick-duration-col');
+        const pickupInput    = quickRoot.querySelector('#etb-quick-pickup');
+        const pickupClearBtn = quickRoot.querySelector('#etb-quick-clear-pickup');
+        const dropoffInput   = quickRoot.querySelector('#etb-quick-dropoff');
+        const dropoffClearBtn= quickRoot.querySelector('#etb-quick-clear-dropoff');
+        const durationSelect = quickRoot.querySelector('#etb-quick-duration'); // C'est maintenant un input hidden
+
+        const dateInput      = quickRoot.querySelector('#etb-quick-date');
+        const dateTextEl     = quickRoot.querySelector('#etb-quick-date-text'); // <-- Ajout de la sélection du texte
+        const timeInput      = quickRoot.querySelector('#etb-quick-time');
+        const getPriceBtn    = quickRoot.querySelector('#etb-quick-get-price-btn');
+        const errorNotice    = quickRoot.querySelector('#etb-quick-error');
+        const fleetSection   = quickRoot.querySelector('#etb-quick-fleet-section');
+        const carCards       = quickRoot.querySelectorAll('.etb-quick-car-item');
+        const bookingBar     = quickRoot.querySelector('#etb-quick-booking-bar');
+        const selectedNameEl = quickRoot.querySelector('#etb-quick-selected-name');
+        const selectedTotEl  = quickRoot.querySelector('#etb-quick-selected-total');
+        const bookNowBtn     = quickRoot.querySelector('#etb-quick-book-now-btn');
+        const quoteNoticeEl  = quickRoot.querySelector('#etb-quick-quote-notice');
+        const whatsappBtn    = quickRoot.querySelector('#etb-quick-whatsapp-btn');
+        const bookBtnLabel   = quickRoot.querySelector('#etb-quick-book-btn-label');
+
+        let currentMode = 'transfer';
+        let selectedCar = null;
+        let isQuoteMode = false;
+        const currency  = (typeof etbAjax !== 'undefined' && etbAjax.currency) ? etbAjax.currency : '€';
+        const mapboxToken = (typeof etbAjax !== 'undefined' && etbAjax.mapbox_token) ? etbAjax.mapbox_token : '';
+        const sessionToken = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ('st_' + Math.random().toString(36).substr(2, 9));
+
+
+         // 1ter. Custom Select de la Durée (À l'heure)
+        const customDurationWrapper = quickRoot.querySelector('#etb-duration-custom-select');
+        if (customDurationWrapper) {
+            const durationTrigger = customDurationWrapper.querySelector('.etb-custom-select-trigger');
+            const durationLabel   = durationTrigger.querySelector('span');
+            const durationOptions = customDurationWrapper.querySelectorAll('.etb-custom-option');
+
+            // Ouvrir / Fermer au clic
+            durationTrigger.addEventListener('click', function(e) {
+                e.stopPropagation();
+                customDurationWrapper.classList.toggle('is-open');
+            });
+
+            // Sélection d'une option
+            durationOptions.forEach(opt => {
+                opt.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    // Retirer la classe 'selected' partout
+                    durationOptions.forEach(o => o.classList.remove('selected'));
+                    
+                    // Activer l'option cliquée
+                    this.classList.add('selected');
+                    const val = this.dataset.val;
+                    const text = this.textContent;
+
+                    // Mettre à jour l'affichage et l'input caché
+                    durationLabel.textContent = text;
+                    if (durationSelect) durationSelect.value = val;
+
+                    // Fermer la liste
+                    customDurationWrapper.classList.remove('is-open');
+
+                    // MISE À JOUR AUTOMATIQUE EN DIRECT si la flotte est déjà affichée
+                    if (currentMode === 'hourly' && fleetSection && fleetSection.style.display !== 'none') {
+                        recalculateHourlyFleet();
+                    }
+                });
+            });
+
+            // Fermer si on clique ailleurs sur la page
+            document.addEventListener('click', function(e) {
+                if (!customDurationWrapper.contains(e.target)) {
+                    customDurationWrapper.classList.remove('is-open');
+                }
+            });
+        }
+
+
+
+
+        // Gestion de l'affichage de la croix : UNIQUEMENT si une adresse a été réellement sélectionnée
+        const setupClearButton = (inputEl, clearBtn, latEl, lngEl, suggestionsBox) => {
+            if (!inputEl || !clearBtn) return;
+
+            // La croix n'apparaît QUE si les coordonnées GPS sont présentes ET le champ non vide
+            const updateClearBtnState = () => {
+                const isAddressSelected = !!(latEl && latEl.value && lngEl && lngEl.value && inputEl.value.trim().length > 0);
+                if (isAddressSelected) {
+                    clearBtn.classList.add('is-visible');
+                } else {
+                    clearBtn.classList.remove('is-visible');
+                }
+            };
+
+            // Si l'utilisateur retape du texte manuellement, on masque la croix et on réinitialise le GPS
+            inputEl.addEventListener('input', function () {
+                if (latEl) latEl.value = '';
+                if (lngEl) lngEl.value = '';
+                updateClearBtnState();
+            });
+
+            inputEl.addEventListener('change', updateClearBtnState);
+
+            // Clic sur le bouton rond 'X'
+            clearBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                inputEl.value = '';
+                if (latEl) latEl.value = '';
+                if (lngEl) lngEl.value = '';
+                if (suggestionsBox) suggestionsBox.style.display = 'none';
+
+                clearBtn.classList.remove('is-visible');
+                inputEl.focus();
+            });
+
+            // Masqué d'office au chargement
+            updateClearBtnState();
+        };
+
+
+
+
+        // 1bis. Formatage de la date (ex: 2026-09-15 -> 15 Sep 2026)
+        const formatCustomDate = (dateVal) => {
+            if (!dateVal) return '-- --- ----';
+            const parts = dateVal.split('-');
+            if (parts.length !== 3) return dateVal;
+            const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+            const monthIdx = parseInt(parts[1], 10) - 1;
+            return `${parts[2]} ${months[monthIdx] || parts[1]} ${parts[0]}`;
+        };
+
+        /// Mise à jour du texte de date dès le chargement et à chaque clic
+        if (dateInput && dateTextEl) {
+            dateTextEl.textContent = formatCustomDate(dateInput.value);
+            dateInput.addEventListener('change', function () {
+                dateTextEl.textContent = formatCustomDate(this.value);
+            });
+            dateInput.addEventListener('input', function () {
+                dateTextEl.textContent = formatCustomDate(this.value);
+            });
+        }
+
+        // Déclenchement du calendrier au clic N'IMPORTE OÙ sur la colonne Date
+        const dateCol = quickRoot.querySelector('#etb-quick-date-col');
+        if (dateCol && dateInput) {
+            dateCol.addEventListener('click', function () {
+                if (typeof dateInput.showPicker === 'function') {
+                    try { dateInput.showPicker(); } catch (err) {}
+                }
+            });
+        }
+
+        // Gestion du sélecteur d'heures sur-mesure (Double sécurité JS + CSS)
+        const timeCol   = quickRoot.querySelector('#etb-quick-time-col');
+        const timePopup = quickRoot.querySelector('#etb-quick-time-popup');
+
+        if (timeCol && timeInput && timePopup) {
+            // Sécurité absolue au chargement : forcer l'extinction
+            timePopup.classList.remove('is-open');
+            timePopup.style.setProperty('display', 'none', 'important');
+
+            // Ouvrir / Fermer le sélecteur au clic sur la colonne heure
+            timeCol.addEventListener('click', function (e) {
+                if (e.target.closest('#etb-quick-time-popup')) return;
+                
+                const isCurrentlyOpen = timePopup.classList.contains('is-open');
+                if (isCurrentlyOpen) {
+                    timePopup.classList.remove('is-open');
+                    timePopup.style.setProperty('display', 'none', 'important');
+                } else {
+                    timePopup.classList.add('is-open');
+                    timePopup.style.setProperty('display', 'flex', 'important');
+                }
+            });
+
+            /// Fonction interne de mise à jour de la valeur 12h formatée
+            const update12hTime = () => {
+                const activeH     = timePopup.querySelector('.etb-hour-opt.active')?.dataset.val || '09';
+                const activeM     = timePopup.querySelector('.etb-minute-opt.active')?.dataset.val || '00';
+                const activeAmpm  = timePopup.querySelector('.etb-ampm-btn.active')?.dataset.val || 'AM';
+                timeInput.value   = `${activeH}:${activeM} ${activeAmpm}`;
+            };
+
+            // 1. Bascule AM / PM
+            timePopup.querySelectorAll('.etb-ampm-btn').forEach(btn => {
+                btn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    timePopup.querySelectorAll('.etb-ampm-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    update12hTime();
+                });
+            });
+
+            // 2. Clic sur une Heure (01 à 12)
+            timePopup.querySelectorAll('.etb-hour-opt').forEach(opt => {
+                opt.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    timePopup.querySelectorAll('.etb-hour-opt').forEach(o => o.classList.remove('active'));
+                    this.classList.add('active');
+                    update12hTime();
+                });
+            });
+
+            // 3. Clic sur une Minute (00 à 55) : met à jour et ferme la boîte
+            timePopup.querySelectorAll('.etb-minute-opt').forEach(opt => {
+                opt.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    timePopup.querySelectorAll('.etb-minute-opt').forEach(o => o.classList.remove('active'));
+                    this.classList.add('active');
+                    update12hTime();
+
+                    // Fermeture immédiate de la boîte
+                    timePopup.classList.remove('is-open');
+                    timePopup.style.setProperty('display', 'none', 'important');
+                });
+            });
+
+            // Fermer si clic n'importe où en dehors
+            document.addEventListener('pointerdown', function (e) {
+                if (!timeCol.contains(e.target)) {
+                    timePopup.classList.remove('is-open');
+                    timePopup.style.setProperty('display', 'none', 'important');
+                }
+            });
+        }
+             
+           
+
+        // Arrondi des minutes par crans de 5 min au chargement (ex: 14:31 -> 14:35)
+        if (timeInput && timeInput.value) {
+            const timeParts = timeInput.value.split(':');
+            if (timeParts.length >= 2) {
+                let m = parseInt(timeParts[1], 10);
+                let roundedM = Math.ceil(m / 5) * 5;
+                let h = parseInt(timeParts[0], 10);
+                if (roundedM >= 60) {
+                    roundedM = 0;
+                    h = (h + 1) % 24;
+                }
+                timeInput.value = String(h).padStart(2, '0') + ':' + String(roundedM).padStart(2, '0');
+            }
+        }
+
+        // Fonction d'autocomplétion Mapbox avec support clavier complet et sélection robuste
+        const setupMapboxAutocomplete = (inputEl, latEl, lngEl, suggestionsBox) => {
+            if (!inputEl || !mapboxToken) return;
+
+            let debounceTimer   = null;
+            let currentResults  = []; // Stockage en mémoire vive des suggestions
+            let highlightedIdx  = -1; // Index de l'élément sélectionné au clavier
+
+            // 1. Fonction interne pour valider une suggestion
+            const selectSuggestion = (item) => {
+                if (!item) return;
+
+                const placeName = item.name + (item.full_address ? ' (' + item.full_address + ')' : '');
+                inputEl.value   = placeName;
+                inputEl.dispatchEvent(new Event('change')); // Affiche automatiquement la croix
+
+                if (suggestionsBox) {
+                    suggestionsBox.style.display = 'none';
+                    suggestionsBox.innerHTML     = '';
+                }
+                highlightedIdx = -1;
+
+                if (!item.mapbox_id) return;
+
+                // Récupération des coordonnées GPS exactes
+                const retrieveUrl = `https://api.mapbox.com/search/searchbox/v1/retrieve/${encodeURIComponent(item.mapbox_id)}?access_token=${mapboxToken}&session_token=${sessionToken}`;
+
+                fetch(retrieveUrl)
+                        .then(res => res.json())
+                        .then(resData => {
+                            if (resData.features && resData.features.length > 0) {
+                                const feat = resData.features[0];
+                                const lng  = feat.geometry.coordinates[0];
+                                const lat  = feat.geometry.coordinates[1];
+                                if (latEl) latEl.value = lat;
+                                if (lngEl) lngEl.value = lng;
+                                
+                                // Déclenche l'apparition de la croix car l'adresse est validée
+                                inputEl.dispatchEvent(new Event('change'));
+                            }
+                        })
+                    .catch(err => console.error('Mapbox retrieve error:', err));
+            };
+
+            // 2. Mise à jour visuelle (scroll activé UNIQUEMENT au clavier, jamais à la souris)
+            const updateHighlight = (isKeyboard = false) => {
+                if (!suggestionsBox) return;
+                const items = suggestionsBox.querySelectorAll('.etb-quick-suggestion-item');
+                items.forEach((el, idx) => {
+                    if (idx === highlightedIdx) {
+                        el.classList.add('highlighted');
+                        if (isKeyboard) {
+                            el.scrollIntoView({ block: 'nearest' }); // Scroll fluide réservé au clavier
+                        }
+                    } else {
+                        el.classList.remove('highlighted');
+                    }
+                });
+            };
+
+            // 3. Saisie dans le champ (avec debounce 350ms)
+            inputEl.addEventListener('input', function () {
+                const query = this.value.trim();
+                clearTimeout(debounceTimer);
+                highlightedIdx = -1;
+
+                if (query.length < 3) {
+                    if (suggestionsBox) suggestionsBox.style.display = 'none';
+                    currentResults = [];
+                    return;
+                }
+
+                debounceTimer = setTimeout(() => {
+                    const url = `https://api.mapbox.com/search/searchbox/v1/suggest?q=${encodeURIComponent(query)}&access_token=${mapboxToken}&session_token=${sessionToken}&language=fr,en&country=fr,mc&proximity=7.26,43.71&limit=6`;
+
+                    fetch(url)
+                        .then(res => res.json())
+                        .then(data => {
+                            currentResults = data.suggestions || [];
+
+                            if (currentResults.length === 0) {
+                                if (suggestionsBox) suggestionsBox.style.display = 'none';
+                                return;
+                            }
+
+                            let html = '';
+                            currentResults.forEach((item, idx) => {
+                                const title    = item.name || '';
+                                const subtitle = item.full_address || item.place_formatted || '';
+
+                                html += `<div class="etb-quick-suggestion-item" data-idx="${idx}">
+                                    <span class="dashicons dashicons-location"></span>
+                                    <div class="etb-quick-sug-text">
+                                        <strong class="etb-quick-sug-title">${title}</strong>
+                                        ${subtitle ? `<br><small class="etb-quick-sug-sub">${subtitle}</small>` : ''}
+                                    </div>
+                                </div>`;
+                            });
+
+                            if (suggestionsBox) {
+                                suggestionsBox.innerHTML     = html;
+                                suggestionsBox.style.display = 'block';
+                            }
+                        })
+                        .catch(() => {
+                            if (suggestionsBox) suggestionsBox.style.display = 'none';
+                        });
+                }, 350);
+            });
+
+            // 4. Navigation au Clavier (Flèche Haut, Flèche Bas, Entrée, Échap)
+            inputEl.addEventListener('keydown', function (e) {
+                if (!suggestionsBox || suggestionsBox.style.display === 'none' || currentResults.length === 0) {
+                    return;
+                }
+
+                // Flèche Bas ↓
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    highlightedIdx = (highlightedIdx + 1) >= currentResults.length ? 0 : (highlightedIdx + 1);
+                    updateHighlight(true); // Autorise le scroll vers le bas
+                }
+                // Flèche Haut ↑
+                else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    highlightedIdx = (highlightedIdx - 1) < 0 ? (currentResults.length - 1) : (highlightedIdx - 1);
+                    updateHighlight(true); // Autorise le scroll vers le haut
+                }
+                // Touche Entrée ↵
+                else if (e.key === 'Enter') {
+                    if (highlightedIdx >= 0 && highlightedIdx < currentResults.length) {
+                        e.preventDefault();
+                        selectSuggestion(currentResults[highlightedIdx]);
+                    }
+                }
+                // Touche Échap
+                else if (e.key === 'Escape') {
+                    suggestionsBox.style.display = 'none';
+                    highlightedIdx = -1;
+                }
+            });
+
+            // 5. Gestion des événements souris et défilement sur la boîte
+            if (suggestionsBox) {
+                // Intercepte le clic sur n'importe quel élément de la ligne
+                suggestionsBox.addEventListener('pointerdown', function (e) {
+                    const itemEl = e.target.closest('.etb-quick-suggestion-item');
+                    if (!itemEl) {
+                        e.stopPropagation(); // Clic sur la scrollbar : on empêche la fermeture !
+                        return;
+                    }
+
+                    e.preventDefault();
+                    e.stopPropagation(); // Bloque la fermeture externe
+
+                    const idx = parseInt(itemEl.dataset.idx, 10);
+                    if (!isNaN(idx) && currentResults[idx]) {
+                        selectSuggestion(currentResults[idx]);
+                    }
+                });
+
+                // Survol souris propre
+                suggestionsBox.addEventListener('pointerover', function (e) {
+                    const itemEl = e.target.closest('.etb-quick-suggestion-item');
+                    if (!itemEl) return;
+                    highlightedIdx = parseInt(itemEl.dataset.idx, 10);
+                    updateHighlight(false);
+                });
+
+                // Isole le défilement de la molette sur la boîte
+                suggestionsBox.addEventListener('wheel', function (e) {
+                    e.stopPropagation();
+                }, { passive: true });
+            }
+
+            // 6. Fermeture UNIQUEMENT lors d'un vrai clic hors de la colonne et de la boîte
+            document.addEventListener('pointerdown', function (e) {
+                if (!inputEl.contains(e.target) && (!suggestionsBox || !suggestionsBox.contains(e.target))) {
+                    if (suggestionsBox) suggestionsBox.style.display = 'none';
+                    highlightedIdx = -1;
+                }
+            });
+        };
+        // ------------------------------------------------------------------------
+        // 6. AUTOCOMPLÉTION MODULAIRE (GOOGLE PLACES API OU MAPBOX)
+        // ------------------------------------------------------------------------
+        const addressProvider = (typeof etbAjax !== 'undefined' && etbAjax.address_provider) ? etbAjax.address_provider : 'google';
+
+        // Fonction d'autocomplétion officielle Google Places API
+        const setupGoogleAutocomplete = (inputEl, latEl, lngEl) => {
+            if (!inputEl || typeof google === 'undefined' || !google.maps || !google.maps.places) return;
+
+            const options = {
+                fields: ['formatted_address', 'geometry', 'name'],
+                componentRestrictions: { country: ['fr', 'mc'] } // France & Monaco
+            };
+
+            const autocomplete = new google.maps.places.Autocomplete(inputEl, options);
+
+            autocomplete.addListener('place_changed', function () {
+                const place = autocomplete.getPlace();
+                if (!place.geometry || !place.geometry.location) return;
+
+                const placeName = place.name + (place.formatted_address ? ' (' + place.formatted_address + ')' : '');
+                inputEl.value   = placeName;
+
+                if (latEl) latEl.value = place.geometry.location.lat();
+                if (lngEl) lngEl.value = place.geometry.location.lng();
+
+                // Déclenche l'apparition de la croix car l'adresse est validée
+                inputEl.dispatchEvent(new Event('change'));
+            });
+
+            // Empêche la touche Entrée dans Google Places de soumettre le formulaire par erreur
+            inputEl.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') e.preventDefault();
+            });
+        };
+
+        // Branchement selon le fournisseur sélectionné dans les Réglages WP
+        const pickupLatEl  = quickRoot.querySelector('#etb-quick-pickup-lat');
+        const pickupLngEl  = quickRoot.querySelector('#etb-quick-pickup-lng');
+        const pickupBox    = quickRoot.querySelector('#etb-quick-pickup-suggestions');
+
+        const dropoffLatEl = quickRoot.querySelector('#etb-quick-dropoff-lat');
+        const dropoffLngEl = quickRoot.querySelector('#etb-quick-dropoff-lng');
+        const dropoffBox   = quickRoot.querySelector('#etb-quick-dropoff-suggestions');
+
+        // Activation des boutons de suppression rapide
+        setupClearButton(pickupInput, pickupClearBtn, pickupLatEl, pickupLngEl, pickupBox);
+        setupClearButton(dropoffInput, dropoffClearBtn, dropoffLatEl, dropoffLngEl, dropoffBox);
+
+        if (addressProvider === 'google') {
+            setupGoogleAutocomplete(pickupInput, pickupLatEl, pickupLngEl);
+            setupGoogleAutocomplete(dropoffInput, dropoffLatEl, dropoffLngEl);
+        } else {
+            setupMapboxAutocomplete(pickupInput, pickupLatEl, pickupLngEl, pickupBox);
+            setupMapboxAutocomplete(dropoffInput, dropoffLatEl, dropoffLngEl, dropoffBox);
+        }
+            
+
+
+        // 2. Bascule de Mode : Trajet simple vs À l'heure
+        modeBtns.forEach(btn => {
+            btn.addEventListener('click', function () {
+                modeBtns.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                currentMode = this.dataset.mode;
+
+                if (currentMode === 'hourly') {
+                    if (dropoffCol) dropoffCol.style.display = 'none';
+                    if (durationCol) durationCol.style.display = 'flex';
+                } else {
+                    if (dropoffCol) dropoffCol.style.display = 'flex';
+                    if (durationCol) durationCol.style.display = 'none';
+                }
+
+                // Réinitialise la flotte si on change de mode
+                if (fleetSection) fleetSection.style.display = 'none';
+                if (bookingBar) bookingBar.classList.remove('is-visible');
+                if (errorNotice) errorNotice.style.display = 'none';
+                selectedCar = null;
+                carCards.forEach(c => {
+                    c.classList.remove('selected');
+                    const b = c.querySelector('.etb-quick-car-select-btn');
+                    if (b) b.textContent = 'Sélectionner';
+                });
+            });
+        });
+
+        // Fonction utilitaire pour dévoiler la flotte
+        const showFleetSection = () => {
+            if (fleetSection) {
+                fleetSection.style.display = 'block';
+                fleetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        };
+
+        // Fonction de recalcul instantané des tarifs horaires
+        const recalculateHourlyFleet = () => {
+            const durationHours = parseFloat(durationSelect ? durationSelect.value : 4);
+            let availableCarsCount = 0;
+
+            carCards.forEach(card => {
+                const minHours    = parseFloat(card.getAttribute('data-min-hours')) || 4;
+                const hourlyRate  = parseFloat(card.getAttribute('data-hourly-rate')) || 0;
+                const pack10h     = parseFloat(card.getAttribute('data-pack-10h')) || 0;
+                const supHourRate = parseFloat(card.getAttribute('data-sup-hour-rate')) || 0;
+                const kmPerHour   = parseFloat(card.getAttribute('data-km-ph')) || 35;
+                const kmSupRate   = parseFloat(card.getAttribute('data-km-sup-rate')) || 0;
+
+                // Règle de durée minimale : masquage si insuffisant
+                if (durationHours < minHours) {
+                    card.style.display = 'none';
+                    card.classList.add('etb-hidden');
+                    card.classList.remove('selected');
+                    return;
+                } else {
+                    card.style.display = 'flex';
+                    card.classList.remove('etb-hidden');
+                }
+
+                let calculatedPrice = 0;
+                let priceDetailHtml = '';
+
+                if (durationHours < 10) {
+                    calculatedPrice = hourlyRate > 0 ? Math.round(durationHours * hourlyRate) : pack10h;
+                    if (hourlyRate > 0) {
+                        priceDetailHtml = `Price for ${durationHours} hours | <strong>${hourlyRate} ${currency}</strong> per hour`;
+                    }
+                } else if (durationHours === 10) {
+                    calculatedPrice = pack10h > 0 ? pack10h : Math.round(durationHours * hourlyRate);
+                    const hourlyEquivalent = pack10h > 0 ? Math.round(pack10h / 10) : hourlyRate;
+                    priceDetailHtml = `Price for 10 hours | <strong>${hourlyEquivalent} ${currency}</strong> per hour`;
+                } else {
+                    const extraHours = durationHours - 10;
+                    const basePack   = pack10h > 0 ? pack10h : Math.round(10 * hourlyRate);
+                    calculatedPrice  = Math.round(basePack + (extraHours * supHourRate));
+                    if (pack10h > 0 && supHourRate > 0) {
+                        priceDetailHtml = `10h Package + ${extraHours} extra hour(s) | <strong>${supHourRate} ${currency}</strong> per extra hour`;
+                    }
+                }
+
+                // Quota kilométrique
+                const totalKm = Math.round(durationHours * kmPerHour);
+                const kmInfoEl = card.querySelector('.etb-quick-km-info');
+                if (kmInfoEl) {
+                    let kmText = '' + totalKm + ' km included';
+                    if (kmSupRate > 0) {
+                        kmText += ' (' + kmSupRate.toFixed(2) + ' €/km sup.)';
+                    }
+                    kmInfoEl.textContent   = kmText;
+                    kmInfoEl.style.display = 'block';
+                }
+
+                // Mise à jour de l'affichage du prix
+                const priceValEl = card.querySelector('.etb-quick-amount, .etb-quick-price-val');
+                if (priceValEl) priceValEl.textContent = calculatedPrice;
+
+                const detailEl = card.querySelector('.etb-quick-price-detail');
+                if (detailEl) {
+                    if (priceDetailHtml) {
+                        detailEl.innerHTML = priceDetailHtml;
+                        detailEl.style.display = 'block';
+                    } else {
+                        detailEl.style.display = 'none';
+                    }
+                }
+
+                card.dataset.calculatedPrice = calculatedPrice;
+                card.dataset.isQuote = '0';
+                card.style.display = 'flex';
+                card.classList.remove('etb-hidden');
+                availableCarsCount++;
+            });
+
+            // Si un véhicule est déjà sélectionné, on actualise le total de la barre du bas
+            if (selectedCar && selectedCar.id) {
+                const activeCard = quickRoot.querySelector(`.etb-quick-car-item[data-id="${selectedCar.id}"]`);
+                if (activeCard && activeCard.style.display !== 'none') {
+                    const updatedPrice = activeCard.dataset.calculatedPrice || '0';
+                    selectedCar.price = updatedPrice;
+                    if (selectedTotEl) selectedTotEl.textContent = updatedPrice + ' ' + currency;
+                } else {
+                    // Si le véhicule devient inéligible à cette durée, on désélectionne
+                    selectedCar = null;
+                    if (bookingBar) bookingBar.classList.remove('is-visible');
+                }
+            }
+
+            return availableCarsCount;
+        };
+
+        // 3. Clic sur "Voir les options"
+        if (getPriceBtn) {
+            getPriceBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                if (errorNotice) errorNotice.style.display = 'none';
+
+                const pickupVal  = pickupInput ? pickupInput.value.trim() : '';
+                const dropoffVal = dropoffInput ? dropoffInput.value.trim() : '';
+                const dateVal    = dateInput ? dateInput.value.trim() : '';
+                const timeVal    = timeInput ? timeInput.value.trim() : '';
+
+                // Validation de base stricte (English)
+                if (!pickupVal) return showError('Please enter a pickup location.');
+                if (currentMode === 'transfer' && !dropoffVal) return showError('Please enter a drop-off location.');
+                if (!dateVal) return showError('Please select a date.');
+                if (!timeVal || timeVal === '-- : --') return showError('Please select a pickup time.');
+
+                // --- MODE 1 : LOCATION À L'HEURE (Calcul par paliers & quotas km) ---
+                // --- MODE 1 : LOCATION À L'HEURE ---
+                if (currentMode === 'hourly') {
+                    const count = recalculateHourlyFleet();
+                    if (count > 0) {
+                        showFleetSection();
+                    } else {
+                        showError('No vehicles available for this duration (minimum hours not met).');
+                    }
+                    return;
+                }
+
+                // --- MODE 2 : TRANSFERT POINT A -> B (API LimoExpress) ---
+                const fromLat = pickupLatEl ? pickupLatEl.value : '';
+                const fromLng = pickupLngEl ? pickupLngEl.value : '';
+                const toLat   = dropoffLatEl ? dropoffLatEl.value : '';
+                const toLng   = dropoffLngEl ? dropoffLngEl.value : '';
+
+                // Vérification stricte des coordonnées GPS (English)
+                if (!fromLat || !fromLng || !toLat || !toLng) {
+                    return showError('Please select exact addresses from the suggested list to calculate the route.');
+                }
+
+                // Animation de chargement sur le bouton (English)
+                const originalBtnText = getPriceBtn.innerHTML;
+                getPriceBtn.disabled = true;
+                getPriceBtn.innerHTML = '<span>Calculating...</span>';
+
+                const formData = new FormData();
+                formData.append('action', 'etb_quick_pricing');
+                formData.append('nonce', etbAjax.nonce);
+                formData.append('from_lat', fromLat);
+                formData.append('from_lng', fromLng);
+                formData.append('to_lat', toLat);
+                formData.append('to_lng', toLng);
+
+                fetch(etbAjax.ajax_url, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(function(response) {
+                    return response.json();
+                })
+                .then(function(res) {
+                    getPriceBtn.disabled = false;
+                    getPriceBtn.innerHTML = originalBtnText;
+
+                    if (res.success) {
+                        var pricingData = res.data.pricing_data || [];
+                        var availableCarsCount = 0;
+
+                        console.log("Tarifs recus de LimoExpress :", pricingData);
+
+                        // 1. On masque toutes les cartes par defaut
+                        carCards.forEach(function(c) {
+                            c.style.display = 'none';
+                            c.classList.remove('selected');
+                        });
+
+                        // 2. Pour chaque prix renvoyé par LimoExpress, on réinitialise et on allume la carte
+                        pricingData.forEach(function(item) {
+                            if (!item || !item.vehicle_class || !item.vehicle_class.id || !item.prices || item.prices.length === 0) {
+                                return;
+                            }
+
+                            var limoUuid = String(item.vehicle_class.id).trim().toLowerCase();
+                            var targetCard = document.getElementById('limo-car-' + limoUuid) 
+                                          || document.getElementById('limo-car-' + item.vehicle_class.id)
+                                          || quickRoot.querySelector('[data-limo-class-id="' + limoUuid + '"]');
+
+                            if (targetCard) {
+                                var limoPrice = Math.round(item.prices[0].price);
+
+                                targetCard.dataset.calculatedPrice = limoPrice;
+                                targetCard.dataset.isQuote = '0'; // Réinitialisation du mode devis
+
+                                // Régénération complète du prix chiffré
+                                var priceBox = targetCard.querySelector('.etb-quick-price-display');
+                                if (priceBox) {
+                                    priceBox.innerHTML = '<span class="etb-quick-amount">' + limoPrice + '</span> <span class="etb-quick-currency">' + currency + '</span>';
+                                }
+
+                                var priceDetailEl = targetCard.querySelector('.etb-quick-price-detail');
+                                if (priceDetailEl) {
+                                    priceDetailEl.style.display = 'none';
+                                    priceDetailEl.innerHTML = '';
+                                }
+
+                                var kmInfoEl = targetCard.querySelector('.etb-quick-km-info');
+                                if (kmInfoEl) {
+                                    kmInfoEl.style.display = 'none';
+                                }
+
+                                var selBtn = targetCard.querySelector('.etb-quick-select-btn');
+                                if (selBtn) {
+                                    selBtn.textContent = 'Select';
+                                }
+
+                                targetCard.style.display = 'flex';
+                                targetCard.classList.remove('selected', 'etb-hidden');
+                                availableCarsCount++;
+                            }
+                        });
+
+                        if (availableCarsCount > 0) {
+                            isQuoteMode = false;
+                            if (quoteNoticeEl) quoteNoticeEl.classList.remove('is-visible');
+                            if (whatsappBtn) whatsappBtn.classList.remove('is-visible');
+                            showFleetSection();
+                        } else {
+                            // ZONE NON COUVERTE / TRAJET SUR MESURE : Activation du mode Custom Quote
+                            isQuoteMode = true;
+                            if (errorNotice) errorNotice.style.display = 'none';
+
+                            // Affichage du bandeau d'information VIP via .is-visible
+                            if (quoteNoticeEl) {
+                                quoteNoticeEl.innerHTML = '<span class="dashicons dashicons-info-outline"></span> <div><strong>Custom Itinerary / Long Distance:</strong> This specific route requires a personalized quotation from our dispatch team. Please select your preferred vehicle below to submit a quote request.</div>';
+                                quoteNoticeEl.classList.add('is-visible');
+                            }
+
+                            // Affichage de toutes les cartes en mode Custom Quote
+                            carCards.forEach(function(c) {
+                                c.dataset.calculatedPrice = 'Custom Quote';
+                                c.dataset.isQuote = '1';
+
+                                var priceBox = c.querySelector('.etb-quick-price-display');
+                                if (priceBox) {
+                                    priceBox.innerHTML = '<span class="etb-quick-quote-badge">Custom Quote</span>';
+                                }
+
+                                var detailBox = c.querySelector('.etb-quick-price-detail');
+                                if (detailBox) {
+                                    detailBox.innerHTML = 'Tailored pricing by dispatch';
+                                    detailBox.style.display = 'block';
+                                }
+
+                                var kmBox = c.querySelector('.etb-quick-km-info');
+                                if (kmBox) kmBox.style.display = 'none';
+
+                                var selBtn = c.querySelector('.etb-quick-select-btn');
+                                if (selBtn) selBtn.textContent = 'Request Quote';
+
+                                c.style.display = 'flex';
+                                c.classList.remove('selected', 'etb-hidden');
+                            });
+
+                            showFleetSection();
+                        }
+                    } else {
+                        showError(res.data.message || 'Pricing calculation error.');
+                    }
+                })
+                .catch(function(err) {
+                    console.error("Communication error :", err);
+                    getPriceBtn.disabled = false;
+                    getPriceBtn.innerHTML = originalBtnText;
+                    showError('Communication error. Please try again.');
+                });
+            });
+        }
+
+        const showError = (msg) => {
+            if (errorNotice) {
+                errorNotice.textContent = '⚠ ' + msg;
+                errorNotice.style.display = 'block';
+                // Remonte automatiquement et en douceur la fenêtre vers le message d'erreur
+                errorNotice.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        };
+
+        // 4. Sélection exclusive d'un véhicule
+        carCards.forEach(card => {
+            card.addEventListener('click', function () {
+                const isCarQuote = (this.dataset.isQuote === '1' || isQuoteMode);
+
+                // Désélection si on reclique sur la même carte
+                if (this.classList.contains('selected')) {
+                    this.classList.remove('selected');
+                    selectedCar = null;
+                    if (bookingBar) bookingBar.classList.remove('is-visible');
+                    const btn = this.querySelector('.etb-quick-select-btn');
+                    if (btn) {
+                        btn.textContent = isCarQuote ? 'Request Quote' : 'Select';
+                    }
+                    return;
+                }
+
+                // Désélectionne toutes les autres cartes
+                carCards.forEach(c => {
+                    c.classList.remove('selected');
+                    const b = c.querySelector('.etb-quick-select-btn');
+                    if (b) {
+                        const otherIsQuote = (c.dataset.isQuote === '1' || isQuoteMode);
+                        b.textContent = otherIsQuote ? 'Request Quote' : 'Select';
+                    }
+                });
+
+                // Active la carte cliquée
+                this.classList.add('selected');
+                const selectBtn = this.querySelector('.etb-quick-select-btn');
+                if (selectBtn) {
+                    selectBtn.textContent = '✓ Selected';
+                }
+
+                const carName  = this.querySelector('h4')?.textContent.trim() || 'Vehicle';
+                const carPrice = this.dataset.calculatedPrice || '0';
+
+                selectedCar = {
+                    id: this.dataset.id,
+                    name: carName,
+                    price: carPrice,
+                    isQuote: isCarQuote
+                };
+
+                // Affiche la barre de confirmation inférieure avec les 2 options (Option C)
+                if (bookingBar) {
+                    if (selectedNameEl) selectedNameEl.textContent = carName;
+
+                    if (isCarQuote) {
+                        if (selectedTotEl) selectedTotEl.textContent = 'Custom Quote';
+                        if (bookBtnLabel) bookBtnLabel.textContent = 'Request this Quote';
+                    } else {
+                        if (selectedTotEl) selectedTotEl.textContent = carPrice + ' ' + currency;
+                        if (bookBtnLabel) bookBtnLabel.textContent = 'Book this Trip';
+                    }
+
+                    // Génération du lien WhatsApp officiel pour toutes les réservations
+                    if (whatsappBtn) {
+                        const pVal = pickupInput ? pickupInput.value.trim() : '';
+                        const dVal = dropoffInput ? dropoffInput.value.trim() : '';
+                        const dtVal = dateInput ? dateInput.value.trim() : '';
+                        const tmVal = timeInput ? timeInput.value.trim() : '';
+                        const waPhone = (typeof etbAjax !== 'undefined' && etbAjax.company_whatsapp) ? etbAjax.company_whatsapp : '';
+
+                        let msg = `Hello, I would like to `;
+                        if (isCarQuote) {
+                            msg += `request a quote for a transfer with ${carName}.\n• From: ${pVal}\n• To: ${dVal}\n• Date: ${dtVal} at ${tmVal}`;
+                        } else {
+                            msg += `inquire about booking a transfer with ${carName} (${carPrice} ${currency}).\n• From: ${pVal}\n• To: ${dVal}\n• Date: ${dtVal} at ${tmVal}`;
+                        }
+
+                        const waText = encodeURIComponent(msg);
+                        whatsappBtn.href = waPhone 
+                            ? `https://wa.me/${waPhone}?text=${waText}` 
+                            : `https://api.whatsapp.com/send?text=${waText}`;
+                    }
+
+                    bookingBar.classList.add('is-visible');
+                }
+            });
+        });
+        
+
+        // 5. Clic sur "Réserver ce trajet" : Redirection pré-remplie avec contrôle véhicule
+        if (bookNowBtn) {
+            bookNowBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                
+                // Contrôle strict : un véhicule doit être obligatoirement sélectionné (English)
+                if (!selectedCar) {
+                    showError('Please select a vehicle from the list above before proceeding.');
+                    return;
+                }
+
+                const pickupVal  = pickupInput ? pickupInput.value.trim() : '';
+                const dropoffVal = (currentMode === 'transfer' && dropoffInput) ? dropoffInput.value.trim() : '';
+                const dateVal    = dateInput ? dateInput.value.trim() : ''; // YYYY-MM-DD
+                const timeVal    = timeInput ? timeInput.value.trim() : '09:00'; // HH:MM
+
+                // Conversion de la date au format officiel exigé par le formulaire LimoExpress : DD-MM-YYYY
+                let formattedDateTime = '';
+                if (dateVal) {
+                    const dParts = dateVal.split('-');
+                    if (dParts.length === 3) {
+                        formattedDateTime = `${dParts[2]}-${dParts[1]}-${dParts[0]} ${timeVal}`;
+                    }
+                }
+
+                // Paramètres LimoExpress configurés dynamiquement dans WordPress (Zéro-Hardcode)
+                const limoBaseUrl      = (typeof etbAjax !== 'undefined' && etbAjax.limo_form_url) ? etbAjax.limo_form_url : 'https://app.limoexpress.me/public/reservation-form';
+                const limoParam        = (typeof etbAjax !== 'undefined' && etbAjax.limo_param) ? etbAjax.limo_param : '479812783e34cb527161c28bee8748d95cee8c85dd26fcdb51f1086d31b3108be443d2';
+                const oneWayTypeId     = (typeof etbAjax !== 'undefined' && etbAjax.limo_oneway_type) ? etbAjax.limo_oneway_type : 'e52e0f08-878d-4e0c-8e2d-b09225b5a0cf';
+                const hourlyRentTypeId = (typeof etbAjax !== 'undefined' && etbAjax.limo_hourly_type) ? etbAjax.limo_hourly_type : '89bc0301-9af8-4bd0-858a-998e21f0bf13';
+                
+                // Construction de l'URL avec les IDs officiels LimoExpress
+                const queryParams = new URLSearchParams({
+                    param: limoParam,
+                    from: pickupVal,
+                    language: 'en'
+                });
+
+                // Mode 1 : Location À l'heure (Hourly rent)
+                if (currentMode === 'hourly') {
+                    const durHours = durationSelect ? durationSelect.value : '4';
+                    
+                    // Formatage de la durée au format attendu par LimoExpress : HH:MM (ex: "04:00")
+                    const formattedDuration = String(durHours).padStart(2, '0') + ':00';
+
+                    // L'URL accepte ces paramètres pour forcer l'onglet "Hourly" et masquer la dépose
+                    queryParams.append('booking_type_id', hourlyRentTypeId);
+                    queryParams.append('driving_type_id', '2'); // 2 = Hourly (selon la nomenclature interne de leur Vue.js)
+                    queryParams.append('duration', formattedDuration);
+                    queryParams.append('num_of_hours', durHours);
+                } 
+                // Mode 2 : Trajet simple Point A -> B
+                else {
+                    queryParams.append('booking_type_id', oneWayTypeId);
+                    if (dropoffVal) {
+                        queryParams.append('to', dropoffVal);
+                    }
+                }
+
+
+                if (formattedDateTime) {
+                    queryParams.append('pickup_time', formattedDateTime);
+                }
+
+                const finalUrl = `${limoBaseUrl}?${queryParams.toString()}`;
+
+                // Ouverture propre dans un nouvel onglet
+                window.open(finalUrl, '_blank');
+            });
+        }
+    };
+
+    // Lancement universel au chargement de la page
+    const startApp = function () {
+        init();            // Initialise le layout classique des circuits (si présent)
+        initQuickWidget();   // Initialise le widget minimal [etb_transfer] (si présent)
+    };
+
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
+        document.addEventListener('DOMContentLoaded', startApp);
     } else {
-        init();
+        startApp();
     }
 })();
+
+
+

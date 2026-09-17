@@ -6,6 +6,7 @@ class ETB_Shortcode {
     public function __construct() {
         add_shortcode( 'tour_booking', array( $this, 'render_booking_form' ) );
         add_shortcode( 'circuit_view', array( $this, 'render_circuit_view' ) );
+        add_shortcode( 'etb_transfer', array( $this, 'render_transfer_widget' ) ); // <-- NOUVEAU SHORTCODE MINIMAL
         add_filter( 'the_content', array( $this, 'auto_append_to_circuit_single' ), 20 );
     }
 
@@ -96,6 +97,20 @@ class ETB_Shortcode {
 
         ob_start();
         include ETB_PATH . 'templates/booking-form.php';
+        return ob_get_clean();
+    }
+
+    /**
+     * Shortcode [etb_transfer] : Widget minimaliste pour transferts et mise à disposition
+     */
+    public function render_transfer_widget( $atts = array() ) {
+        ob_start();
+        $template_file = ETB_PATH . 'templates/transfer-widget.php';
+        if ( file_exists( $template_file ) ) {
+            include $template_file;
+        } else {
+            echo '<p>Gabarit transfer-widget.php introuvable.</p>';
+        }
         return ob_get_clean();
     }
 }

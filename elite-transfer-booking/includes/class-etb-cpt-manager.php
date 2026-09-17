@@ -152,10 +152,12 @@ class ETB_CPT_Manager {
                 break;
 
             case 'total':
-                $price = get_post_meta( $post_id, '_etb_total_price', true );
-                echo '<strong>' . number_format( (float) $price, 2, ',', ' ' ) . ' €</strong>';
+                $price    = get_post_meta( $post_id, '_etb_total_price', true );
+                $settings = get_option( 'etb_general_settings', array() );
+                $currency = ! empty( $settings['currency'] ) ? sanitize_text_field( $settings['currency'] ) : '€';
+                echo '<strong>' . number_format_i18n( (float) $price, 2 ) . ' ' . esc_html( $currency ) . '</strong>';
                 break;
-
+                
             case 'status':
                 $status = get_post_meta( $post_id, '_etb_status', true ) ?: 'pending';
                 $badges = array(

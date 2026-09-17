@@ -165,12 +165,12 @@ $invoice_date   = get_the_date( 'd/m/Y', $booking_id );
                 // 1. Ligne(s) Véhicule(s)
                 foreach ( $vehicles as $v_id => $qty ) :
                     if ( $qty <= 0 ) continue;
-                    $v_title = get_the_title( $v_id );
-                    $hourly_rate = floatval( get_post_meta( $v_id, '_etb_hourly_rate', true ) );
-                    if ( $hourly_rate <= 0 ) {
-                        $hourly_rate = floatval( get_post_meta( $v_id, '_etb_base_price', true ) );
-                    }
-                    $line_total = $hourly_rate * $duration_hours * $qty;
+
+                    $v_title    = get_the_title( $v_id );
+                    $unit_price = class_exists( 'ETB_Pricing_Engine' )
+                        ? ETB_Pricing_Engine::calculate_vehicle_price( $v_id, $duration_hours )
+                        : ( floatval( get_post_meta( $v_id, '_etb_hourly_rate', true ) ?: get_post_meta( $v_id, '_etb_base_price', true ) ) * $duration_hours );
+                    $line_total = $unit_price * $qty;
                 ?>
                     <tr>
                         <td>
@@ -178,7 +178,7 @@ $invoice_date   = get_the_date( 'd/m/Y', $booking_id );
                             <small style="color: #64748b;">Mise à disposition avec chauffeur privé (<?php echo esc_html( $duration_hours ); ?>h)</small>
                         </td>
                         <td class="qty"><?php echo esc_html( $qty ); ?></td>
-                        <td class="price"><?php echo number_format_i18n( $hourly_rate * $duration_hours, 2 ); ?> <?php echo esc_html( $currency ); ?></td>
+                        <td class="price"><?php echo number_format_i18n( $unit_price, 2 ); ?> <?php echo esc_html( $currency ); ?></td>
                         <td class="total"><?php echo number_format_i18n( $line_total, 2 ); ?> <?php echo esc_html( $currency ); ?></td>
                     </tr>
                 <?php endforeach; ?>

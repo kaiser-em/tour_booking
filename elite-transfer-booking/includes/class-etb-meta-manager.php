@@ -265,23 +265,59 @@ class ETB_Meta_Manager {
     ------------------------------------------------------------------------ */
     public function render_vehicle_box( $post ) {
         wp_nonce_field( 'etb_save_meta', 'etb_nonce' );
-        $base_price  = get_post_meta( $post->ID, '_etb_base_price', true );
-        $hourly_rate = get_post_meta( $post->ID, '_etb_hourly_rate', true );
-        $max_pax     = get_post_meta( $post->ID, '_etb_max_pax', true );
-        $max_bag     = get_post_meta( $post->ID, '_etb_max_baggage', true );
+        $base_price    = get_post_meta( $post->ID, '_etb_base_price', true );
+        $max_pax       = get_post_meta( $post->ID, '_etb_max_pax', true );
+        $max_bag       = get_post_meta( $post->ID, '_etb_max_baggage', true );
         $selected_extras = get_post_meta( $post->ID, '_etb_allowed_extras', true ) ?: array();
+
+        // Nouveaux champs pour la grille tarifaire avancée (Mise à disposition)
+        $min_hours     = get_post_meta( $post->ID, '_etb_min_hours', true ) ?: '4';
+        $hourly_rate   = get_post_meta( $post->ID, '_etb_hourly_rate', true );
+        $pack_10h      = get_post_meta( $post->ID, '_etb_pack_10h', true );
+        $sup_hour_rate = get_post_meta( $post->ID, '_etb_sup_hour_rate', true );
+        $km_included   = get_post_meta( $post->ID, '_etb_km_included_ph', true ) ?: '35';
+        $km_sup_rate   = get_post_meta( $post->ID, '_etb_km_sup_rate', true );
 
         $limo_class_id = get_post_meta( $post->ID, '_etb_limo_class_id', true );
         $extras = get_posts( array( 'post_type' => 'tour_extra', 'numberposts' => -1, 'post_status' => 'publish' ) );
         ?>
         <p>
-            <label>Prix de base (€) :</label><br>
+            <label><strong>Tarif forfaitaire de base (€) (Transfert simple / Fallback) :</strong></label><br>
             <input type="number" step="0.01" min="0" name="etb_base_price" value="<?php echo esc_attr( $base_price ); ?>" class="widefat">
         </p>
-        <p>
-            <label>Taux horaire (€/h) :</label><br>
-            <input type="number" step="0.01" min="0" name="etb_hourly_rate" value="<?php echo esc_attr( $hourly_rate ); ?>" class="widefat">
-        </p>
+
+        <!-- GRILLE DE TARIFICATION PAR PALIERS (MISE À DISPOSITION / À L'HEURE) -->
+        <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 14px; margin: 15px 0;">
+            <h4 style="margin: 0 0 10px 0; color: #0f172a; font-size: 13px; text-transform: uppercase;">
+                ⏱️ Tarification Mise à disposition (À l'heure)
+            </h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div>
+                    <label>Durée minimale requise (h) :</label><br>
+                    <input type="number" min="1" name="etb_min_hours" value="<?php echo esc_attr( $min_hours ); ?>" class="widefat" placeholder="Ex: 4 pour berlines, 10 pour Sprinter">
+                </div>
+                <div>
+                    <label>Tarif horaire 1h (€/h) :</label><br>
+                    <input type="number" step="0.01" min="0" name="etb_hourly_rate" value="<?php echo esc_attr( $hourly_rate ); ?>" class="widefat" placeholder="Ex: 127 (Laisser vide si pas de tarif court)">
+                </div>
+                <div>
+                    <label>Forfait 10 Heures (€) :</label><br>
+                    <input type="number" step="0.01" min="0" name="etb_pack_10h" value="<?php echo esc_attr( $pack_10h ); ?>" class="widefat" placeholder="Ex: 1250">
+                </div>
+                <div>
+                    <label>Heure sup. au-delà de 10h (€/h) :</label><br>
+                    <input type="number" step="0.01" min="0" name="etb_sup_hour_rate" value="<?php echo esc_attr( $sup_hour_rate ); ?>" class="widefat" placeholder="Ex: 125">
+                </div>
+                <div>
+                    <label>Km inclus par heure :</label><br>
+                    <input type="number" min="0" name="etb_km_included_ph" value="<?php echo esc_attr( $km_included ); ?>" class="widefat" placeholder="Ex: 35 ou 30">
+                </div>
+                <div>
+                    <label>Tarif du Km supplémentaire (€/km) :</label><br>
+                    <input type="number" step="0.01" min="0" name="etb_km_sup_rate" value="<?php echo esc_attr( $km_sup_rate ); ?>" class="widefat" placeholder="Ex: 3.50">
+                </div>
+            </div>
+        </div>
         <p>
             <label>Nombre max passagers :</label><br>
             <input type="number" min="1" name="etb_max_pax" value="<?php echo esc_attr( $max_pax ); ?>" class="widefat">
@@ -681,10 +717,14 @@ class ETB_Meta_Manager {
 
             <div class="etb-admin-card">
                 <h4>💳 Tarification & Note</h4>
+                <?php 
+                $gen_settings = get_option( 'etb_general_settings', array() );
+                $currency     = ! empty( $gen_settings['currency'] ) ? sanitize_text_field( $gen_settings['currency'] ) : '€';
+                ?>
                 <?php if ( $promo ) : ?>
-                    <p><strong>Code Promo :</strong> <?php echo esc_html( $promo ); ?> (-<?php echo number_format( (float) $discount, 2, ',', ' ' ); ?> €)</p>
+                    <p><strong>Code Promo :</strong> <?php echo esc_html( $promo ); ?> (-<?php echo number_format_i18n( (float) $discount, 2 ); ?> <?php echo esc_html( $currency ); ?>)</p>
                 <?php endif; ?>
-                <p style="font-size: 16px; color: #1d2327;"><strong>Montant Total :</strong> <span style="color: #22c55e; font-weight: bold;"><?php echo number_format( (float) $total, 2, ',', ' ' ); ?> €</span></p>
+                <p style="font-size: 16px; color: #1d2327;"><strong>Montant Total :</strong> <span style="color: #22c55e; font-weight: bold;"><?php echo number_format_i18n( (float) $total, 2 ); ?> <?php echo esc_html( $currency ); ?></span></p>
                 
                 <?php if ( $note ) : ?>
                     <hr>
@@ -801,12 +841,24 @@ class ETB_Meta_Manager {
 
         switch ( $post_type ) {
             case 'tour_vehicle':
-                $base_price  = isset( $_POST['etb_base_price'] ) ? max( 0, floatval( $_POST['etb_base_price'] ) ) : 0;
-                $hourly_rate = isset( $_POST['etb_hourly_rate'] ) ? max( 0, floatval( $_POST['etb_hourly_rate'] ) ) : 0;
+                $base_price    = isset( $_POST['etb_base_price'] ) ? max( 0, floatval( $_POST['etb_base_price'] ) ) : 0;
+                $min_hours     = isset( $_POST['etb_min_hours'] ) ? max( 1, absint( $_POST['etb_min_hours'] ) ) : 4;
+                $hourly_rate   = ( isset( $_POST['etb_hourly_rate'] ) && '' !== trim( $_POST['etb_hourly_rate'] ) ) ? max( 0, floatval( $_POST['etb_hourly_rate'] ) ) : '';
+                $pack_10h      = ( isset( $_POST['etb_pack_10h'] ) && '' !== trim( $_POST['etb_pack_10h'] ) ) ? max( 0, floatval( $_POST['etb_pack_10h'] ) ) : '';
+                $sup_hour_rate = ( isset( $_POST['etb_sup_hour_rate'] ) && '' !== trim( $_POST['etb_sup_hour_rate'] ) ) ? max( 0, floatval( $_POST['etb_sup_hour_rate'] ) ) : '';
+                $km_included   = isset( $_POST['etb_km_included_ph'] ) ? max( 0, absint( $_POST['etb_km_included_ph'] ) ) : 35;
+                $km_sup_rate   = ( isset( $_POST['etb_km_sup_rate'] ) && '' !== trim( $_POST['etb_km_sup_rate'] ) ) ? max( 0, floatval( $_POST['etb_km_sup_rate'] ) ) : '';
+
                 update_post_meta( $post_id, '_etb_base_price', $base_price );
+                update_post_meta( $post_id, '_etb_min_hours', $min_hours );
                 update_post_meta( $post_id, '_etb_hourly_rate', $hourly_rate );
-                update_post_meta( $post_id, '_etb_max_pax', absint( $_POST['etb_max_pax'] ) );
-                update_post_meta( $post_id, '_etb_max_baggage', absint( $_POST['etb_max_bag'] ) );
+                update_post_meta( $post_id, '_etb_pack_10h', $pack_10h );
+                update_post_meta( $post_id, '_etb_sup_hour_rate', $sup_hour_rate );
+                update_post_meta( $post_id, '_etb_km_included_ph', $km_included );
+                update_post_meta( $post_id, '_etb_km_sup_rate', $km_sup_rate );
+
+                update_post_meta( $post_id, '_etb_max_pax', absint( $_POST['etb_max_pax'] ?? 0 ) );
+                update_post_meta( $post_id, '_etb_max_baggage', absint( $_POST['etb_max_bag'] ?? 0 ) );
                 update_post_meta( $post_id, '_etb_hover_image', esc_url_raw( $_POST['etb_hover_image'] ?? '' ) );
 
                 // Sauvegarde de l'ID LimoExpress
@@ -885,6 +937,7 @@ class ETB_Meta_Manager {
 
                 update_post_meta( $post_id, '_etb_promo_usage_limit', $usage_limit );
                 update_post_meta( $post_id, '_etb_promo_remaining', $remaining );
+                 break;
 
             case 'tour_booking':
                 if ( isset( $_POST['etb_status'] ) ) {

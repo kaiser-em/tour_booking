@@ -46,6 +46,17 @@ class ETB_Settings {
             $new_input['admin_email'] = isset( $existing['admin_email'] ) ? $existing['admin_email'] : get_option( 'admin_email' );
         }
 
+        // Numéro WhatsApp de l'entreprise
+        $new_input['company_whatsapp'] = ! empty( $input['company_whatsapp'] ) ? sanitize_text_field( trim( $input['company_whatsapp'] ) ) : '';
+
+        // Fournisseur d'adresses modulaire (Google Maps ou Mapbox)
+        $new_input['address_provider']    = ! empty( $input['address_provider'] ) ? sanitize_text_field( $input['address_provider'] ) : 'google';
+        $new_input['google_maps_api_key'] = ! empty( $input['google_maps_api_key'] ) ? sanitize_text_field( trim( $input['google_maps_api_key'] ) ) : '';
+        $new_input['mapbox_token']         = ! empty( $input['mapbox_token'] ) ? sanitize_text_field( trim( $input['mapbox_token'] ) ) : '';
+
+
+       
+
         // Application de dispatch choisie (Autonome, LimoExpress...)
         $new_input['active_dispatcher'] = isset( $input['active_dispatcher'] ) ? sanitize_text_field( $input['active_dispatcher'] ) : 'none';
 
@@ -117,6 +128,60 @@ class ETB_Settings {
                             <th scope="row">Email de notification admin</th>
                             <td><input type="email" name="etb_general_settings[admin_email]" value="<?php echo esc_attr( $options['admin_email'] ?? get_option('admin_email') ); ?>" class="regular-text"></td>
                         </tr>
+                        <tr>
+                            <th scope="row">Numéro WhatsApp de l'entreprise</th>
+                            <td>
+                                <input type="text" name="etb_general_settings[company_whatsapp]" value="<?php echo esc_attr( $options['company_whatsapp'] ?? '' ); ?>" class="regular-text" placeholder="+33 6 12 34 56 78">
+                                <p class="description">Format international avec indicatif (ex: <code>+33612345678</code> ou <code>+261...</code>). Les demandes de devis directes lui seront automatiquement adressées.</p>
+                            </td>
+                        </tr>
+                        
+                        <?php 
+                        $provider = $options['address_provider'] ?? 'google'; 
+                        ?>
+                        <tr>
+                            <th scope="row">Fournisseur d'adresses & Géocodage</th>
+                            <td>
+                                <select name="etb_general_settings[address_provider]" id="etb_address_provider_select" class="regular-text" style="font-weight: 600;">
+                                    <option value="google" <?php selected( $provider, 'google' ); ?>>🟢 Google Places API (Recommandé)</option>
+                                    <option value="mapbox" <?php selected( $provider, 'mapbox' ); ?>>🔵 Mapbox (Search Box)</option>
+                                </select>
+                                <p class="description">Choisissez le service qui gère la recherche d'adresses et le calcul des coordonnées GPS.</p>
+                            </td>
+                        </tr>
+                        <tr id="etb_row_google_key" style="<?php echo ( 'google' === $provider ) ? '' : 'display: none;'; ?>">
+                            <th scope="row">Clé API Google Maps (Places)</th>
+                            <td>
+                                <input type="password" name="etb_general_settings[google_maps_api_key]" value="<?php echo esc_attr( $options['google_maps_api_key'] ?? '' ); ?>" class="regular-text" placeholder="AIzaSy...">
+                                <p class="description">Activez <strong>Places API</strong> et <strong>Maps JavaScript API</strong> sur Google Cloud Console.</p>
+                            </td>
+                        </tr>
+                        <tr id="etb_row_mapbox_key" style="<?php echo ( 'mapbox' === $provider ) ? '' : 'display: none;'; ?>">
+                            <th scope="row">Jeton public Mapbox</th>
+                            <td>
+                                <input type="text" name="etb_general_settings[mapbox_token]" value="<?php echo esc_attr( $options['mapbox_token'] ?? '' ); ?>" class="regular-text" placeholder="pk.eyJ1...">
+                                <p class="description">Jeton public Mapbox (100 000 requêtes gratuites/mois).</p>
+                            </td>
+                        </tr>
+
+                        <script>
+                        document.addEventListener('DOMContentLoaded', function() {
+                            var selectEl = document.getElementById('etb_address_provider_select');
+                            var rowGoogle = document.getElementById('etb_row_google_key');
+                            var rowMapbox = document.getElementById('etb_row_mapbox_key');
+                            if (selectEl && rowGoogle && rowMapbox) {
+                                selectEl.addEventListener('change', function() {
+                                    if (this.value === 'google') {
+                                        rowGoogle.style.display = '';
+                                        rowMapbox.style.display = 'none';
+                                    } else {
+                                        rowGoogle.style.display = 'none';
+                                        rowMapbox.style.display = '';
+                                    }
+                                });
+                            }
+                        });
+                        </script>
                         <tr>
                             <th scope="row" colspan="2">
                                 <hr style="margin: 20px 0; border: 0; border-top: 1px solid #dcdcde;">
