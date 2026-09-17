@@ -1,8 +1,4 @@
-**Raison :** Fournir le guide d'utilisation opérationnel mis à jour pour l'administrateur du site.
 
-Voici le contenu à remplacer dans `README.md` :
-
-```markdown
 # 🚗 Elite Transfer Booking (Unified) — Manuel d'Exploitation v2.0.3
 
 Extension WordPress professionnelle dédiée à la réservation d'excursions touristiques privées, circuits multi-villes et transferts VTC VIP, avec synchronisation vers la plateforme de dispatch **LimoExpress**.

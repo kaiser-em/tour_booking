@@ -1,15 +1,4 @@
-Voici la clôture officielle de notre cycle de développement. Nous mettons à jour la **documentation technique (`Document.md`)**, le **guide d'exploitation (`README.md`)**, puis nous préparons le message de **commit Git**.
 
----
-
-# 📄 1. MISE À JOUR : `Document.md`
-
-### Fichier : `Document.md`
-**Raison :** Mettre à niveau la documentation officielle de référence avec l'ensemble des modules ajoutés (Widget minimaliste `[etb_transfer]`, Mode Custom Quote Option C, géocodage Google/Mapbox, tarification par paliers, et intégration WhatsApp).
-
-Voici le contenu complet et assaini à placer dans votre fichier `Document.md` :
-
-```markdown
 # 📖 DOCUMENTATION TECHNIQUE & FONCTIONNELLE OFFICIELLE
 # Elite Transfer Booking (Unified) — Version 2.0.3
 
@@ -154,7 +143,7 @@ wp-content/plugins/elite-transfer-booking/
 ```
 
 
-```text
+
 feat: release v2.0.3 with minimal VTC widget, hybrid quote mode and hardened security
 
 - feat: add [etb_transfer] minimal VTC widget with One Way / By the Hour modes
@@ -172,4 +161,4 @@ feat: release v2.0.3 with minimal VTC widget, hybrid quote mode and hardened sec
 - refactor: replace hardcoded Euro symbols with dynamic currency in admin columns and metaboxes
 - security: add transient rate limiting on public quick pricing endpoint (30 req/10 min)
 - docs: synchronize Document.md and README.md with v2.0.3 specifications
-```
+
