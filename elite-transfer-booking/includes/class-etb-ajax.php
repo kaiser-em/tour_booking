@@ -11,9 +11,13 @@ class ETB_Ajax {
         add_action( 'wp_ajax_etb_resync_booking', array( $this, 'handle_resync_booking' ) );
 
 
-        // Nouvelle route AJAX pour le calcul de prix en direct (Point A -> Point B)
+        /// Nouvelle route AJAX pour le calcul de prix en direct (Point A -> Point B)
         add_action( 'wp_ajax_etb_quick_pricing', array( $this, 'handle_quick_pricing' ) );
         add_action( 'wp_ajax_nopriv_etb_quick_pricing', array( $this, 'handle_quick_pricing' ) );
+
+        // Route AJAX pour le Micro-Modal de devis rapide (Email Inquiry)
+        add_action( 'wp_ajax_etb_send_email_inquiry', array( $this, 'handle_send_email_inquiry' ) );
+        add_action( 'wp_ajax_nopriv_etb_send_email_inquiry', array( $this, 'handle_send_email_inquiry' ) );
     }
 
     public function handle_validate_promo() {
@@ -497,7 +501,7 @@ class ETB_Ajax {
             wp_send_json_error( array( 'message' => 'Jeton API LimoExpress non configuré.' ) );
         }
 
-        // On interroge LimoExpress pour récupérer la matrice de prix
+        // On interroge LimoExpress pour récupérer la matrice de prix A -> B
         $api_url = sprintf(
             'https://api.limoexpress.me/api/integration/pricing?from_latitude=%s&from_longitude=%s&to_latitude=%s&to_longitude=%s',
             $from_lat, $from_lng, $to_lat, $to_lng
@@ -519,8 +523,6 @@ class ETB_Ajax {
         $body        = json_decode( wp_remote_retrieve_body( $response ), true );
 
         if ( $status_code >= 200 && $status_code < 300 && isset( $body['data'] ) ) {
-            // LimoExpress renvoie généralement un tableau ou un objet de prix par classe de véhicule
-            // Nous transmettons ces données brutes au JavaScript qui fera la correspondance avec l'affichage
             wp_send_json_success( array(
                 'pricing_data' => $body['data']
             ) );
@@ -529,4 +531,109 @@ class ETB_Ajax {
             wp_send_json_error( array( 'message' => $error_msg ) );
         }
     }
+
+    /**
+     * Traitement AJAX : Envoi d'une demande de devis rapide par e-mail (Quick Email Inquiry)
+     */
+    public function handle_send_email_inquiry() {
+        check_ajax_referer( 'etb_booking_nonce', 'nonce' );
+
+        // 1. Bouclier Anti-Spam (Max 5 demandes / 10 minutes par IP)
+        if ( ! ETB_Security::check_rate_limit( 'email_inquiry', 5, 600 ) ) {
+            wp_send_json_error( array( 'message' => 'Too many requests sent. Please wait a few minutes before trying again.' ) );
+        }
+
+        // 2. Récupération et assainissement strict des données
+        $name            = sanitize_text_field( $_POST['inquiry_name'] ?? '' );
+        $email           = sanitize_email( $_POST['inquiry_email'] ?? '' );
+        $phone           = sanitize_text_field( $_POST['inquiry_phone'] ?? '' );
+        $notes           = sanitize_textarea_field( $_POST['inquiry_notes'] ?? '' );
+        $vehicle_name    = sanitize_text_field( $_POST['vehicle_name'] ?? 'Not specified' );
+        $trip_route      = sanitize_text_field( $_POST['trip_route'] ?? 'Not specified' );
+        $trip_datetime   = sanitize_text_field( $_POST['trip_datetime'] ?? 'Not specified' );
+        $estimated_price = sanitize_text_field( $_POST['estimated_price'] ?? 'Custom Quote' );
+
+        if ( empty( $name ) ) {
+            wp_send_json_error( array( 'message' => 'Please enter your full name.' ) );
+        }
+
+        if ( empty( $email ) || ! is_email( $email ) ) {
+            wp_send_json_error( array( 'message' => 'Please enter a valid email address.' ) );
+        }
+
+        // 3. Préparation des destinataires
+        $gen_settings = get_option( 'etb_general_settings', array() );
+        $admin_email  = ! empty( $gen_settings['admin_email'] ) && is_email( $gen_settings['admin_email'] ) 
+            ? sanitize_email( $gen_settings['admin_email'] ) 
+            : get_option( 'admin_email' );
+        $company_name = get_bloginfo( 'name' );
+
+        // Durcissement Reply-To contre les injections SMTP
+        $clean_name = preg_replace( '/[^\p{L}\p{N}\s\-\.]/u', '', $name );
+        $clean_name = trim( preg_replace( '/\s+/', ' ', $clean_name ) );
+
+        $headers_admin = array(
+            'Content-Type: text/html; charset=UTF-8',
+            'Reply-To: ' . $clean_name . ' <' . $email . '>',
+        );
+
+        $headers_client = array(
+            'Content-Type: text/html; charset=UTF-8',
+        );
+
+        // 4. E-mail Administrateur (Lead complet prêt à être traité)
+        $subject_admin = '[New Inquiry] ' . $vehicle_name . ' - ' . $clean_name;
+        $message_admin = '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1e293b; line-height: 1.6;">'
+            . '<div style="background: #0f172a; padding: 20px; border-radius: 8px 8px 0 0; color: #ffffff;">'
+            . '<h2 style="margin: 0; color: #fbac18; font-size: 20px;">✉️ Nouvelle Demande de Devis Rapide</h2>'
+            . '<p style="margin: 5px 0 0 0; font-size: 13px; color: #94a3b8;">Reçue depuis le widget de réservation ' . esc_html( $company_name ) . '</p>'
+            . '</div>'
+            . '<div style="border: 1px solid #e2e8f0; border-top: none; padding: 24px; border-radius: 0 0 8px 8px; background: #ffffff;">'
+            . '<h3 style="margin-top: 0; color: #0f172a; font-size: 16px; border-bottom: 2px solid #fbac18; padding-bottom: 6px;">👤 Coordonnées Prospect</h3>'
+            . '<p style="margin: 6px 0;"><strong>Nom :</strong> ' . esc_html( $name ) . '</p>'
+            . '<p style="margin: 6px 0;"><strong>E-mail :</strong> <a href="mailto:' . esc_attr( $email ) . '">' . esc_html( $email ) . '</a></p>'
+            . '<p style="margin: 6px 0;"><strong>Téléphone :</strong> ' . esc_html( $phone ?: 'Non renseigné' ) . '</p>'
+            . '<hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 18px 0;">'
+            . '<h3 style="color: #0f172a; font-size: 16px; border-bottom: 2px solid #fbac18; padding-bottom: 6px;">🚘 Détails de la Mission Souhaitée</h3>'
+            . '<p style="margin: 6px 0;"><strong>Véhicule :</strong> ' . esc_html( $vehicle_name ) . '</p>'
+            . '<p style="margin: 6px 0;"><strong>Trajet / Prestation :</strong> ' . esc_html( $trip_route ) . '</p>'
+            . '<p style="margin: 6px 0;"><strong>Date & Heure :</strong> ' . esc_html( $trip_datetime ) . '</p>'
+            . '<p style="margin: 6px 0;"><strong>Tarif indicatif en ligne :</strong> <span style="font-weight: bold; color: #d97706;">' . esc_html( $estimated_price ) . '</span></p>'
+            . ( $notes ? '<hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 18px 0;"><h3 style="color: #0f172a; font-size: 16px;">💬 Message / Précisions du client :</h3><p style="background: #f8fafc; padding: 12px; border-left: 4px solid #3b82f6; border-radius: 4px;">' . nl2br( esc_html( $notes ) ) . '</p>' : '' )
+            . '<hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">'
+            . '<p style="font-size: 12px; color: #64748b;">👉 Pour répondre directement à ce prospect, cliquez simplement sur « Répondre » dans votre messagerie.</p>'
+            . '</div>'
+            . '</div>';
+
+        // 5. E-mail Accusé de Réception Client (Rassurance VIP)
+        $subject_client = 'Quote Inquiry Confirmation — ' . $company_name;
+        $message_client = '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1e293b; line-height: 1.6;">'
+            . '<div style="background: #0f172a; padding: 20px; border-radius: 8px 8px 0 0; color: #ffffff;">'
+            . '<h2 style="margin: 0; color: #fbac18; font-size: 20px;">' . esc_html( $company_name ) . '</h2>'
+            . '<p style="margin: 5px 0 0 0; font-size: 13px; color: #94a3b8;">VIP Chauffeur & Private Transfer Service</p>'
+            . '</div>'
+            . '<div style="border: 1px solid #e2e8f0; border-top: none; padding: 24px; border-radius: 0 0 8px 8px; background: #ffffff;">'
+            . '<h3 style="margin-top: 0; color: #0f172a;">Dear ' . esc_html( $name ) . ',</h3>'
+            . '<p>Thank you for reaching out to us. We have successfully received your inquiry for your upcoming transfer with <strong>' . esc_html( $vehicle_name ) . '</strong>.</p>'
+            . '<div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px; margin: 16px 0;">'
+            . '<p style="margin: 4px 0;">📍 <strong>Route:</strong> ' . esc_html( $trip_route ) . '</p>'
+            . '<p style="margin: 4px 0;">📅 <strong>Date & Time:</strong> ' . esc_html( $trip_datetime ) . '</p>'
+            . '<p style="margin: 4px 0;">💰 <strong>Estimated Rate:</strong> ' . esc_html( $estimated_price ) . '</p>'
+            . '</div>'
+            . '<p>Our dispatch team is currently reviewing your request and will provide you with a tailored confirmation within <strong>15 minutes</strong>.</p>'
+            . '<hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">'
+            . '<p style="font-size: 12px; color: #64748b;">Best regards,<br><strong>' . esc_html( $company_name ) . ' Reservations Team</strong></p>'
+            . '</div>'
+            . '</div>';
+
+        // 6. Expédition des e-mails
+        wp_mail( $admin_email, $subject_admin, $message_admin, $headers_admin );
+        wp_mail( $email, $subject_client, $message_client, $headers_client );
+
+        wp_send_json_success( array(
+            'message' => 'Thank you! Your inquiry has been submitted. Our dispatch team will get back to you within 15 minutes.'
+        ) );
+    }
+
+
 }

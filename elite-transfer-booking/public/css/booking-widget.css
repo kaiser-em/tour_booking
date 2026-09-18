@@ -14,6 +14,11 @@
     --etb-accent-hover: #D1541F;         /* Orange foncé au survol */
     --etb-accent-glow: rgba(230, 90, 21, 0.18); /* Halo lumineux de sélection */
     --etb-accent-light: rgba(230, 90, 21, 0.04);
+
+
+    --etb-qw-accent: #f7a100;                      /* Bleu royal éclatant Eden Cab */
+    --etb-qw-accent-hover: #eb8c17;                /* Bleu foncé au clic */
+    --etb-qw-accent-glow: rgba(0, 114, 229, 0.4);  /* Halo lumineux */
     
     /* Couleurs Neutres & Surfaces */
     --etb-bg-light: #F8F9FA;             /* Fond doux pour badges et conteneurs */
@@ -1230,9 +1235,7 @@
     --etb-qw-bg-dropdown: #0f1420;                 /* Fond menu suggestions adresses */
     --etb-qw-bg-hover: #1a2336;                    /* Survol et surbrillance clavier */
     
-    --etb-qw-accent: #f7a100;                      /* Bleu royal éclatant Eden Cab */
-    --etb-qw-accent-hover: #ff6900;                /* Bleu foncé au clic */
-    --etb-qw-accent-glow: rgba(0, 114, 229, 0.4);  /* Halo lumineux */
+  
     
     --etb-qw-border: #232a3b;                      /* Bordures principales */
     --etb-qw-border-subtle: rgba(255, 255, 255, 0.16); /* Bordures translucides */
@@ -1263,10 +1266,61 @@
     box-sizing: border-box !important;
 }
 
+
+/* ==========================================================================
+   TITRE ANIMÉ "FARE CALCULATOR" — EFFET AI STUDIO THINKING (DÉVERROUILLÉ)
+   ========================================================================== */
+#etb-quick-widget-app .etb-quick-title-thinking {
+    display: block !important;
+    width: fit-content !important;
+    margin: 0 auto 16px auto !important;
+    padding: 0 !important;
+    font-family: 'Calibri', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    font-size: 23px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.12em !important;
+    text-transform: uppercase !important;
+    text-align: center !important;
+    line-height: 1.2 !important;
+
+    /* Découpe du texte */
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    color: transparent !important;
+
+    /* Dégradé SANS !important pour que @keyframes puisse animer la position */
+
+    background-image: linear-gradient(
+        90deg,
+        #64748b 0%,
+        #ffffff 20%,
+        #fbac18 45%,
+        #fbac18 65%,
+        #ffffff 80%,
+        #64748b 100%
+    );
+    background-size: 200% auto;
+    background-repeat: repeat;
+    background-position: 0% center;
+
+    /* Animation active */
+    animation: etbThinkingShimmer 3.5s linear infinite;
+}
+
+@keyframes etbThinkingShimmer {
+    from {
+        background-position: 0% center;
+    }
+    to {
+        background-position: -200% center;
+    }
+}
+
 /* 1. Toggle Capsule supérieure (Trajet simple / À l'heure) */
 .etb-quick-mode-capsule {
     display: inline-flex !important;
-    background: rgba(10, 14, 22, 0.85) !important;
+    background: #0b0f19  !important;
     backdrop-filter: blur(12px) !important;
     -webkit-backdrop-filter: blur(12px) !important;
     border: 1px solid rgba(255, 255, 255, 0.12) !important;
@@ -1298,7 +1352,7 @@
 
 .etb-quick-mode-btn.active {
     background: #fbac18 !important; /* Bleu Eden Cab */
-    color: #ffffff !important;
+    color: #000000 !important;
     /*box-shadow: 0 4px 15px rgba(0, 114, 229, 0.45) !important;*/
 }
 
@@ -1308,7 +1362,7 @@
     z-index: 100 !important; /* Priorité absolue sur la flotte en dessous */
     display: flex !important;
     align-items: center !important;
-    background: rgba(11, 15, 25, 0.88) !important; /* Fond nuit Eden Cab */
+    background: #0b0f19  !important; /* Fond nuit Eden Cab */
     backdrop-filter: blur(18px) !important;
     -webkit-backdrop-filter: blur(18px) !important;
     border: 1px solid rgba(255, 255, 255, 0.16) !important;
@@ -1318,6 +1372,59 @@
     /*box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45) !important;*/
     width: 100% !important;
 }
+
+
+/* ==========================================================================
+   FAISCEAU DE BORDURE TOURNANT BICOLORE (STYLE GEMINI / BORDER BEAM)
+   ========================================================================== */
+
+/* 1. Déclaration de l'angle d'animation fluide */
+@property --etb-border-angle {
+    syntax: '<angle>';
+    inherits: false;
+    initial-value: 0deg;
+}
+
+/* 2. Le faisceau lumineux bicolore (Or ambré & Bleu cyan) */
+.etb-quick-glass-bar::before {
+    content: '' !important;
+    position: absolute !important;
+    inset: -1.2px !important; /* Épaisseur du liseré */
+    border-radius: 17px !important;
+    padding: 1.4px !important;
+    background: conic-gradient(
+        from var(--etb-border-angle),
+        transparent 2%,
+        #fbac18 30%,
+        transparent 40%,
+        #c9644b 70%,
+        transparent 99%
+    ) !important;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0) !important;
+    -webkit-mask-composite: xor !important;
+    mask-composite: exclude !important;
+    animation: etbSpinBorder 5s linear infinite !important;
+    pointer-events: none !important;
+    z-index: 2 !important;
+    opacity: 0 !important; /* Masqué après la recherche */
+    transition: opacity 2s cubic-bezier(1,-0.04, 1, 1) !important;
+}
+
+
+
+
+/* 3. Actif UNIQUEMENT en état initial (avant le clic sur Show Prices) */
+.etb-quick-glass-bar.etb-initial-border::before {
+    opacity: 1 !important;
+}
+
+/* 4. Rotation continue à 360° */
+@keyframes etbSpinBorder {
+    to {
+        --etb-border-angle: 360deg;
+    }
+}
+
 
 .etb-quick-col {
     flex: 1 !important;
@@ -1434,7 +1541,7 @@
 
 .etb-quick-submit-btn {
     background: #fbac18 !important;
-    color: #ffffff !important;
+    color: #000000 !important;
     border: none !important;
     border-radius: 50px !important;
     padding: 13px 26px !important;
@@ -1448,7 +1555,7 @@
 
 .etb-quick-submit-btn:hover {
     background: #e39402 !important;
-    transform: translateY(-2px) !important;
+    
    /* box-shadow: 0 8px 25px rgba(0, 114, 229, 0.55) !important;*/
 }
 
@@ -1473,9 +1580,10 @@
 }
 
 .etb-quick-fleet-heading {
+    font-family: 'calibri', sans-serif !important;
     font-size: 18px !important;
     font-weight: 500 !important;
-    color: var(--etb-qw-text-dark) !important;
+    color: #d36300 !important;
     margin-bottom: 22px !important;
     text-transform: uppercase !important;
     letter-spacing: 0.08em !important;
@@ -1485,57 +1593,106 @@
     gap: 10px !important;
 }
 
+/* ==========================================================================
+   FLOTTE DE VÉHICULES LUXURY DARK MODE (INSPIRATION PREMIUM)
+   ========================================================================== */
+
 .etb-quick-cars-grid {
     display: grid !important;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)) !important;
-    gap: 10px !important;
+    grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)) !important;
+    gap: 20px !important;
     justify-items: center !important;
+    width: 100% !important;
 }
 
-/* Cartes sombres de prestige Eden Cab */
+/* 1. Carte globale : Bords arrondis 20px, zéro padding extérieur pour l'image */
 .etb-quick-car-item {
-    background: #111622 !important; /* Graphite nuit Eden Cab */
+    background: #111622 !important;
     border: 1.5px solid #232a3b !important;
-    border-radius: 14px !important;
-    padding: 14px !important;
+    border-radius: 20px !important;
+    padding: 0 !important; /* Image collée aux bordures */
     cursor: pointer !important;
     position: relative !important;
-    display: flex;
+    display: flex !important;
     flex-direction: column !important;
     justify-content: space-between !important;
-    min-height: 260px !important;
-    max-width: 300px !important;
-    min-width: 280px !important;
-    transition: transform ease-in-out 0.23s;
+    min-height: 430px !important;
+    max-width: 330px !important;
+    min-width: 290px !important;
+    width: 100% !important;
+    overflow: hidden !important;
+    /*box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4) !important;*/
+    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1) !important;
 }
 
-/* Règle absolue : forcer le masquage des véhicules inéligibles */
 .etb-quick-car-item.etb-hidden,
 .etb-quick-car-item[style*="display: none"] {
     display: none !important;
 }
 
 .etb-quick-car-item:hover {
-    transform: translateY(-8px) !important;
-    border-color: var(--etb-qw-accent) !important;
-    /*box-shadow: 0 12px 30px rgba(0, 114, 229, 0.22) !important;*/
+    transform: translateY(-5px) !important;
+    border-color: #3b82f6 !important;
+    box-shadow: 0 16px 35px rgba(0, 114, 229, 0.25) !important;
 }
 
 .etb-quick-car-item.selected {
-    border-color: var(--etb-qw-accent) !important;
-    background: var(--etb-qw-bg-card) !important;
-    /*box-shadow: 0 0 0 2px #fbac18, 0 12px 35px rgba(0, 114, 229, 0.3) !important;*/
+    border-color: #fbac18 !important;
+    background: #141b2b !important;
+    box-shadow: 0 0 0 2px #fbac18, 0 16px 40px rgba(251, 172, 24, 0.25) !important;
 }
 
-/* Coche de sélection (au premier plan au-dessus du GIF) */
+/* 2. Zone En-tête Héroïque : Plein écran sans bordure + Dégradé fondu */
+.etb-quick-card-hero {
+    position: relative !important;
+    width: 100% !important;
+    height: 185px !important;
+    background: #0f1420 !important;
+    border-radius: 20px 20px 0 0 !important;
+    overflow: hidden !important;
+    display: block !important;
+}
+
+/* Voile dégradé noir fumé : fusionne le bas de la photo dans la carte */
+.etb-quick-card-hero::after {
+    content: '' !important;
+    position: absolute !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 75px !important;
+    background: linear-gradient(to bottom, rgba(17, 22, 34, 0) 0%, rgba(17, 22, 34, 0.65) 50%, #111622 100%) !important;
+    pointer-events: none !important;
+    z-index: 5 !important;
+}
+
+/* Badge flottant 👑 Premium */
+.etb-quick-badge-vip {
+    position: absolute !important;
+    top: 10px !important;
+    left: 10px !important;
+    background: transparent !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(179, 179, 179, 0.1) !important;
+    color: #8b8b8b !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    padding: 4px 12px !important;
+    border-radius: 20px !important;
+    z-index: 10 !important;
+    letter-spacing: 0.03em !important;
+}
+
+/* Coche de sélection flottante */
 .etb-quick-card-check {
     position: absolute !important;
-    top: 12px !important;
-    right: 12px !important;
-    width: 28px !important;
-    height: 28px !important;
-    background: #e65a15 !important;
-    color: #ffffff !important;
+    top: 14px !important;
+    right: 14px !important;
+    width: 22px !important;
+    height: 22px !important;
+    background: #fbac18 !important;
+    color: #0f172a !important;
     border-radius: 50% !important;
     display: flex !important;
     align-items: center !important;
@@ -1543,19 +1700,8 @@
     opacity: 0 !important;
     transform: scale(0.5) !important;
     transition: all 0.25s ease !important;
-    z-index: 25 !important; /* Passe au premier plan absolu au-dessus du GIF */
-    pointer-events: none !important;
-}
-
-.etb-quick-card-check .dashicons {
-    font-size: 16px !important;
-    width: 16px !important;
-    height: 16px !important;
-    line-height: 1 !important;
-    color: #ffffff !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
+    z-index: 10 !important;
+    padding-right: 2px !important;
 }
 
 .etb-quick-car-item.selected .etb-quick-card-check {
@@ -1563,12 +1709,13 @@
     transform: scale(1) !important;
 }
 
-/* Image et animation au survol */
+/* Photo & GIF plein format bord-à-bord (ZÉRO PADDING) */
 .etb-quick-img-box {
     width: 100% !important;
-    height: 125px !important;
+    height: 100% !important;
     position: relative !important;
-    margin-bottom: 12px !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 .etb-quick-img-box img {
@@ -1577,8 +1724,42 @@
     left: 0 !important;
     width: 100% !important;
     height: 100% !important;
-    object-fit: contain !important;
+    margin: 0 !important;
     transition: opacity 0.35s ease !important;
+}
+
+/* Image statique : Aérée, centrée et sans découpe abrupte */
+.etb-quick-img-box .etb-img-static {
+    object-fit: contain !important;
+    object-position: center !important;
+    padding: 18px 22px 14px 22px !important; /* Espace de respiration haut/côtés */
+}
+
+/* GIF au survol : Remplissage immersif plein écran */
+.etb-quick-img-box .etb-img-hover {
+    object-fit: cover !important;
+    object-position: center !important;
+    padding: 0 !important;
+    opacity: 0 !important;
+}
+
+/* Support SVG pour l'icône Climate dans les amenities */
+.etb-amenity-col svg,
+.etb-amenity-icon {
+    display: inline-block !important;
+    width: 16px !important;
+    height: 16px !important;
+    stroke: #cbd5e1 !important;
+}
+
+.etb-quick-car-item:hover .etb-img-hover,
+.etb-quick-car-item.selected .etb-img-hover {
+    opacity: 1 !important;
+}
+
+.etb-quick-car-item:hover .etb-img-static,
+.etb-quick-car-item.selected .etb-img-static {
+    opacity: 0 !important;
 }
 
 .etb-quick-img-box .etb-img-hover {
@@ -1595,68 +1776,173 @@
     opacity: 0 !important;
 }
 
-.etb-quick-car-item h4 {
-    font-family: 'calibri', 'sans-serif';
+/* 3. Corps de la carte avec padding aéré */
+.etb-quick-card-body {
+    padding: 16px 18px 20px 18px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 !important;
+    justify-content: space-between !important;
+}
+
+.etb-quick-car-title {
+    font-family: 'Inter', sans-serif !important;
     font-size: 17px !important;
-    font-weight: 700 !important;
+    font-weight: 800 !important;
     color: #ffffff !important;
-    margin: 0 0 6px 0 !important;
+    margin: 0 0 10px 0 !important;
     letter-spacing: 0.02em !important;
 }
 
+/* Ligne Capacités (Passagers | Bagages) */
 .etb-quick-specs {
-    font-size: 12px !important;
-    font-weight: 700 !important;
-    color: #94a3b8 !important; /* Argenté */
     display: flex !important;
-    justify-content: flex-start!important;
-    gap: 4px;
+    align-items: center !important;
+    gap: 12px !important;
+    font-size: 13px !important;
+    color: #94a3b8 !important;
     margin-bottom: 12px !important;
 }
 
-.etb-quick-specs span{
-    background-color: var(--etb-qw-bg-dropdown) !important;
-    border-radius: 10px !important;
-    padding: 2px 10px !important;
+.etb-spec-item {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    font-weight: 600 !important;
 }
-.etb-quick-km-info{
-    color: var(--etb-white) !important;
+
+.etb-spec-item .dashicons {
+    font-size: 16px !important;
+    width: 16px !important;
+    height: 16px !important;
+    color: #64748b !important;
 }
+
+.etb-spec-divider {
+    color: rgba(255, 255, 255, 0.18) !important;
+    font-size: 12px !important;
+}
+
+/* Pilule Kilométrique : Masquée d'office sans laisser d'ovale vide */
+.etb-quick-km-pill {
+    display: none !important;
+
+}
+
+.etb-quick-km-pill.is-visible {
+    display: inline-block !important; /* Visible UNIQUEMENT si .is-visible est ajoutée */
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 20px !important;
+    padding: 5px 12px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    color: #cbd5e1 !important;
+    margin-bottom: 12px !important;
+    width: fit-content !important;
+}
+
+.etb-quick-km-pill:empty {
+    display: none !important; /* Sécurité maximale : invisible si vide */
+}
+
+
+/* 4. Rangée des 5 Équipements VIP (Climate, Water, Comfort, Safety, Wifi) */
+.etb-quick-amenities {
+    display: grid !important;
+    grid-template-columns: repeat(5, 1fr) !important;
+    gap: 5px !important;
+    padding: 5px 0 !important;
+    margin-bottom: 10px !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+
+.etb-amenity-col {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 5px !important;
+    padding: 4px 2px !important;
+    text-align: center !important;
+}
+
+.etb-amenity-col .dashicons {
+    font-size: 16px !important;
+    width: 16px !important;
+    height: 16px !important;
+    color: #cbd5e1 !important;
+}
+
+.etb-amenity-col small {
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    color: #94a3b8 !important;
+    letter-spacing: 0.02em !important;
+}
+
+/* 5. Pied de Carte : Split Prix à gauche & Bouton pilule à droite */
+.etb-quick-card-footer {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 10px !important;
+    margin-top: auto !important;
+}
+
+.etb-quick-price-box {
+    display: flex !important;
+    flex-direction: column !important;
+}
+
 .etb-quick-price-display {
-    font-size: 22px !important;
+    font-size: 24px !important;
     font-weight: 900 !important;
-    color: #fbac18 !important; /* Bleu éclatant */
-    margin-bottom: 14px !important;
+    color: #fbac18 !important;
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 3px !important;
     letter-spacing: -0.5px !important;
 }
 
-/* Détail du calcul de prix sous le montant */
+.etb-quick-amount {
+    font-size: 26px !important;
+    font-weight: 900 !important;
+}
+
+.etb-quick-currency {
+    font-size: 18px !important;
+    font-weight: 700 !important;
+}
+
 .etb-quick-price-detail {
-    font-size: 11px !important;
-    color: #cbd5e1 !important; /* Gris argenté très clair */
-    margin-top: -10px !important;
-    margin-bottom: 14px !important;
-    line-height: 1.4 !important;
-    font-weight: 500 !important;
+    font-size: 10px !important;
+    color: #94a3b8 !important;
+    margin-top: 2px !important;
+    line-height: 1.3 !important;
 }
 
 .etb-quick-price-detail strong {
     color: #ffffff !important;
-    font-weight: 600 !important;
 }
 
-/* Bouton de sélection de la carte */
+/* Bouton Pilule Sélectionner avec flèche */
 .etb-quick-select-btn {
-    width: 100% !important;
-    padding: 10px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
     background: #1e2638 !important;
     border: 1px solid #333f57 !important;
-    border-radius: 8px !important;
+    border-radius: 50px !important;
+    padding: 10px 18px !important;
     font-size: 13px !important;
     font-weight: 700 !important;
-    color: #cbd5e1 !important;
+    color: #ffffff !important;
     cursor: pointer !important;
     transition: all 0.2s ease !important;
+    white-space: nowrap !important;
 }
 
 .etb-quick-select-btn:hover {
@@ -1665,58 +1951,187 @@
 }
 
 .etb-quick-car-item.selected .etb-quick-select-btn {
-    background: #fbac18!important;
+    background: #fbac18 !important;
     border-color: #fbac18 !important;
-    color: #ffffff !important;
-    /*box-shadow: 0 4px 15px rgba(0, 114, 229, 0.4) !important;*/
+    color: #0f172a !important;
+    font-weight: 800 !important;
+    /*box-shadow: 0 4px 15px rgba(251, 172, 24, 0.35) !important;*/
 }
 
-/* 4. Barre de Confirmation finale (Masquée par défaut tant qu'aucune voiture n'est choisie) */
-.etb-quick-confirm-bar {
-    display: none !important; /* Totalement invisible au départ */
-    justify-content: space-between !important;
-    align-items: center !important;
-    background: #0b0f19 !important;
-    border: 1px solid #232a3b !important;
-    color: #ffffff !important;
-    border-radius: 14px !important;
-    padding: 18px 26px !important;
-    margin-top: 30px !important;
+.etb-quick-select-btn .dashicons {
+    font-size: 14px !important;
+    width: 14px !important;
+    height: 14px !important;
+    transition: transform 0.2s ease !important;
 }
+
+.etb-quick-select-btn:hover .dashicons {
+    transform: translateX(2px) !important;
+}
+
+
+
+/* 4. Barre de Confirmation finale : Caisson sombre VIP & Espacement net */
+
+.etb-quick-confirm-bar {
+
+    /*display: none !important; */ 
+    display: flex !important;
+    justify-content: space-between !important;
+    border: 1.5px solid transparent !important;
+    max-height: 0 !important;
+    padding: 0 26px !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    transform: translateY(25px) scale(0.98) !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
+    opacity: 0 !important;
+    
+    transition: opacity 0.4s cubic-bezier(0.8, 0.01, 0, 1),
+                transform 0.45s cubic-bezier(0.8, 0.01, 0, 1),
+                max-height 0.4s cubic-bezier(0.8, 0.01, 0, 1),
+                padding 0.4s cubic-bezier(0.8, 0.01, 0, 1),
+                margin 0.4s cubic-bezier(0.8, 0.01, 0, 1),
+                border-color 0.3s ease;
+}
+
+
 
 .etb-quick-confirm-bar.is-visible {
-    display: flex !important; /* Apparaît uniquement si un véhicule est sélectionné */
+    display: flex !important;
+    position: relative !important;
+    z-index: 50 !important;
+    width: 100% !important;
+    background: #0b0f19 !important; 
+    /*border: 1.5px solid #232a3b !important;*/
+    border-radius: 16px !important;
+    padding: 18px 26px !important;
+    margin-top: 40px !important; 
+    margin-bottom: 20px !important;
+    opacity: 1 !important;
+    border-color: #232a3b !important;
+    transform: translateY(0) scale(1) !important;
+    pointer-events: auto !important;
+     max-height: 180px !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 16px !important;
+    box-sizing: border-box !important;
+    clear: both !important;
+}
+
+/* 4. Barre de Confirmation finale : Déploiement ultra-fluide sans sursaut */
+
+/*.etb-quick-confirm-bar {
+    display: flex !important;
+    position: relative !important;
+    z-index: 50 !important;
+    width: 100% !important;
+    background: #0b0f19 !important;
+    border: 1.5px solid transparent !important;
+    border-radius: 16px !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 16px !important;
+    box-sizing: border-box !important;
+    clear: both !important;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.6) !important;
+
+    
+    opacity: 0 !important;
+    visibility: hidden !important;
+    max-height: 0 !important;
+    padding: 0 26px !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    transform: translateY(25px) scale(0.98) !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
+
+    
+    transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+                max-height 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+                padding 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+                margin 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+                border-color 0.3s ease,
+                visibility 0.4s ease !important;
+}*/
+
+/* État déployé : glissement ascendant et fondu soyeux */
+
+/*.etb-quick-confirm-bar.is-visible {
+    
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 16px !important;
+    box-sizing: border-box !important;
+    clear: both !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    max-height: 180px !important;
+    padding: 18px 26px !important;
+    margin-top: 40px !important;
+    margin-bottom: 20px !important;
+    border-color: #232a3b !important;
+    transform: translateY(0) scale(1) !important;
+    pointer-events: auto !important;
+}
+*/
+/* Textes dans la barre */
+.etb-quick-summary-info {
+    display: flex !important;
+    align-items: center !important;
+    gap: 20px !important;
+    flex-wrap: wrap !important;
 }
 
 .etb-quick-summary-info span {
     font-size: 14px !important;
-    margin-right: 22px !important;
-    color: #94a3b8 !important;
+    color: #94a3b8 !important; /* Argenté clair */
+    font-weight: 500 !important;
 }
 
 .etb-quick-summary-info strong {
-    color: #ffffff !important;
+    color: #ffffff !important; /* Blanc éclatant */
+    font-weight: 700 !important;
+}
+
+#etb-quick-selected-total {
+    color: #fbac18 !important; /* Montant doré */
+    font-size: 19px !important;
+    font-weight: 800 !important;
+}
+
+/* Boutons d'action */
+.etb-quick-actions-row {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    flex-wrap: wrap !important;
 }
 
 .etb-quick-book-trip-btn {
     background: #fbac18 !important;
-    color: #ffffff !important;
+    color: #0f172a !important;
     border: none !important;
     border-radius: 50px !important;
-    padding: 13px 30px !important;
-    font-size: 15px !important;
-    font-weight: 700 !important;
+    padding: 13px 28px !important;
+    font-size: 14px !important;
+    font-weight: 800 !important;
     cursor: pointer !important;
     display: inline-flex !important;
     align-items: center !important;
-    gap: 10px !important;
+    gap: 8px !important;
     transition: all 0.25s ease !important;
-    /*box-shadow: 0 6px 20px rgba(0, 114, 229, 0.4) !important;*/
+    white-space: nowrap !important;
 }
 
 .etb-quick-book-trip-btn:hover {
-    background: var(--etb-accent-hover) !important;
-    transform: translateY(-2px) !important;
+    background: #e39402 !important;
+    /*transform: translateY(-2px) !important;*/
+   /* box-shadow: 0 6px 20px rgba(251, 172, 24, 0.4) !important;*/
 }
 
 
@@ -1728,7 +2143,7 @@
 .etb-quick-info-notice {
     background: rgba(251, 172, 24, 0.08) !important;
     border: 1px solid rgba(251, 172, 24, 0.35) !important;
-    color: var(--etb-qw-text-dark) !important;
+    color: var(--etb-qw-text-white) !important;
     padding: 14px 20px !important;
     border-radius: 12px !important;
     font-size: 13px !important;
@@ -1756,13 +2171,46 @@
     display: inline-block !important;
     background: rgba(251, 172, 24, 0.14) !important;
     color: #fbac18 !important;
-    font-size: 8px !important;
+    font-size: 10px !important;
     font-weight: 800 !important;
     padding: 4px 14px !important;
     border-radius: 8px !important;
     text-transform: uppercase !important;
     letter-spacing: 0.05em !important;
 }
+
+
+/* Bouton Email Inquiry (Dark Mode VIP) */
+.etb-quick-email-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    background: #1e2638 !important;
+    border: 1px solid #333f57 !important;
+    color: #ffffff !important;
+    padding: 13px 22px !important;
+    border-radius: 50px !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    transition: all 0.25s ease !important;
+    white-space: nowrap !important;
+}
+
+.etb-quick-email-btn:hover {
+    background: #28334b !important;
+    border-color: #475569 !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35) !important;
+}
+
+.etb-quick-email-btn .dashicons {
+    font-size: 17px !important;
+    width: 17px !important;
+    height: 17px !important;
+    color: #cbd5e1 !important;
+}
+
 
 /* 3. Bouton WhatsApp Option C (affiché dans la barre de confirmation) */
 .etb-quick-whatsapp-btn {
@@ -1782,8 +2230,8 @@
 }
 
 .etb-quick-whatsapp-btn:hover {
-    background: #1ebc59 !important;
-    transform: translateY(-2px) !important;
+    background: #27D366 !important;
+    /*transform: translateY(-2px) !important;*/
     /*box-shadow: 0 6px 18px rgba(37, 211, 102, 0.35) !important;*/
     color: #ffffff !important;
 }
@@ -1923,7 +2371,7 @@
     flex: 1 !important;
     background: transparent !important;
     border: none !important;
-    color: #94a3b8 !important;
+    color: #fbac18 !important;
     padding: 5px 0 !important;
     font-size: 11px !important;
     font-weight: 700 !important;
@@ -1934,9 +2382,9 @@
 }
 
 .etb-ampm-btn.active {
-    background: #0072e5 !important;
+    background: var(--etb-qw-accent) !important;
     color: #ffffff !important;
-    box-shadow: 0 2px 6px rgba(0, 114, 229, 0.4) !important;
+   /* box-shadow: 0 2px 6px rgba(0, 114, 229, 0.4) !important;*/
 }
 
 .etb-time-columns-row {
@@ -2015,7 +2463,7 @@
 .pac-item:hover,
 .pac-item-selected {
     background-color: #1a2336 !important;
-    border-left: 3px solid #0072e5 !important;
+    border-left: 3px solid var(--etb-qw-accent) !important;
 }
 
 .pac-icon {
@@ -2053,7 +2501,7 @@
 }
 
 .pac-matched {
-    color: #0072e5 !important;
+    color: var(--etb-qw-accent)!important;
     font-weight: 800 !important;
 }
 
@@ -2163,6 +2611,7 @@
     transform: rotate(180deg) !important;
 }
 
+
 .etb-custom-select-options {
     position: absolute !important;
     top: 100% !important;
@@ -2173,11 +2622,15 @@
     border-radius: 8px !important;
     box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6) !important;
     margin-top: 8px !important;
-    display: none !important; /* Masqué par défaut */
+    display: none !important;
     flex-direction: column !important;
     z-index: 99999 !important;
-    overflow: hidden !important;
+    max-height: 240px !important; /* Hauteur optimale pour défilement */
+    overflow-y: auto !important; /* Défilement fluide de 3h à 24h */
+    overscroll-behavior: contain !important;
 }
+
+
 
 .etb-custom-select.is-open .etb-custom-select-options {
     display: flex !important;
@@ -2227,6 +2680,276 @@
     box-shadow: none !important;
 }
 
+/* ==========================================================================
+   MICRO-MODAL VIP DE DEVIS RAPIDE (EMAIL INQUIRY)
+   ========================================================================== */
+
+/* 1. Arrière-plan flou translucide (Transition soyeuse ouverture & fermeture) */
+.etb-quick-modal-backdrop {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 999999 !important;
+    background: rgba(5, 8, 15, 0.82) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 20px !important;
+    box-sizing: border-box !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transition: opacity 0.3s ease, visibility 0.3s ease !important;
+}
+
+.etb-quick-modal-backdrop.is-open {
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+}
+
+/* 2. Carte centrale : glissement ascendant à l'ouverture, glissement doux à la fermeture */
+.etb-quick-modal-card {
+    background: #0f1420 !important;
+    border: 1.5px solid #232a3b !important;
+    border-radius: 20px !important;
+    max-width: 520px !important;
+    width: 100% !important;
+    padding: 26px 30px !important;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.75), 0 0 35px rgba(251, 172, 24, 0.08) !important;
+    position: relative !important;
+    box-sizing: border-box !important;
+    transform: translateY(25px) scale(0.96) !important;
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.etb-quick-modal-backdrop.is-open .etb-quick-modal-card {
+    transform: translateY(0) scale(1) !important;
+}
+
+/* 3. En-tête du Modal */
+.etb-inquiry-header {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    padding-bottom: 14px !important;
+    margin-bottom: 18px !important;
+}
+
+.etb-inquiry-title-wrap {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+}
+
+.etb-inquiry-icon {
+    font-size: 26px !important;
+    line-height: 1 !important;
+}
+
+.etb-inquiry-title-wrap h3 {
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    color: #ffffff !important;
+    margin: 0 0 3px 0 !important;
+    letter-spacing: 0.02em !important;
+}
+
+.etb-inquiry-title-wrap p {
+    font-size: 12px !important;
+    color: #94a3b8 !important;
+    margin: 0 !important;
+}
+
+.etb-inquiry-close-btn {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    color: #94a3b8 !important;
+    font-size: 22px !important;
+    line-height: 2 !important;
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50% !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: all 0.2s ease !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    padding-bottom: 3px !important;
+}
+
+.etb-inquiry-close-btn:hover {
+    background: rgba(220, 38, 38, 0.2) !important;
+    border-color: #dc2626 !important;
+    color: #ffffff !important;
+}
+
+/* 4. Récapitulatif verrouillé du trajet */
+.etb-inquiry-summary-card {
+    background: rgba(251, 172, 24, 0.06) !important;
+    border: 1px solid rgba(251, 172, 24, 0.25) !important;
+    border-radius: 12px !important;
+    padding: 14px 16px !important;
+    margin-bottom: 18px !important;
+}
+
+.etb-inquiry-summary-vehicle {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    margin-bottom: 8px !important;
+    border-bottom: 1px dashed rgba(251, 172, 24, 0.2) !important;
+    padding-bottom: 8px !important;
+}
+
+.etb-inquiry-summary-vehicle strong {
+    font-size: 15px !important;
+    font-weight: 800 !important;
+    color: #ffffff !important;
+}
+
+.etb-inquiry-summary-price {
+    font-size: 15px !important;
+    font-weight: 800 !important;
+    color: #fbac18 !important;
+}
+
+.etb-inquiry-summary-trip {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 5px !important;
+}
+
+.etb-inquiry-trip-line {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    font-size: 12px !important;
+    color: #cbd5e1 !important;
+}
+
+.etb-inquiry-trip-line .dashicons {
+    font-size: 14px !important;
+    width: 14px !important;
+    height: 14px !important;
+    color: #fbac18 !important;
+}
+
+/* 5. Champs de formulaire Dark Mode */
+.etb-inquiry-grid-2 {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 12px !important;
+}
+
+.etb-inquiry-field {
+    margin-bottom: 14px !important;
+}
+
+.etb-inquiry-field label {
+    display: block !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    color: #94a3b8 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    margin-bottom: 6px !important;
+}
+
+.etb-inquiry-field input,
+.etb-inquiry-field textarea {
+    width: 100% !important;
+    background: #151b29 !important;
+    border: 1.5px solid #28334b !important;
+    border-radius: 10px !important;
+    padding: 10px 14px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: #ffffff !important;
+    box-sizing: border-box !important;
+    outline: none !important;
+    transition: all 0.2s ease !important;
+}
+
+.etb-inquiry-field input{
+    max-height: 43px !important;
+    min-height: 41px !important;
+}
+
+.etb-inquiry-field input::placeholder,
+.etb-inquiry-field textarea::placeholder {
+    color: rgba(148, 163, 184, 0.5) !important;
+}
+
+.etb-inquiry-field input:focus,
+.etb-inquiry-field textarea:focus {
+    border-color: #fbac18 !important;
+    box-shadow: 0 0 0 3px rgba(251, 172, 24, 0.15) !important;
+}
+
+/* 6. Bouton de soumission */
+.etb-inquiry-submit-btn {
+    width: 100% !important;
+    background: #fbac18 !important;
+    color: #0f172a !important;
+    border: none !important;
+    border-radius: 50px !important;
+    padding: 13px !important;
+    font-size: 14px !important;
+    font-weight: 800 !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    transition: all 0.25s ease !important;
+    margin-top: 6px !important;
+}
+
+.etb-inquiry-submit-btn:hover {
+    background: #e39402 !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 20px rgba(251, 172, 24, 0.35) !important;
+}
+
+.etb-inquiry-submit-btn:disabled {
+    opacity: 0.7 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
+
+/* 7. Boîte de feedback */
+.etb-inquiry-feedback {
+    padding: 10px 14px !important;
+    border-radius: 8px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    margin-bottom: 12px !important;
+}
+
+.etb-inquiry-feedback.is-success {
+    background: rgba(22, 163, 74, 0.15) !important;
+    border: 1px solid #16a34a !important;
+    color: #4ade80 !important;
+}
+
+.etb-inquiry-feedback.is-error {
+    background: rgba(220, 38, 38, 0.15) !important;
+    border: 1px solid #dc2626 !important;
+    color: #f87171 !important;
+}
+
+@media (max-width: 600px) {
+    .etb-inquiry-grid-2 {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+
 /* Adaptation Responsive Mobile */
 @media (max-width: 900px) {
     .etb-quick-glass-bar {
@@ -2262,12 +2985,20 @@
 
 /* Neutralisation du padding excessif du thème Gutenberg sur Mobile/Tablette */
 @media (max-width: 768px) {
+
+    .etb-quick-glass-bar {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 12px !important;
+    }
+
     .wp-block-post-content.has-global-padding,
     .entry-content.has-global-padding,
     .has-global-padding {
         padding-left: 10px !important;
         padding-right: 10px !important;
     }
+
 }
 
 
@@ -2359,6 +3090,16 @@
         flex-direction: column !important;
         align-items: flex-start !important;
     }
+
+
+    .etb-quick-confirm-bar.is-visible{
+        max-height: 400px !important;
+
+    }
+    .etb-quick-actions-row {
+        justify-content: flex-end;
+    }
+
 }
 
 

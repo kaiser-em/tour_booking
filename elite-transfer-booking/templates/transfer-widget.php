@@ -28,7 +28,14 @@ $now_time = '';
 ?>
 
 <div class="etb-quick-widget" id="etb-quick-widget-app">
-    
+
+
+    <!-- TITRE ANIMÉ STYLE AI STUDIO (THINKING SHIMMER) -->
+    <div class="etb-quick-title-wrapper">
+        
+        <h2 class="etb-quick-title-thinking">Fare Calculator</h2>
+    </div>
+
     <!-- 1. TOGGLE CAPSULE NOIRE (One way / By the hour) -->
     <div class="etb-quick-mode-capsule">
         <button type="button" class="etb-quick-mode-btn active" data-mode="transfer">
@@ -40,7 +47,7 @@ $now_time = '';
     </div>
 
     <!-- 2. BARRE HORIZONTALE FLOTTANTE (GLASSMORPHISM BLACKLANE) -->
-    <div class="etb-quick-glass-bar">
+    <div class="etb-quick-glass-bar etb-initial-border">
         
         <!-- Colonne 1 : Lieu de départ -->
         <div class="etb-quick-col" id="etb-quick-pickup-col">
@@ -76,7 +83,7 @@ $now_time = '';
             <div class="etb-quick-suggestions-box" id="etb-quick-dropoff-suggestions" style="display: none;"></div>
         </div>
 
-        <!-- Colonne 2bis : Durée (Custom Select 100% stylisé Eden Cab) -->
+        <!-- Colonne 2bis : Durée (Choix dynamique de 3h à 24h) -->
         <div class="etb-quick-col" id="etb-quick-duration-col" style="display: none; position: relative;">
             <span class="etb-quick-label">Duration</span>
             <input type="hidden" name="etb_quick_duration" id="etb-quick-duration" value="4">
@@ -87,15 +94,16 @@ $now_time = '';
                     <i class="dashicons dashicons-arrow-down-alt2"></i>
                 </div>
                 <div class="etb-custom-select-options">
-                    <div class="etb-custom-option selected" data-val="4">4 Hours</div>
-                    <div class="etb-custom-option" data-val="8">8 Hours</div>
-                    <div class="etb-custom-option" data-val="10">10 Hours</div>
-                    <div class="etb-custom-option" data-val="12">12 Hours</div>
+                    <?php for ( $dur = 3; $dur <= 24; $dur++ ) : ?>
+                        <div class="etb-custom-option <?php echo ( 4 === $dur ) ? 'selected' : ''; ?>" data-val="<?php echo esc_attr( $dur ); ?>">
+                            <?php echo esc_html( $dur ); ?> Hours
+                        </div>
+                    <?php endfor; ?>
                 </div>
             </div>
         </div>
 
-        
+
         <div class="etb-quick-divider"></div>
 
         <!-- Colonne 3 : Date par défaut sur DEMAIN -->
@@ -189,36 +197,93 @@ $now_time = '';
                      data-base-price="<?php echo esc_attr( $base_price ); ?>"
                      data-max-pax="<?php echo esc_attr( $max_pax ); ?>" 
                      data-max-bag="<?php echo esc_attr( $max_bag ); ?>">
-                    <span class="etb-quick-card-check"><i class="dashicons dashicons-yes"></i></span>
-
-                    <?php if ( $img_url ) : ?>
-                        <div class="etb-quick-img-box">
-                            <img src="<?php echo esc_url( $img_url ); ?>" class="etb-img-static" alt="<?php echo esc_attr( $v->post_title ); ?>">
-                            <?php if ( ! empty( $hover_img ) ) : ?>
-                                <img src="<?php echo esc_url( $hover_img ); ?>" class="etb-img-hover" alt="<?php echo esc_attr( $v->post_title ); ?> (animated)">
-                            <?php endif; ?>
-                        </div>
-                    <?php endif; ?>
-
-                    <h4><?php echo esc_html( $v->post_title ); ?></h4>
                     
-                    <div class="etb-quick-specs">
-                        <span>• <?php echo esc_html( $max_pax ); ?> passengers</span>
-                        <span>• <?php echo esc_html( $max_bag ); ?> luggage</span>
+                    <!-- 1. ZONE EN-TÊTE : Photo & GIF bord-à-bord + Badges flottants 👑 -->
+                    <div class="etb-quick-card-hero">
+                        <span class="etb-quick-badge-vip">Premium</span>
+                        <span class="etb-quick-card-check"><i class="dashicons dashicons-yes"></i></span>
+
+                        <?php if ( $img_url ) : ?>
+                            <div class="etb-quick-img-box">
+                                <img src="<?php echo esc_url( $img_url ); ?>" class="etb-img-static" alt="<?php echo esc_attr( $v->post_title ); ?>">
+                                <?php if ( ! empty( $hover_img ) ) : ?>
+                                    <img src="<?php echo esc_url( $hover_img ); ?>" class="etb-img-hover" alt="<?php echo esc_attr( $v->post_title ); ?> (animated)">
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
                     </div>
 
-                    <div class="etb-quick-price-display">
-                        <span class="etb-quick-amount">0</span>
-                        <span class="etb-quick-currency"><?php echo esc_html( $currency ); ?></span>
+                    <!-- 2. CORPS DE LA CARTE -->
+                    <div class="etb-quick-card-body">
+                        <h4 class="etb-quick-car-title"><?php echo esc_html( $v->post_title ); ?></h4>
+                        
+                        <!-- Ligne Capacités avec séparateur | -->
+                        <div class="etb-quick-specs">
+                            <span class="etb-spec-item"><span class="dashicons dashicons-admin-users"></span> <?php echo esc_html( $max_pax ); ?> passengers</span>
+                            <span class="etb-spec-divider">|</span>
+                            <span class="etb-spec-item"><span class="dashicons dashicons-portfolio"></span> <?php echo esc_html( $max_bag ); ?> luggage</span>
+                        </div>
+
+                        <!-- Capsule kilométrique (Mode À l'heure) -->
+                        <div class="etb-quick-km-info etb-quick-km-pill" style="display: none;"></div>
+
+                        <!-- Rangée des 4 Équipements VIP -->
+                        <div class="etb-quick-amenities">
+                            <div class="etb-amenity-col" title="Air conditioning">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="etb-amenity-icon">
+                                    <line x1="12" y1="2" x2="12" y2="22"></line>
+                                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                                    <line x1="20" y1="16" x2="4" y2="8"></line>
+                                    <line x1="4" y1="16" x2="20" y2="8"></line>
+                                    <line x1="16" y1="20" x2="8" y2="4"></line>
+                                    <line x1="8" y1="20" x2="16" y2="4"></line>
+                                </svg>
+                                <small>Climate</small>
+                            </div>
+
+                            <!-- Bouteille d'eau offerte à bord -->
+                            <div class="etb-amenity-col" title="Complimentary bottled water">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="etb-amenity-icon">
+                                    <path d="M10 2h4v2h-4z"></path>
+                                    <path d="M10 4v2h4V4"></path>
+                                    <path d="M8 8h8l1 4v9a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-9l1-4z"></path>
+                                    <line x1="8" y1="14" x2="16" y2="14"></line>
+                                </svg>
+                                <small>Water</small>
+                            </div>
+
+
+                            <div class="etb-amenity-col" title="Comfort leather seats">
+                                <span class="dashicons dashicons-nametag"></span>
+                                <small>Comfort</small>
+                            </div>
+                            <div class="etb-amenity-col" title="Certified chauffeur & safety">
+                                <span class="dashicons dashicons-shield"></span>
+                                <small>Safety</small>
+                            </div>
+                            <div class="etb-amenity-col" title="Wifi & on-board amenities">
+                                <span class="dashicons dashicons-rss"></span>
+                                <small>Wifi</small>
+                            </div>
+                        </div>
+
+                        <!-- 3. PIED DE CARTE (Split : Prix à gauche, Bouton à droite) -->
+                        <div class="etb-quick-card-footer">
+                            <div class="etb-quick-price-box">
+                                <div class="etb-quick-price-display">
+                                    <span class="etb-quick-amount">0</span>
+                                    <span class="etb-quick-currency"><?php echo esc_html( $currency ); ?></span>
+                                </div>
+                                <div class="etb-quick-price-detail" style="display: none;"></div>
+                            </div>
+
+                            <button type="button" class="etb-quick-select-btn">
+                                <span class="etb-select-label">Select</span>
+                                <span class="dashicons dashicons-arrow-right-alt2"></span>
+                            </button>
+                        </div>
                     </div>
 
-                    <!-- Détail de calcul du prix (affiché dynamiquement en mode "À l'heure") -->
-                    <div class="etb-quick-price-detail" style="display: none;"></div>
-
-                    <!-- Affichage dynamique du quota kilométrique inclus en mode À l'heure -->
-                    <div class="etb-quick-km-info" style="font-size: 11px; margin-bottom: 8px; font-weight: 600; display: none;"></div>
-
-                    <button type="button" class="etb-quick-select-btn">Select</button>
                 </div>
             <?php endforeach; endif; ?>
         </div>
@@ -231,6 +296,13 @@ $now_time = '';
             </div>
             
             <div class="etb-quick-actions-row" style="display: flex; align-items: center; gap: 12px;">
+
+                <!-- Nouveau bouton : Demande par Email (Alerte temporaire) -->
+                <button type="button" class="etb-quick-email-btn" id="etb-quick-email-btn">
+                    <span class="dashicons dashicons-email-alt"></span>
+                    <span>Email Inquiry</span>
+                </button>
+
                 <!-- Bouton secondaire Option C : Contact direct WhatsApp / Dispatch -->
                 <a href="#" target="_blank" class="etb-quick-whatsapp-btn" id="etb-quick-whatsapp-btn" style="display: none;">
                     <span class="dashicons dashicons-whatsapp"></span>
@@ -246,6 +318,75 @@ $now_time = '';
 
     </div>
 
-   
+   <!-- 5. MICRO-MODAL VIP DE DEVIS RAPIDE (EMAIL INQUIRY) -->
+    <div class="etb-quick-modal-backdrop" id="etb-quick-inquiry-modal" style="display: none;">
+        <div class="etb-quick-modal-card" role="dialog" aria-modal="true" aria-labelledby="etb-inquiry-title">
+            
+            <!-- En-tête du Modal -->
+            <div class="etb-inquiry-header">
+                <div class="etb-inquiry-title-wrap">
+                    <span class="etb-inquiry-icon">✉️</span>
+                    <div>
+                        <h3 id="etb-inquiry-title">Quick Email Inquiry</h3>
+                        <p>Receive a personal quote from our dispatch team within 15 minutes.</p>
+                    </div>
+                </div>
+                <button type="button" class="etb-inquiry-close-btn" id="etb-inquiry-close" aria-label="Close modal">&times;</button>
+            </div>
+
+            <!-- Récapitulatif verrouillé du trajet sélectionné -->
+            <div class="etb-inquiry-summary-card">
+                <div class="etb-inquiry-summary-vehicle">
+                    <strong id="etb-inquiry-car-name">—</strong>
+                    <span class="etb-inquiry-summary-price" id="etb-inquiry-car-price">—</span>
+                </div>
+                <div class="etb-inquiry-summary-trip">
+                    <div class="etb-inquiry-trip-line">
+                        <span class="dashicons dashicons-location"></span>
+                        <span id="etb-inquiry-route">—</span>
+                    </div>
+                    <div class="etb-inquiry-trip-line">
+                        <span class="dashicons dashicons-calendar-alt"></span>
+                        <span id="etb-inquiry-datetime">—</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulaire de contact rapide -->
+            <form id="etb-inquiry-form" onsubmit="return false;">
+                
+                <div class="etb-inquiry-grid-2">
+                    <div class="etb-inquiry-field">
+                        <label for="etb_inq_name">Full Name *</label>
+                        <input type="text" id="etb_inq_name" name="inquiry_name" placeholder="e.g. Bruce Wayne" autocomplete="name" required>
+                    </div>
+                    <div class="etb-inquiry-field">
+                        <label for="etb_inq_email">Email Address *</label>
+                        <input type="email" id="etb_inq_email" name="inquiry_email" placeholder="e.g. b.wayne@corp.com" autocomplete="email" required>
+                    </div>
+                </div>
+
+                <div class="etb-inquiry-field">
+                    <label for="etb_inq_phone">Mobile Phone (recommended for instant reply)</label>
+                    <input type="tel" id="etb_inq_phone" name="inquiry_phone" placeholder="e.g. +33 6 12 34 56 78" autocomplete="tel">
+                </div>
+
+                <div class="etb-inquiry-field">
+                    <label for="etb_inq_notes">Special Requests / Notes (optional)</label>
+                    <textarea id="etb_inq_notes" name="inquiry_notes" rows="2" placeholder="Flight number, child seats, luggage details..."></textarea>
+                </div>
+
+                <!-- Zone de feedback (succès ou erreur) -->
+                <div class="etb-inquiry-feedback" id="etb-inquiry-feedback" style="display: none;"></div>
+
+                <!-- Bouton d'action -->
+                <button type="button" class="etb-inquiry-submit-btn" id="etb-inquiry-submit">
+                    <span id="etb-inquiry-btn-text">Send My Inquiry</span>
+                    <span class="dashicons dashicons-arrow-right-alt2"></span>
+                </button>
+            </form>
+
+        </div>
+    </div>
 
 </div>

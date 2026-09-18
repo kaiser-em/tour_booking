@@ -1,4 +1,5 @@
 /**
+ * check this
  * Elite Transfer Booking (Unified) - Frontend Engine
  * Ordre d'initialisation sécurisé (zéro erreur TDZ / ReferenceError)
  */
@@ -1217,15 +1218,24 @@
                     if (durationCol) durationCol.style.display = 'none';
                 }
 
-                // Réinitialise la flotte si on change de mode
+                // Réinitialise la flotte, les bandeaux et les capsules si on change de mode
+                isQuoteMode = false;
+                if (quoteNoticeEl) quoteNoticeEl.classList.remove('is-visible');
                 if (fleetSection) fleetSection.style.display = 'none';
                 if (bookingBar) bookingBar.classList.remove('is-visible');
                 if (errorNotice) errorNotice.style.display = 'none';
                 selectedCar = null;
                 carCards.forEach(c => {
                     c.classList.remove('selected');
-                    const b = c.querySelector('.etb-quick-car-select-btn');
-                    if (b) b.textContent = 'Sélectionner';
+                    const b = c.querySelector('.etb-quick-select-btn');
+                    if (b) b.textContent = 'Select';
+
+                    // Purge systématique de la capsule km pour ne laisser aucun résidu
+                    const km = c.querySelector('.etb-quick-km-info');
+                    if (km) {
+                        km.textContent = '';
+                        km.classList.remove('is-visible');
+                    }
                 });
             });
         });
@@ -1240,6 +1250,10 @@
 
         // Fonction de recalcul instantané des tarifs horaires
         const recalculateHourlyFleet = () => {
+            // Désactivation formelle du mode devis pour le mode horaire
+            isQuoteMode = false;
+            if (quoteNoticeEl) quoteNoticeEl.classList.remove('is-visible');
+
             const durationHours = parseFloat(durationSelect ? durationSelect.value : 4);
             let availableCarsCount = 0;
 
@@ -1268,18 +1282,18 @@
                 if (durationHours < 10) {
                     calculatedPrice = hourlyRate > 0 ? Math.round(durationHours * hourlyRate) : pack10h;
                     if (hourlyRate > 0) {
-                        priceDetailHtml = `Price for ${durationHours} hours | <strong>${hourlyRate} ${currency}</strong> per hour`;
+                        priceDetailHtml = `Price for ${durationHours} hours <br> <strong>${hourlyRate} ${currency}</strong> per hour`;
                     }
                 } else if (durationHours === 10) {
                     calculatedPrice = pack10h > 0 ? pack10h : Math.round(durationHours * hourlyRate);
                     const hourlyEquivalent = pack10h > 0 ? Math.round(pack10h / 10) : hourlyRate;
-                    priceDetailHtml = `Price for 10 hours | <strong>${hourlyEquivalent} ${currency}</strong> per hour`;
+                    priceDetailHtml = `Price for 10 hours <br> <strong>${hourlyEquivalent} ${currency}</strong> per hour`;
                 } else {
                     const extraHours = durationHours - 10;
                     const basePack   = pack10h > 0 ? pack10h : Math.round(10 * hourlyRate);
                     calculatedPrice  = Math.round(basePack + (extraHours * supHourRate));
                     if (pack10h > 0 && supHourRate > 0) {
-                        priceDetailHtml = `10h Package + ${extraHours} extra hour(s) | <strong>${supHourRate} ${currency}</strong> per extra hour`;
+                        priceDetailHtml = `10h Package + ${extraHours} extra hour(s) <br> <strong>${supHourRate} ${currency}</strong> per extra hour`;
                     }
                 }
 
@@ -1291,14 +1305,17 @@
                     if (kmSupRate > 0) {
                         kmText += ' (' + kmSupRate.toFixed(2) + ' €/km sup.)';
                     }
-                    kmInfoEl.textContent   = kmText;
-                    kmInfoEl.style.display = 'block';
+                    kmInfoEl.textContent = kmText;
+                    kmInfoEl.classList.add('is-visible'); // <-- Activation via la classe CSS
                 }
 
-                // Mise à jour de l'affichage du prix
-                const priceValEl = card.querySelector('.etb-quick-amount, .etb-quick-price-val');
-                if (priceValEl) priceValEl.textContent = calculatedPrice;
+                // 1. Régénération complète du prix chiffré (écrase tout ancien badge Custom Quote)
+                const priceBox = card.querySelector('.etb-quick-price-display');
+                if (priceBox) {
+                    priceBox.innerHTML = '<span class="etb-quick-amount">' + calculatedPrice + '</span> <span class="etb-quick-currency">' + currency + '</span>';
+                }
 
+                // 2. Mise à jour de la ligne d'explication horaire
                 const detailEl = card.querySelector('.etb-quick-price-detail');
                 if (detailEl) {
                     if (priceDetailHtml) {
@@ -1309,6 +1326,12 @@
                     }
                 }
 
+                // 3. Remise du bouton sur Select
+                const selBtn = card.querySelector('.etb-quick-select-btn');
+                if (selBtn) {
+                    selBtn.textContent = 'Select';
+                }
+
                 card.dataset.calculatedPrice = calculatedPrice;
                 card.dataset.isQuote = '0';
                 card.style.display = 'flex';
@@ -1316,15 +1339,18 @@
                 availableCarsCount++;
             });
 
-            // Si un véhicule est déjà sélectionné, on actualise le total de la barre du bas
+            // Si un véhicule est déjà sélectionné, on actualise la barre du bas
             if (selectedCar && selectedCar.id) {
                 const activeCard = quickRoot.querySelector(`.etb-quick-car-item[data-id="${selectedCar.id}"]`);
                 if (activeCard && activeCard.style.display !== 'none') {
                     const updatedPrice = activeCard.dataset.calculatedPrice || '0';
-                    selectedCar.price = updatedPrice;
+                    selectedCar.price   = updatedPrice;
+                    selectedCar.isQuote = false;
                     if (selectedTotEl) selectedTotEl.textContent = updatedPrice + ' ' + currency;
+                    if (bookBtnLabel) bookBtnLabel.textContent = 'Book this Trip';
+                    const activeBtn = activeCard.querySelector('.etb-quick-select-btn');
+                    if (activeBtn) activeBtn.textContent = '✓ Selected';
                 } else {
-                    // Si le véhicule devient inéligible à cette durée, on désélectionne
                     selectedCar = null;
                     if (bookingBar) bookingBar.classList.remove('is-visible');
                 }
@@ -1333,26 +1359,82 @@
             return availableCarsCount;
         };
 
-        // 3. Clic sur "Voir les options"
+        // Fonction d'activation du mode Devis Sur Mesure (Custom Quote)
+        const triggerCustomQuoteMode = () => {
+            isQuoteMode = true;
+            if (errorNotice) errorNotice.style.display = 'none';
+
+            // 1. Afficher le bandeau d'information VIP
+            if (quoteNoticeEl) {
+                quoteNoticeEl.innerHTML = '<span class="dashicons dashicons-info-outline"></span> <div><strong>Custom Itinerary / Long Distance:</strong> This specific route requires a personalized quotation from our dispatch team. Please select your preferred vehicle below to submit a quote request.</div>';
+                quoteNoticeEl.classList.add('is-visible');
+            }
+
+            // 2. Afficher toutes les cartes avec le badge Custom Quote et bouton Request Quote
+            carCards.forEach(function(c) {
+                c.dataset.calculatedPrice = 'Custom Quote';
+                c.dataset.isQuote = '1';
+
+                var priceBox = c.querySelector('.etb-quick-price-display');
+                if (priceBox) {
+                    priceBox.innerHTML = '<span class="etb-quick-quote-badge">Custom Quote</span>';
+                }
+
+                var detailBox = c.querySelector('.etb-quick-price-detail');
+                if (detailBox) {
+                    detailBox.innerHTML = 'Tailored pricing by dispatch';
+                    detailBox.style.display = 'block';
+                }
+
+                var kmBox = c.querySelector('.etb-quick-km-info');
+                if (kmBox) {
+                    kmBox.textContent = '';
+                    kmBox.classList.remove('is-visible');
+                }
+
+                var selBtn = c.querySelector('.etb-quick-select-btn');
+                if (selBtn) {
+                    selBtn.textContent = 'Request Quote';
+                }
+
+                c.style.display = 'flex';
+                c.classList.remove('selected', 'etb-hidden');
+            });
+
+            showFleetSection();
+        };
+
+
+        // 3. Clic sur "Show Prices"
         if (getPriceBtn) {
             getPriceBtn.addEventListener('click', function (e) {
                 e.preventDefault();
                 if (errorNotice) errorNotice.style.display = 'none';
+
+                // Disparition progressive de la bordure animée de l'état initial
+                const glassBar = quickRoot.querySelector('.etb-quick-glass-bar');
+                if (glassBar) {
+                    glassBar.classList.remove('etb-initial-border');
+                }
 
                 const pickupVal  = pickupInput ? pickupInput.value.trim() : '';
                 const dropoffVal = dropoffInput ? dropoffInput.value.trim() : '';
                 const dateVal    = dateInput ? dateInput.value.trim() : '';
                 const timeVal    = timeInput ? timeInput.value.trim() : '';
 
-                // Validation de base stricte (English)
                 if (!pickupVal) return showError('Please enter a pickup location.');
                 if (currentMode === 'transfer' && !dropoffVal) return showError('Please enter a drop-off location.');
                 if (!dateVal) return showError('Please select a date.');
                 if (!timeVal || timeVal === '-- : --') return showError('Please select a pickup time.');
 
-                // --- MODE 1 : LOCATION À L'HEURE (Calcul par paliers & quotas km) ---
-                // --- MODE 1 : LOCATION À L'HEURE ---
+                // ─────────────────────────────────────────────────────────────
+                // MODE 1 : LOCATION À L'HEURE (By the hour)
+                // Calcul local direct et instantané (Toute la France couverte)
+                // ─────────────────────────────────────────────────────────────
                 if (currentMode === 'hourly') {
+                    isQuoteMode = false;
+                    if (quoteNoticeEl) quoteNoticeEl.classList.remove('is-visible');
+
                     const count = recalculateHourlyFleet();
                     if (count > 0) {
                         showFleetSection();
@@ -1362,18 +1444,18 @@
                     return;
                 }
 
-                // --- MODE 2 : TRANSFERT POINT A -> B (API LimoExpress) ---
+                // ─────────────────────────────────────────────────────────────
+                // MODE 2 : TRANSFERT POINT A -> B (One way) - API LimoExpress
+                // ─────────────────────────────────────────────────────────────
                 const fromLat = pickupLatEl ? pickupLatEl.value : '';
                 const fromLng = pickupLngEl ? pickupLngEl.value : '';
                 const toLat   = dropoffLatEl ? dropoffLatEl.value : '';
                 const toLng   = dropoffLngEl ? dropoffLngEl.value : '';
 
-                // Vérification stricte des coordonnées GPS (English)
                 if (!fromLat || !fromLng || !toLat || !toLng) {
                     return showError('Please select exact addresses from the suggested list to calculate the route.');
                 }
 
-                // Animation de chargement sur le bouton (English)
                 const originalBtnText = getPriceBtn.innerHTML;
                 getPriceBtn.disabled = true;
                 getPriceBtn.innerHTML = '<span>Calculating...</span>';
@@ -1390,31 +1472,27 @@
                     method: 'POST',
                     body: formData
                 })
-                .then(function(response) {
-                    return response.json();
-                })
-                .then(function(res) {
+                .then(response => response.json())
+                .then(res => {
                     getPriceBtn.disabled = false;
                     getPriceBtn.innerHTML = originalBtnText;
 
-                    if (res.success) {
-                        var pricingData = res.data.pricing_data || [];
+                    if (res.success && res.data.pricing_data && res.data.pricing_data.length > 0) {
+                        var pricingData = res.data.pricing_data;
                         var availableCarsCount = 0;
 
-                        console.log("Tarifs recus de LimoExpress :", pricingData);
-
-                        // 1. On masque toutes les cartes par defaut
-                        carCards.forEach(function(c) {
+                        carCards.forEach(c => {
                             c.style.display = 'none';
                             c.classList.remove('selected');
+                            var km = c.querySelector('.etb-quick-km-info');
+                            if (km) {
+                                km.textContent = '';
+                                km.classList.remove('is-visible');
+                            }
                         });
 
-                        // 2. Pour chaque prix renvoyé par LimoExpress, on réinitialise et on allume la carte
-                        pricingData.forEach(function(item) {
-                            if (!item || !item.vehicle_class || !item.vehicle_class.id || !item.prices || item.prices.length === 0) {
-                                return;
-                            }
-
+                        pricingData.forEach(item => {
+                            if (!item || !item.vehicle_class || !item.vehicle_class.id || !item.prices || item.prices.length === 0) return;
                             var limoUuid = String(item.vehicle_class.id).trim().toLowerCase();
                             var targetCard = document.getElementById('limo-car-' + limoUuid) 
                                           || document.getElementById('limo-car-' + item.vehicle_class.id)
@@ -1422,31 +1500,19 @@
 
                             if (targetCard) {
                                 var limoPrice = Math.round(item.prices[0].price);
-
                                 targetCard.dataset.calculatedPrice = limoPrice;
-                                targetCard.dataset.isQuote = '0'; // Réinitialisation du mode devis
+                                targetCard.dataset.isQuote = '0';
 
-                                // Régénération complète du prix chiffré
                                 var priceBox = targetCard.querySelector('.etb-quick-price-display');
                                 if (priceBox) {
                                     priceBox.innerHTML = '<span class="etb-quick-amount">' + limoPrice + '</span> <span class="etb-quick-currency">' + currency + '</span>';
                                 }
-
                                 var priceDetailEl = targetCard.querySelector('.etb-quick-price-detail');
-                                if (priceDetailEl) {
-                                    priceDetailEl.style.display = 'none';
-                                    priceDetailEl.innerHTML = '';
-                                }
-
+                                if (priceDetailEl) { priceDetailEl.style.display = 'none'; }
                                 var kmInfoEl = targetCard.querySelector('.etb-quick-km-info');
-                                if (kmInfoEl) {
-                                    kmInfoEl.style.display = 'none';
-                                }
-
+                                if (kmInfoEl) { kmInfoEl.textContent = ''; kmInfoEl.classList.remove('is-visible'); }
                                 var selBtn = targetCard.querySelector('.etb-quick-select-btn');
-                                if (selBtn) {
-                                    selBtn.textContent = 'Select';
-                                }
+                                if (selBtn) { selBtn.textContent = 'Select'; }
 
                                 targetCard.style.display = 'flex';
                                 targetCard.classList.remove('selected', 'etb-hidden');
@@ -1460,53 +1526,18 @@
                             if (whatsappBtn) whatsappBtn.classList.remove('is-visible');
                             showFleetSection();
                         } else {
-                            // ZONE NON COUVERTE / TRAJET SUR MESURE : Activation du mode Custom Quote
-                            isQuoteMode = true;
-                            if (errorNotice) errorNotice.style.display = 'none';
-
-                            // Affichage du bandeau d'information VIP via .is-visible
-                            if (quoteNoticeEl) {
-                                quoteNoticeEl.innerHTML = '<span class="dashicons dashicons-info-outline"></span> <div><strong>Custom Itinerary / Long Distance:</strong> This specific route requires a personalized quotation from our dispatch team. Please select your preferred vehicle below to submit a quote request.</div>';
-                                quoteNoticeEl.classList.add('is-visible');
-                            }
-
-                            // Affichage de toutes les cartes en mode Custom Quote
-                            carCards.forEach(function(c) {
-                                c.dataset.calculatedPrice = 'Custom Quote';
-                                c.dataset.isQuote = '1';
-
-                                var priceBox = c.querySelector('.etb-quick-price-display');
-                                if (priceBox) {
-                                    priceBox.innerHTML = '<span class="etb-quick-quote-badge">Custom Quote</span>';
-                                }
-
-                                var detailBox = c.querySelector('.etb-quick-price-detail');
-                                if (detailBox) {
-                                    detailBox.innerHTML = 'Tailored pricing by dispatch';
-                                    detailBox.style.display = 'block';
-                                }
-
-                                var kmBox = c.querySelector('.etb-quick-km-info');
-                                if (kmBox) kmBox.style.display = 'none';
-
-                                var selBtn = c.querySelector('.etb-quick-select-btn');
-                                if (selBtn) selBtn.textContent = 'Request Quote';
-
-                                c.style.display = 'flex';
-                                c.classList.remove('selected', 'etb-hidden');
-                            });
-
-                            showFleetSection();
+                            triggerCustomQuoteMode();
                         }
                     } else {
-                        showError(res.data.message || 'Pricing calculation error.');
+                        // Trajet simple hors zone -> Custom Quote
+                        triggerCustomQuoteMode();
                     }
                 })
-                .catch(function(err) {
-                    console.error("Communication error :", err);
+                .catch(err => {
+                    console.error('Pricing error:', err);
                     getPriceBtn.disabled = false;
                     getPriceBtn.innerHTML = originalBtnText;
-                    showError('Communication error. Please try again.');
+                    triggerCustomQuoteMode();
                 });
             });
         }
@@ -1586,9 +1617,9 @@
 
                         let msg = `Hello, I would like to `;
                         if (isCarQuote) {
-                            msg += `request a quote for a transfer with ${carName}.\n• From: ${pVal}\n• To: ${dVal}\n• Date: ${dtVal} at ${tmVal}`;
+                            msg += `request a custom quote for a transfer with ${carName}.\n• From: ${pVal}\n• To: ${dVal}\n• Date: ${dtVal} at ${tmVal}\n• Note: Pending dispatch confirmation.`;
                         } else {
-                            msg += `inquire about booking a transfer with ${carName} (${carPrice} ${currency}).\n• From: ${pVal}\n• To: ${dVal}\n• Date: ${dtVal} at ${tmVal}`;
+                            msg += `inquire about booking a transfer with ${carName}.\n• From: ${pVal}\n• To: ${dVal}\n• Date: ${dtVal} at ${tmVal}\n• Indicative online rate: ${carPrice} ${currency} (Subject to dispatch verification)`;
                         }
 
                         const waText = encodeURIComponent(msg);
@@ -1601,6 +1632,250 @@
                 }
             });
         });
+        
+        // ==========================================================================
+        // CONTRÔLEUR DU MICRO-MODAL VIP (EMAIL INQUIRY)
+        // ==========================================================================
+        const inquiryModal    = document.querySelector('#etb-quick-inquiry-modal');
+        const emailInquiryBtn = quickRoot.querySelector('#etb-quick-email-btn');
+
+        if (inquiryModal && emailInquiryBtn) {
+            const closeBtn      = inquiryModal.querySelector('#etb-inquiry-close');
+            const submitBtn     = inquiryModal.querySelector('#etb-inquiry-submit');
+            const submitText    = inquiryModal.querySelector('#etb-inquiry-btn-text');
+            const feedbackEl    = inquiryModal.querySelector('#etb-inquiry-feedback');
+            const carNameEl     = inquiryModal.querySelector('#etb-inquiry-car-name');
+            const carPriceEl    = inquiryModal.querySelector('#etb-inquiry-car-price');
+            const routeEl       = inquiryModal.querySelector('#etb-inquiry-route');
+            const datetimeEl    = inquiryModal.querySelector('#etb-inquiry-datetime');
+            const formEl        = inquiryModal.querySelector('#etb-inquiry-form');
+
+            // Variables de stockage du devis actif
+            let activeInquiry = {
+                vehicle: '',
+                route: '',
+                datetime: '',
+                price: ''
+            };
+
+            // 1. Ouvrir le modal et pré-remplir les informations verrouillées
+            emailInquiryBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+
+                const vName = selectedCar ? selectedCar.name : 'Selected Vehicle';
+                const pVal  = pickupInput ? pickupInput.value.trim() : 'Pickup location';
+                const dVal  = (currentMode === 'transfer' && dropoffInput) ? dropoffInput.value.trim() : `By the hour (${durationSelect ? durationSelect.value : 4}h)`;
+                const dtVal = dateInput ? dateInput.value.trim() : '';
+                const tmVal = timeInput ? timeInput.value.trim() : '';
+
+                let priceDisplay = 'Custom Quote';
+                if (selectedCar && !selectedCar.isQuote && selectedCar.price && selectedCar.price !== 'Custom Quote') {
+                    priceDisplay = `${selectedCar.price} ${currency}`;
+                }
+
+                // Mémorisation des détails
+                activeInquiry.vehicle  = vName;
+                activeInquiry.route    = (currentMode === 'transfer') ? `${pVal} ➔ ${dVal}` : `${pVal} (${dVal})`;
+                activeInquiry.datetime = `${dtVal} at ${tmVal}`;
+                activeInquiry.price    = priceDisplay;
+
+                // Injection visuelle dans le récapitulatif du modal
+                if (carNameEl)  carNameEl.textContent  = activeInquiry.vehicle;
+                if (carPriceEl) carPriceEl.textContent = activeInquiry.price;
+                if (routeEl)    routeEl.textContent    = activeInquiry.route;
+                if (datetimeEl) datetimeEl.textContent = activeInquiry.datetime;
+
+                // Réinitialisation du feedback
+                if (feedbackEl) {
+                    feedbackEl.style.display = 'none';
+                    feedbackEl.className = 'etb-inquiry-feedback';
+                    feedbackEl.textContent = '';
+                }
+
+            // Affichage du modal avec animation fluide
+                inquiryModal.classList.add('is-open');
+                document.body.style.overflow = 'hidden';
+            });
+
+            // 2. Fonctions de fermeture fluide
+            const closeModal = () => {
+                inquiryModal.classList.remove('is-open');
+                document.body.style.overflow = '';
+            };
+
+            if (closeBtn) closeBtn.addEventListener('click', closeModal);
+
+            // Clic sur le fond flou extérieur pour fermer
+            inquiryModal.addEventListener('click', function (e) {
+                if (e.target === inquiryModal) {
+                    closeModal();
+                }
+            });
+
+            // Touche Échap pour fermer
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && inquiryModal.classList.contains('is-open')) {
+                    closeModal();
+                }
+            });
+
+            // 3. Soumission du formulaire AJAX
+            if (submitBtn) {
+                submitBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+
+                    const nameInput  = inquiryModal.querySelector('#etb_inq_name');
+                    const emailInput = inquiryModal.querySelector('#etb_inq_email');
+                    const phoneInput = inquiryModal.querySelector('#etb_inq_phone');
+                    const notesInput = inquiryModal.querySelector('#etb_inq_notes');
+
+                    const nameVal  = nameInput ? nameInput.value.trim() : '';
+                    const emailVal = emailInput ? emailInput.value.trim() : '';
+                    const phoneVal = phoneInput ? phoneInput.value.trim() : '';
+                    const notesVal = notesInput ? notesInput.value.trim() : '';
+
+                    if (!nameVal) {
+                        showInquiryFeedback('Please enter your full name.', 'error');
+                        if (nameInput) nameInput.focus();
+                        return;
+                    }
+
+                    if (!emailVal || !emailInput.validity.valid) {
+                        showInquiryFeedback('Please enter a valid email address.', 'error');
+                        if (emailInput) emailInput.focus();
+                        return;
+                    }
+
+                    const originalText = submitText ? submitText.textContent : 'Send My Inquiry';
+                    submitBtn.disabled = true;
+                    if (submitText) submitText.textContent = 'Sending Inquiry...';
+
+                    const formData = new FormData();
+                    formData.append('action', 'etb_send_email_inquiry');
+                    formData.append('nonce', etbAjax.nonce);
+                    formData.append('inquiry_name', nameVal);
+                    formData.append('inquiry_email', emailVal);
+                    formData.append('inquiry_phone', phoneVal);
+                    formData.append('inquiry_notes', notesVal);
+                    formData.append('vehicle_name', activeInquiry.vehicle);
+                    formData.append('trip_route', activeInquiry.route);
+                    formData.append('trip_datetime', activeInquiry.datetime);
+                    formData.append('estimated_price', activeInquiry.price);
+
+                    fetch(etbAjax.ajax_url, {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(res => {
+                        submitBtn.disabled = false;
+                        if (submitText) submitText.textContent = originalText;
+
+                        if (res.success) {
+                            showInquiryFeedback('✓ ' + res.data.message, 'success');
+                            if (formEl) formEl.reset();
+
+                            // Fermeture soyeuse et remise à zéro progressive
+                            setTimeout(() => {
+                                // 1. Fermeture douce du modal
+                                closeModal();
+
+                                // 2. Défilement doux vers le haut du widget
+                                const widgetRect = quickRoot.getBoundingClientRect();
+                                const absoluteTop = widgetRect.top + window.pageYOffset - 40;
+                                window.scrollTo({
+                                    top: Math.max(0, absoluteTop),
+                                    behavior: 'smooth'
+                                });
+
+                                // 3. Réinitialisation des états après le départ du scroll
+                                setTimeout(() => {
+                                    // Retour automatique sur le mode One Way
+                                    currentMode = 'transfer';
+                                    modeBtns.forEach(btn => {
+                                        if (btn.dataset.mode === 'transfer') {
+                                            btn.classList.add('active');
+                                        } else {
+                                            btn.classList.remove('active');
+                                        }
+                                    });
+                                    if (dropoffCol) dropoffCol.style.display = 'flex';
+                                    if (durationCol) durationCol.style.display = 'none';
+
+                                    // Vidage des adresses, heure et coordonnées GPS
+                                    if (pickupInput) pickupInput.value = '';
+                                    if (dropoffInput) dropoffInput.value = '';
+                                    if (pickupLatEl) pickupLatEl.value = '';
+                                    if (pickupLngEl) pickupLngEl.value = '';
+                                    if (dropoffLatEl) dropoffLatEl.value = '';
+                                    if (dropoffLngEl) dropoffLngEl.value = '';
+                                    if (pickupClearBtn) pickupClearBtn.classList.remove('is-visible');
+                                    if (dropoffClearBtn) dropoffClearBtn.classList.remove('is-visible');
+
+                                    // Réinitialisation de l'heure à vide (-- : --)
+                                    if (timeInput) timeInput.value = '';
+                                    if (timePopup) {
+                                        timePopup.classList.remove('is-open');
+                                        timePopup.querySelectorAll('.etb-time-opt').forEach(o => o.classList.remove('active'));
+                                    }
+
+                                    // Réinitialisation de la durée par défaut (4 Hours)
+                                    if (durationSelect) durationSelect.value = '4';
+                                    const durLabel = customDurationWrapper ? customDurationWrapper.querySelector('.etb-custom-select-trigger span') : null;
+                                    if (durLabel) durLabel.textContent = '4 Hours';
+                                    if (customDurationWrapper) {
+                                        customDurationWrapper.querySelectorAll('.etb-custom-option').forEach(opt => {
+                                            opt.classList.toggle('selected', opt.dataset.val === '4');
+                                        });
+                                    }
+
+                                    // Désélection et repli de la flotte
+                                    selectedCar = null;
+                                    carCards.forEach(c => {
+                                        c.classList.remove('selected');
+                                        const b = c.querySelector('.etb-quick-select-btn');
+                                        if (b) b.textContent = 'Select';
+                                        const km = c.querySelector('.etb-quick-km-info');
+                                        if (km) {
+                                            km.textContent = '';
+                                            km.classList.remove('is-visible');
+                                        }
+                                    });
+
+                                    if (bookingBar) bookingBar.classList.remove('is-visible');
+                                    if (fleetSection) fleetSection.style.display = 'none';
+                                    if (quoteNoticeEl) quoteNoticeEl.classList.remove('is-visible');
+                                    isQuoteMode = false;
+
+                                    // Rallumage de la bordure animée bicolore
+                                    const glassBar = quickRoot.querySelector('.etb-quick-glass-bar');
+                                    if (glassBar) {
+                                        glassBar.classList.add('etb-initial-border');
+                                    }
+                                }, 350);
+
+                            }, 2000);
+                        } else {
+                            showInquiryFeedback('⚠ ' + (res.data.message || 'An error occurred.'), 'error');
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Inquiry AJAX error:', err);
+                        submitBtn.disabled = false;
+                        if (submitText) submitText.textContent = originalText;
+                        showInquiryFeedback('⚠ Network communication error. Please try again.', 'error');
+                    });
+                });
+            }
+
+            // Fonction utilitaire de feedback
+            const showInquiryFeedback = (msg, type) => {
+                if (!feedbackEl) return;
+                feedbackEl.textContent = msg;
+                feedbackEl.className = 'etb-inquiry-feedback is-' + type;
+                feedbackEl.style.display = 'block';
+            };
+        }
         
 
         // 5. Clic sur "Réserver ce trajet" : Redirection pré-remplie avec contrôle véhicule
