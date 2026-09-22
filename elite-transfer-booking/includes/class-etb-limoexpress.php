@@ -220,8 +220,8 @@ class ETB_LimoExpress {
             }
         }
 
-        // 6. Traitement des Extras & Siège Bébé
-        $baby_seat_count = 0;
+        // 6. Traitement des Extras & Sièges Enfants (Lecture de la valeur réelle transmise)
+        $baby_seat_count = ! empty( $data['baby_seat_count'] ) ? absint( $data['baby_seat_count'] ) : 0;
         $extras_summary  = '';
         $extra_fees      = array();
 
@@ -248,6 +248,16 @@ class ETB_LimoExpress {
                 }
             }
         }
+
+        // Injection du pourboire dans la catégorie officielle LimoExpress : gratuity_amount
+        if ( ! empty( $data['tip_amount'] ) && floatval( $data['tip_amount'] ) > 0 ) {
+            $extra_fees[] = array(
+                'category' => 'gratuity_amount',
+                'amount'   => (float) round( $data['tip_amount'], 2 ),
+            );
+        }
+
+
         $extras_summary = rtrim( $extras_summary, ', ' );
 
         // 7. Gestion du Code Promo
@@ -277,18 +287,25 @@ class ETB_LimoExpress {
         $total_passengers = intval( $data['adults'] ) + intval( $data['children'] );
         $client_note      = ! empty( $data['note'] ) ? trim( $data['note'] ) : 'Aucune';
 
-        // Notes pour le chauffeur et le répartiteur
+        $flight_info = ! empty( $data['flight_number'] ) ? "✈️ VOL : " . trim( $data['flight_number'] ) . "\n" : "";
+        $ref_info    = ! empty( $data['cost_center'] ) ? "🏢 RÉF : " . trim( $data['cost_center'] ) . "\n" : "";
+        $seats_info  = ( $baby_seat_count > 0 ) ? "👶 SIÈGES BÉBÉ REQUIS : " . $baby_seat_count . "\n" : "";
+
         $note_for_driver = sprintf(
             "📋 DOSSIER WP #%d\n" .
+            "%s%s%s" .
             "⭐ Extras : %s\n" .
             "📝 Note client : %s",
             $booking_id,
+            $flight_info,
+            $ref_info,
+            $seats_info,
             $extras_summary ?: 'Aucun',
             $client_note
         );
 
         $dispatcher_note = sprintf(
-            "══════ DÉTAILS RÉSERVATION #%d ══════\n" .
+            "══ DÉTAILS RÉSERVATION #%d ══\n" .
             "📍 Prestation : %s\n" .
             "🚘 Véhicule(s) : %s\n" .
             "👥 Passagers : %d Adulte(s), %d Enfant(s) (Total : %d)\n" .
@@ -346,6 +363,15 @@ class ETB_LimoExpress {
             return false;
         }
 
+        // Le prix net de la course envoyé à LimoExpress (déduction du pourboire s'il est inclus)
+        $base_ride_price = ! empty( $data['pricing']['base_fare'] ) 
+            ? floatval( $data['pricing']['base_fare'] ) 
+            : floatval( $data['pricing']['grand_total'] ?? 0 );
+
+        if ( ! empty( $data['tip_amount'] ) && $base_ride_price > floatval( $data['tip_amount'] ) ) {
+            $base_ride_price = $base_ride_price - floatval( $data['tip_amount'] );
+        }
+
         // 9. Construction du Payload conforme au Swagger officiel
         $payload = array(
             'booking_type_id'        => (string) $booking_type_id,
@@ -357,7 +383,7 @@ class ETB_LimoExpress {
             'duration'               => $duration_formatted,
             'from_location'          => array( 'name' => $pickup_address ),
             'to_location'            => array( 'name' => $dropoff_info ),
-            'price'                  => (int) round( $grand_total ),
+            'price'                  => (int) round( $base_ride_price ),
             'price_type'             => 'NET',
             'passenger_count'        => (int) $total_passengers,
             'suitcase_count'         => (int) $data['luggage'],
@@ -365,7 +391,8 @@ class ETB_LimoExpress {
             'round_trip'             => ! empty( $data['option_id'] ),
             'note'                   => $dispatcher_note,
             'note_for_driver'        => substr( $note_for_driver, 0, 500 ),
-            'waiting_board_text'     => substr( $data['name'], 0, 50 ),
+            'flight_number'          => ! empty( $data['flight_number'] ) ? substr( trim( $data['flight_number'] ), 0, 50 ) : '',
+            'waiting_board_text'     => substr( ! empty( $data['waiting_board_text'] ) ? $data['waiting_board_text'] : $data['name'], 0, 50 ),
             'passengers'             => $passengers_array,
             'checkpoints'            => $checkpoints,
             'extra_fees'             => $extra_fees,

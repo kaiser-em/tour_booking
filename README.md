@@ -1,68 +1,81 @@
 
-# 🚗 Elite Transfer Booking (Unified) — Manuel d'Exploitation v2.0.3
+# 🚗 Elite Transfer Booking (Unified) — Manuel d'Exploitation v2.1.0
 
-Extension WordPress professionnelle dédiée à la réservation d'excursions touristiques privées, circuits multi-villes et transferts VTC VIP, avec synchronisation vers la plateforme de dispatch **LimoExpress**.
+Extension WordPress professionnelle dédiée à la réservation d'excursions touristiques privées, circuits multi-villes et transferts VTC VIP, avec synchronisation temps réel vers la plateforme de dispatch **LimoExpress**.
 
 ---
 
 ## 📋 Table des matières
 
 1. [Prérequis](#-prérequis)
-2. [Installation & Configuration Rapide](#-installation--configuration-rapide)
-3. [Configuration du Widget Minimaliste VTC](#-configuration-du-widget-minimaliste-vtc)
-4. [Paramétrage de WhatsApp pour les Devis Directs](#-paramétrage-de-whatsapp-pour-les-devis-directs)
-5. [Liaison API LimoExpress](#-liaison-api-limoexpress)
-6. [Guide des Shortcodes](#-guide-des-shortcodes)
+2. [Installation Rapide](#-installation-rapide)
+3. [Configuration du Tunnel de Réservation Complet](#-configuration-du-tunnel-de-réservation-complet)
+   - [Étape 1 : Le Widget d'Accueil [etb_transfer]](#étape-1--le-widget-daccueil-etb_transfer)
+   - [Étape 2 : La Page de Checkout [etb_checkout]](#étape-2--la-page-de-checkout-etb_checkout)
+   - [Étape 3 : Relier le bouton de réservation](#étape-3--lier-la-page-dans-les-réglages)
+4. [Intégration WhatsApp & Devis E-mail](#-intégration-whatsapp--devis-e-mail)
+5. [Liaison LimoExpress & Pourboires (Gratuity)](#-liaison-limoexpress--pourboires-gratuity)
+6. [Guide des Shortcodes Officiels](#-guide-des-shortcodes-officiels)
 
 ---
 
 ## ⚡ Prérequis
 
 * **WordPress** : Version 5.8 ou supérieure (certifié WP 6.x).
-* **PHP** : Version 7.4 à 8.2+.
-* **Dépendances** : 0 dépendance externe (Vanilla JS pur, CSS3 isolé).
+* **PHP** : Version 7.4, 8.0, 8.1 ou 8.2+.
+* **Dépendances** : **0 dépendance** (Vanilla JS natif, CSS3 isolé, SVG vectoriel pur).
 
 ---
 
-## 🚙 Configuration du Widget Minimaliste VTC
+## 🚀 Configuration du Tunnel de Réservation Complet
 
-Pour afficher le widget moderne VTC sur votre page d'accueil ou page de transfert :
-Insérez le shortcode : **`[etb_transfer]`**
+Le plugin intègre désormais le tunnel de réservation standardisé de l'industrie (modèle Blacklane) en 2 étapes sans friction :
 
-### Fonctionnalités intégrées :
-* **One Way (Trajet simple)** : Calcul en direct du tarif d'itinéraire via l'API LimoExpress.
-* **By the hour (À l'heure)** : Calcul instantané selon la durée choisie (4h, 8h, 10h, 12h) avec affichage du tarif horaire unifié et du quota kilométrique inclus.
-* **Custom Quote (Itinéraire sur mesure)** : Si un trajet longue distance n'est pas couvert par les tarifs automatiques, les véhicules basculent automatiquement en mode devis sans bloquer le client.
+### Étape 1 : Le Widget d'Accueil `[etb_transfer]`
+Insérez le shortcode **`[etb_transfer]`** sur votre page d'accueil ou page de présentation.
+* Permet au client de choisir entre **One way (Trajet simple)** et **By the hour (À l'heure)**.
+* Propose les durées de 3h à 24h avec recalcul instantané des tarifs en direct.
+* Affiche votre flotte sur des cartes Dark Mode VIP avec photos bord-à-bord, 5 prestations (Climate, Water, Comfort, Safety, Wifi) et badge de réassurance *All inclusive*.
 
----
+### Étape 2 : La Page de Checkout `[etb_checkout]`
+1. Créez une nouvelle page WordPress (ex: **Pages > Ajouter une page**) nommée **Réservation** ou **Checkout** (slug : `/checkout/`).
+2. Insérez le shortcode : **`[etb_checkout]`**.
+3. Publiez la page.
 
-## 💬 Paramétrage de WhatsApp pour les Devis Directs
-
-Pour recevoir les demandes de devis et réservations directement sur le WhatsApp de votre entreprise :
-
-1. Allez dans **Tour Booking > Réglages > Onglet Général**.
-2. Renseignez le champ **Numéro WhatsApp de l'entreprise** au format international (ex: `+33 6 12 34 56 78` ou `+261...`).
+### Étape 3 : Lier la page dans les Réglages
+1. Rendez-vous dans **Tour Booking > Réglages > Onglet Général**.
+2. Dans le champ **Page de réservation finale (Checkout)**, collez l'adresse complète de votre page (ex: `https://monsite.com/checkout/`).
 3. Cliquez sur **Enregistrer les modifications**.
-4. Dès qu'un client clique sur **Quick Inquiry**, WhatsApp s'ouvre avec le véhicule sélectionné, les adresses, la date et l'heure pré-remplies.
+4. Désormais, dès qu'un client choisit une voiture sur l'accueil et clique sur **`Book this Trip >`**, il est automatiquement transféré vers votre page de Checkout avec son véhicule, son itinéraire et son tarif déjà verrouillés !
 
 ---
 
-## 🗺️ Choix du Fournisseur d'Adresses (Google Maps ou Mapbox)
+## 💬 Intégration WhatsApp & Devis E-mail
 
-Dans **Tour Booking > Réglages > Onglet Général** :
-* **Google Places API** : Recommandé. Renseignez votre clé API Google. Les suggestions s'affichent avec sous-titre sur la 2e ligne et en anglais.
-* **Mapbox** : Renseignez votre jeton public (`pk.eyJ...`). Comporte la navigation complète au clavier (flèches haut/bas et entrée).
+Dans la barre de confirmation, le client dispose de 3 actions complémentaires :
+* **Quick Inquiry (WhatsApp)** : Ouvre une discussion directe avec votre numéro d'entreprise pré-configuré (dans les Réglages) avec un message pré-rédigé incluant le véhicule et l'itinéraire.
+* **Email Inquiry** : Génère un e-mail pré-rempli ciblant votre adresse d'administration pour les demandes personnalisées.
+* **Book this Trip** : Finalise la réservation sur votre Checkout.
 
 ---
 
-## 🔌 Guide des Shortcodes
+## 🚙 Liaison LimoExpress & Pourboires (Gratuity)
 
-| Shortcode | Description | Cas d'usage |
+* **Transmission immédiate** : Dès la validation du Checkout, la course est créée dans LimoExpress (`PUT /api/integration/booking-with-fees/`) avec le statut initial choisi.
+* **Pourboire Chauffeur détaxé** : Le pourboire sélectionné par le client (10%, 15%, 20%) est injecté sous la catégorie officielle **`gratuity_amount`** dans `extra_fees` LimoExpress, garantissant qu'aucune taxe de transport ne soit prélevée sur le pourboire.
+* **Accueil Chauffeur** : Le numéro de vol ✈️ et le texte de la pancarte d'accueil sont automatiquement transmis sur l'application du chauffeur.
+
+---
+
+## 🔌 Guide des Shortcodes Officiels
+
+| Shortcode | Rôle | Recommandation d'emplacement |
 | :--- | :--- | :--- |
-| **`[etb_transfer]`** | Widget VTC moderne (One Way / By the hour) avec redirection LimoExpress et WhatsApp. | Page d'accueil, landing page transfert VIP. |
-| **`[circuit_view id="XX"]`** | Vue Split Layout complète (véhicules en haut + timeline et inclusions à gauche + widget à droite). | Fiches circuits touristiques et excursions. |
-| **`[tour_booking]`** | Formulaire de réservation autonome seul. | Barre latérale ou page dédiée. |
+| **`[etb_transfer]`** | Widget de recherche VTC rapide (One Way / Hourly) avec cartes luxury et calcul en direct. | Page d'accueil, page d'atterrissage. |
+| **`[etb_checkout]`** | Tunnel de réservation Blacklane 2 colonnes (coordonnées, vol, pancarte, pourboire, récapitulatif). | Page dédiée `/checkout/` ou `/booking/`. |
+| **`[circuit_view id="XX"]`** | Vue complète pour excursions touristiques privées avec timeline et inclusions. | Fiches circuits touristiques. |
+| **`[tour_booking]`** | Formulaire de réservation classique. | Barres latérales. |
 
 ---
 
-*Elite Transfer Booking v2.0.3 — Kaiser EM & Reich C.*
+*Elite Transfer Booking v2.1.0 — Kaiser EM & Reich C.*

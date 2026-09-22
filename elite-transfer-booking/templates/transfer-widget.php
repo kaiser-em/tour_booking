@@ -54,6 +54,7 @@ $now_time = '';
             <span class="etb-quick-label">Pickup location</span>
             <div class="etb-quick-input-wrap">
                 <input type="text" name="etb_quick_pickup" id="etb-quick-pickup" placeholder="Address, airport, hotel..." autocomplete="off" class="etb-quick-input">
+                <span class="etb-quick-input-loader" style="display: none;"></span>
                 <button type="button" class="etb-quick-clear-btn" id="etb-quick-clear-pickup" aria-label="Clear" style="display: none;">
                     <svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -71,6 +72,7 @@ $now_time = '';
             <span class="etb-quick-label">Drop-off location</span>
             <div class="etb-quick-input-wrap">
                 <input type="text" name="etb_quick_dropoff" id="etb-quick-dropoff" placeholder="Address, airport, hotel..." autocomplete="off" class="etb-quick-input">
+                <span class="etb-quick-input-loader" style="display: none;"></span>
                 <button type="button" class="etb-quick-clear-btn" id="etb-quick-clear-dropoff" aria-label="Clear" style="display: none;">
                     <svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -124,8 +126,8 @@ $now_time = '';
             <div class="etb-quick-time-picker-popup" id="etb-quick-time-popup" style="display: none;">
                 <!-- Capsule AM / PM -->
                 <div class="etb-quick-ampm-capsule">
-                    <button type="button" class="etb-ampm-btn" data-val="AM">AM</button>
-                    <button type="button" class="etb-ampm-btn active" data-val="PM">PM</button>
+                    <button type="button" class="etb-ampm-btn active" data-val="AM">AM</button>
+                    <button type="button" class="etb-ampm-btn " data-val="PM">PM</button>
                 </div>
 
                 <div class="etb-time-columns-row">
@@ -251,7 +253,10 @@ $now_time = '';
                                 </svg>
                                 <small>Water</small>
                             </div>
-
+                            <div class="etb-amenity-col" title="Wifi & on-board amenities">
+                                <span class="dashicons dashicons-rss"></span>
+                                <small>Wifi</small>
+                            </div>
 
                             <div class="etb-amenity-col" title="Comfort leather seats">
                                 <span class="dashicons dashicons-nametag"></span>
@@ -261,13 +266,10 @@ $now_time = '';
                                 <span class="dashicons dashicons-shield"></span>
                                 <small>Safety</small>
                             </div>
-                            <div class="etb-amenity-col" title="Wifi & on-board amenities">
-                                <span class="dashicons dashicons-rss"></span>
-                                <small>Wifi</small>
-                            </div>
+                            
                         </div>
 
-                        <!-- 3. PIED DE CARTE (Split : Prix à gauche, Bouton à droite) -->
+                        <!-- 3. PIED DE CARTE (Prix & All inclusive à gauche, Bouton Select à droite) -->
                         <div class="etb-quick-card-footer">
                             <div class="etb-quick-price-box">
                                 <div class="etb-quick-price-display">
@@ -275,11 +277,11 @@ $now_time = '';
                                     <span class="etb-quick-currency"><?php echo esc_html( $currency ); ?></span>
                                 </div>
                                 <div class="etb-quick-price-detail" style="display: none;"></div>
+                                <div class="etb-quick-all-inclusive">All inclusive</div>
                             </div>
 
                             <button type="button" class="etb-quick-select-btn">
-                                <span class="etb-select-label">Select</span>
-                                <span class="dashicons dashicons-arrow-right-alt2"></span>
+                                <span class="etb-btn-text">Select</span>
                             </button>
                         </div>
                     </div>
@@ -297,11 +299,11 @@ $now_time = '';
             
             <div class="etb-quick-actions-row" style="display: flex; align-items: center; gap: 12px;">
 
-                <!-- Nouveau bouton : Demande par Email (Alerte temporaire) -->
-                <button type="button" class="etb-quick-email-btn" id="etb-quick-email-btn">
+                <!-- Bouton Email Inquiry direct (mailto) -->
+                <a href="#" class="etb-quick-email-btn" id="etb-quick-email-btn">
                     <span class="dashicons dashicons-email-alt"></span>
                     <span>Email Inquiry</span>
-                </button>
+                </a>
 
                 <!-- Bouton secondaire Option C : Contact direct WhatsApp / Dispatch -->
                 <a href="#" target="_blank" class="etb-quick-whatsapp-btn" id="etb-quick-whatsapp-btn" style="display: none;">
@@ -318,75 +320,6 @@ $now_time = '';
 
     </div>
 
-   <!-- 5. MICRO-MODAL VIP DE DEVIS RAPIDE (EMAIL INQUIRY) -->
-    <div class="etb-quick-modal-backdrop" id="etb-quick-inquiry-modal" style="display: none;">
-        <div class="etb-quick-modal-card" role="dialog" aria-modal="true" aria-labelledby="etb-inquiry-title">
-            
-            <!-- En-tête du Modal -->
-            <div class="etb-inquiry-header">
-                <div class="etb-inquiry-title-wrap">
-                    <span class="etb-inquiry-icon">✉️</span>
-                    <div>
-                        <h3 id="etb-inquiry-title">Quick Email Inquiry</h3>
-                        <p>Receive a personal quote from our dispatch team within 15 minutes.</p>
-                    </div>
-                </div>
-                <button type="button" class="etb-inquiry-close-btn" id="etb-inquiry-close" aria-label="Close modal">&times;</button>
-            </div>
-
-            <!-- Récapitulatif verrouillé du trajet sélectionné -->
-            <div class="etb-inquiry-summary-card">
-                <div class="etb-inquiry-summary-vehicle">
-                    <strong id="etb-inquiry-car-name">—</strong>
-                    <span class="etb-inquiry-summary-price" id="etb-inquiry-car-price">—</span>
-                </div>
-                <div class="etb-inquiry-summary-trip">
-                    <div class="etb-inquiry-trip-line">
-                        <span class="dashicons dashicons-location"></span>
-                        <span id="etb-inquiry-route">—</span>
-                    </div>
-                    <div class="etb-inquiry-trip-line">
-                        <span class="dashicons dashicons-calendar-alt"></span>
-                        <span id="etb-inquiry-datetime">—</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Formulaire de contact rapide -->
-            <form id="etb-inquiry-form" onsubmit="return false;">
-                
-                <div class="etb-inquiry-grid-2">
-                    <div class="etb-inquiry-field">
-                        <label for="etb_inq_name">Full Name *</label>
-                        <input type="text" id="etb_inq_name" name="inquiry_name" placeholder="e.g. Bruce Wayne" autocomplete="name" required>
-                    </div>
-                    <div class="etb-inquiry-field">
-                        <label for="etb_inq_email">Email Address *</label>
-                        <input type="email" id="etb_inq_email" name="inquiry_email" placeholder="e.g. b.wayne@corp.com" autocomplete="email" required>
-                    </div>
-                </div>
-
-                <div class="etb-inquiry-field">
-                    <label for="etb_inq_phone">Mobile Phone (recommended for instant reply)</label>
-                    <input type="tel" id="etb_inq_phone" name="inquiry_phone" placeholder="e.g. +33 6 12 34 56 78" autocomplete="tel">
-                </div>
-
-                <div class="etb-inquiry-field">
-                    <label for="etb_inq_notes">Special Requests / Notes (optional)</label>
-                    <textarea id="etb_inq_notes" name="inquiry_notes" rows="2" placeholder="Flight number, child seats, luggage details..."></textarea>
-                </div>
-
-                <!-- Zone de feedback (succès ou erreur) -->
-                <div class="etb-inquiry-feedback" id="etb-inquiry-feedback" style="display: none;"></div>
-
-                <!-- Bouton d'action -->
-                <button type="button" class="etb-inquiry-submit-btn" id="etb-inquiry-submit">
-                    <span id="etb-inquiry-btn-text">Send My Inquiry</span>
-                    <span class="dashicons dashicons-arrow-right-alt2"></span>
-                </button>
-            </form>
-
-        </div>
-    </div>
+   
 
 </div>

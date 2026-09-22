@@ -1211,16 +1211,23 @@
 /* Suppression flèches input number */
 .co-circuit-wrapper input[type="number"]::-webkit-outer-spin-button,
 .co-circuit-wrapper input[type="number"]::-webkit-inner-spin-button,
+.etb-checkout-wrapper input[type="number"]::-webkit-outer-spin-button,
+.etb-checkout-wrapper input[type="number"]::-webkit-inner-spin-button,
 .etb-booking-widget input[type="number"]::-webkit-outer-spin-button,
 .etb-booking-widget input[type="number"]::-webkit-inner-spin-button {
     -webkit-appearance: none !important;
     margin: 0 !important;
 }
 .co-circuit-wrapper input[type="number"],
-.etb-booking-widget input[type="number"] {
+.etb-booking-widget input[type="number"], 
+.etb-checkout-wrapper input[type="number"]{
     -moz-appearance: textfield !important;
     appearance: textfield !important;
 }
+
+
+
+
 
 /* ==========================================================================
    WIDGET MINIMAL : DESIGN SYSTEM OFFICIEL "EDEN CAB" (DESIGN TOKENS)
@@ -1277,7 +1284,7 @@
     padding: 0 !important;
     font-family: 'Calibri', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     font-size: 23px !important;
-    font-weight: 800 !important;
+    font-weight: 500 !important;
     letter-spacing: 0.12em !important;
     text-transform: uppercase !important;
     text-align: center !important;
@@ -1559,11 +1566,60 @@
    /* box-shadow: 0 8px 25px rgba(0, 114, 229, 0.55) !important;*/
 }
 
+
+/* Mini-loader d'autocomplétion d'adresses */
+.etb-quick-input-loader {
+    position: absolute !important;
+    right: 8px !important;
+    top: 50% !important;
+    width: 14px !important;
+    height: 14px !important;
+    border: 2px solid rgba(255, 255, 255, 0.15) !important;
+    border-top-color: #fbac18 !important;
+    border-radius: 50% !important;
+    animation: etbInputSpin 0.6s linear infinite !important;
+    pointer-events: none !important;
+    z-index: 4 !important;
+}
+
+@keyframes etbInputSpin {
+    from { transform: translateY(-50%) rotate(0deg); }
+    to { transform: translateY(-50%) rotate(360deg); }
+}
+
+/* Contour lumineux tournant bicolore autour du bouton Show Prices pendant Calculating... */
+.etb-quick-submit-btn.etb-loading-glow {
+    position: relative !important;
+    /*box-shadow: 0 0 20px rgba(251, 172, 24, 0.5), 0 0 35px rgba(0, 210, 255, 0.35) !important;
+    */
+}
+
+.etb-quick-submit-btn.etb-loading-glow::before {
+    content: '' !important;
+    position: absolute !important;
+    inset: -2.5px !important;
+    border-radius: 54px !important;
+    padding: 2.5px !important;
+    background: conic-gradient(
+        from var(--etb-border-angle),
+        transparent 15%,
+        #fbac18 40%,
+        #00d2ff 65%,
+        transparent 85%
+    ) !important;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0) !important;
+    -webkit-mask-composite: xor !important;
+    mask-composite: exclude !important;
+    animation: etbSpinBorder 2s linear infinite !important;
+    pointer-events: none !important;
+    z-index: 2 !important;
+}
+
 /* Notice d'erreur */
 .etb-quick-error-notice {
-    background: rgba(220, 38, 38, 0.2) !important;
-    border: 1px solid rgba(220, 38, 38, 0.5) !important;
-    color: var(--etb-danger) !important;
+    background: rgba(83, 23, 23, 0.3) !important;
+    border: 1px solid rgba(217, 126, 126, 0.48) !important;
+    color: #ff584e !important;
     padding: 12px 18px !important;
     border-radius: 10px !important;
     font-size: 13px !important;
@@ -1854,6 +1910,7 @@
     gap: 5px !important;
     padding: 5px 0 !important;
     margin-bottom: 10px !important;
+    margin-top: 10px !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
@@ -1927,46 +1984,88 @@
     color: #ffffff !important;
 }
 
-/* Bouton Pilule Sélectionner avec flèche */
+
+/* Mention All Inclusive sous le prix (uniquement pour les tarifs chiffrés) */
+.etb-quick-all-inclusive {
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    color: #94a3b8 !important;
+    margin-top: 4px !important;
+    display: flex; /* Sans !important pour permettre le masquage JS */
+    align-items: center !important;
+    gap: 4px !important;
+    letter-spacing: 0.02em !important;
+}
+
+/* Masquage immédiat et garanti pour tout véhicule en Custom Quote */
+.etb-quick-car-item[data-is-quote="1"] .etb-quick-all-inclusive {
+    display: none !important;
+}
+
+/* Bouton Select à droite du pied de carte */
 .etb-quick-select-btn {
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 6px !important;
     background: #1e2638 !important;
     border: 1px solid #333f57 !important;
+    color: #ffffff !important;
+    padding: 9px 20px !important;
     border-radius: 50px !important;
-    padding: 10px 18px !important;
     font-size: 13px !important;
     font-weight: 700 !important;
-    color: #ffffff !important;
     cursor: pointer !important;
     transition: all 0.2s ease !important;
     white-space: nowrap !important;
+    user-select: none !important;
 }
 
 .etb-quick-select-btn:hover {
     background: #28334b !important;
+    border-color: #475569 !important;
     color: #ffffff !important;
 }
 
+/* État carte sélectionnée : Bouton Or éclatant */
 .etb-quick-car-item.selected .etb-quick-select-btn {
     background: #fbac18 !important;
     border-color: #fbac18 !important;
     color: #0f172a !important;
     font-weight: 800 !important;
-    /*box-shadow: 0 4px 15px rgba(251, 172, 24, 0.35) !important;*/
+    box-shadow: 0 4px 14px rgba(251, 172, 24, 0.35) !important;
 }
 
-.etb-quick-select-btn .dashicons {
-    font-size: 14px !important;
-    width: 14px !important;
-    height: 14px !important;
-    transition: transform 0.2s ease !important;
+/* Survol de la carte */
+.etb-quick-car-item:hover .etb-quick-trust-badge {
+    border-color: rgba(251, 172, 24, 0.45) !important;
+    color: #fbac18 !important;
 }
 
-.etb-quick-select-btn:hover .dashicons {
-    transform: translateX(2px) !important;
+/* État par défaut : All inclusive visible, Selected masqué */
+.etb-quick-trust-badge .etb-badge-default {
+    display: inline-flex !important;
+}
+
+.etb-quick-trust-badge .etb-badge-selected {
+    display: none !important;
+}
+
+/* Métamorphose au clic : la carte est sélectionnée */
+.etb-quick-car-item.selected .etb-quick-trust-badge {
+    background: #fbac18 !important;
+    border-color: #fbac18 !important;
+    color: #0f172a !important;
+    font-weight: 800 !important;
+    box-shadow: 0 4px 14px rgba(251, 172, 24, 0.35) !important;
+    transform: scale(1.02) !important;
+}
+
+.etb-quick-car-item.selected .etb-quick-trust-badge .etb-badge-default {
+    display: none !important;
+}
+
+.etb-quick-car-item.selected .etb-quick-trust-badge .etb-badge-selected {
+    display: inline-flex !important;
 }
 
 
@@ -1997,10 +2096,11 @@
 }
 
 
-
+/* État déployé : glissement ascendant et fondu soyeux */
 .etb-quick-confirm-bar.is-visible {
     display: flex !important;
     position: relative !important;
+    max-height: 600px !important; /* Capacité d'accueil suffisante pour tous les écrans */
     z-index: 50 !important;
     width: 100% !important;
     background: #0b0f19 !important; 
@@ -2021,64 +2121,11 @@
     clear: both !important;
 }
 
-/* 4. Barre de Confirmation finale : Déploiement ultra-fluide sans sursaut */
 
-/*.etb-quick-confirm-bar {
-    display: flex !important;
-    position: relative !important;
-    z-index: 50 !important;
-    width: 100% !important;
-    background: #0b0f19 !important;
-    border: 1.5px solid transparent !important;
-    border-radius: 16px !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    gap: 16px !important;
-    box-sizing: border-box !important;
-    clear: both !important;
-    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.6) !important;
 
-    
-    opacity: 0 !important;
-    visibility: hidden !important;
-    max-height: 0 !important;
-    padding: 0 26px !important;
-    margin-top: 0 !important;
-    margin-bottom: 0 !important;
-    transform: translateY(25px) scale(0.98) !important;
-    overflow: hidden !important;
-    pointer-events: none !important;
 
-    
-    transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1),
-                transform 0.45s cubic-bezier(0.16, 1, 0.3, 1),
-                max-height 0.45s cubic-bezier(0.16, 1, 0.3, 1),
-                padding 0.4s cubic-bezier(0.16, 1, 0.3, 1),
-                margin 0.4s cubic-bezier(0.16, 1, 0.3, 1),
-                border-color 0.3s ease,
-                visibility 0.4s ease !important;
-}*/
 
-/* État déployé : glissement ascendant et fondu soyeux */
 
-/*.etb-quick-confirm-bar.is-visible {
-    
-    justify-content: space-between !important;
-    align-items: center !important;
-    gap: 16px !important;
-    box-sizing: border-box !important;
-    clear: both !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-    max-height: 180px !important;
-    padding: 18px 26px !important;
-    margin-top: 40px !important;
-    margin-bottom: 20px !important;
-    border-color: #232a3b !important;
-    transform: translateY(0) scale(1) !important;
-    pointer-events: auto !important;
-}
-*/
 /* Textes dans la barre */
 .etb-quick-summary-info {
     display: flex !important;
@@ -2200,8 +2247,8 @@
 .etb-quick-email-btn:hover {
     background: #28334b !important;
     border-color: #475569 !important;
-    transform: translateY(-2px) !important;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35) !important;
+    /*transform: translateY(-2px) !important;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35) !important;*/
 }
 
 .etb-quick-email-btn .dashicons {
@@ -2217,8 +2264,8 @@
     display: inline-flex !important;
     align-items: center !important;
     gap: 8px !important;
-    background: transparent !important;
-    border: 1px solid white !important;
+    background: #1e2638 !important;
+    border: 1px solid #333f57 !important;
     color: #ffffff !important;
     text-decoration: none !important;
     padding: 13px 22px !important;
@@ -2383,7 +2430,7 @@
 
 .etb-ampm-btn.active {
     background: var(--etb-qw-accent) !important;
-    color: #ffffff !important;
+    color: black !important;
    /* box-shadow: 0 2px 6px rgba(0, 114, 229, 0.4) !important;*/
 }
 
@@ -2429,7 +2476,7 @@
 
 .etb-time-opt:hover,
 .etb-time-opt.active {
-    background: #0072e5 !important;
+    background: var(--etb-qw-accent) !important;
     color: #ffffff !important;
 }
 
@@ -2680,177 +2727,151 @@
     box-shadow: none !important;
 }
 
+
 /* ==========================================================================
-   MICRO-MODAL VIP DE DEVIS RAPIDE (EMAIL INQUIRY)
+   CHECKOUT DÉTAILLÉ BLACKLANE VIP ([etb_checkout])
    ========================================================================== */
 
-/* 1. Arrière-plan flou translucide (Transition soyeuse ouverture & fermeture) */
-.etb-quick-modal-backdrop {
-    position: fixed !important;
-    inset: 0 !important;
-    z-index: 999999 !important;
-    background: rgba(5, 8, 15, 0.82) !important;
-    backdrop-filter: blur(14px) !important;
-    -webkit-backdrop-filter: blur(14px) !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    padding: 20px !important;
-    box-sizing: border-box !important;
-    opacity: 0 !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-    transition: opacity 0.3s ease, visibility 0.3s ease !important;
-}
-
-.etb-quick-modal-backdrop.is-open {
-    opacity: 1 !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
-}
-
-/* 2. Carte centrale : glissement ascendant à l'ouverture, glissement doux à la fermeture */
-.etb-quick-modal-card {
-    background: #0f1420 !important;
-    border: 1.5px solid #232a3b !important;
-    border-radius: 20px !important;
-    max-width: 520px !important;
+.etb-checkout-wrapper {
     width: 100% !important;
-    padding: 26px 30px !important;
-    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.75), 0 0 35px rgba(251, 172, 24, 0.08) !important;
-    position: relative !important;
+    max-width: 1200px !important;
+    margin: 30px auto !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    color: #ffffff !important;
     box-sizing: border-box !important;
-    transform: translateY(25px) scale(0.96) !important;
-    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    padding: 0 15px !important;
 }
 
-.etb-quick-modal-backdrop.is-open .etb-quick-modal-card {
-    transform: translateY(0) scale(1) !important;
+.etb-checkout-wrapper * {
+    box-sizing: border-box !important;
 }
 
-/* 3. En-tête du Modal */
-.etb-inquiry-header {
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: flex-start !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-    padding-bottom: 14px !important;
-    margin-bottom: 18px !important;
+/* 1. En-tête supérieur et navigation retour */
+.etb-checkout-top-nav {
+    margin-bottom: 25px !important;
 }
 
-.etb-inquiry-title-wrap {
-    display: flex !important;
+.etb-checkout-back-link {
+    display: inline-flex !important;
     align-items: center !important;
-    gap: 12px !important;
+    gap: 6px !important;
+    color: #94a3b8 !important;
+    text-decoration: none !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    margin-bottom: 10px !important;
+    transition: color 0.2s ease !important;
 }
 
-.etb-inquiry-icon {
+.etb-checkout-back-link:hover {
+    color: #fbac18 !important;
+}
+
+.etb-checkout-back-link .dashicons {
+    font-size: 15px !important;
+    width: 15px !important;
+    height: 15px !important;
+}
+
+.etb-checkout-page-title {
     font-size: 26px !important;
-    line-height: 1 !important;
-}
-
-.etb-inquiry-title-wrap h3 {
-    font-size: 18px !important;
     font-weight: 800 !important;
     color: #ffffff !important;
-    margin: 0 0 3px 0 !important;
+    margin: 0 !important;
+    letter-spacing: -0.5px !important;
+}
+
+/* 2. Layout 2 Colonnes (Split Formulaire / Sticky Summary) */
+.etb-checkout-layout {
+    display: grid !important;
+    grid-template-columns: 1.4fr 1fr !important;
+    gap: 35px !important;
+    /* La grille s'étire naturellement sur la hauteur de la colonne gauche */
+}
+
+.etb-checkout-left-col {
+    width: 100% !important;
+}
+
+/* Colonne récapitulative : Glissement soyeux GPU bi-directionnel */
+.etb-checkout-right-col {
+    width: 100% !important;
+    position: sticky !important;
+    top: 35px !important;
+    align-self: start !important;
+    height: fit-content !important;
+    z-index: 20 !important;
+    will-change: transform !important; /* Optimisation mémoire GPU */
+    transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.admin-bar .etb-checkout-right-col {
+    top: 68px !important;
+}
+
+/* 3. Cartes de formulaire (Colonne Gauche) */
+.etb-checkout-card {
+    background: #0f1420 !important;
+    border: 1.5px solid #232a3b !important;
+    border-radius: 18px !important;
+    padding: 24px 26px !important;
+    margin-bottom: 24px !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4) !important;
+}
+
+.etb-checkout-card-header {
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 14px !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    padding-bottom: 16px !important;
+    margin-bottom: 20px !important;
+}
+
+.etb-chk-badge-icon {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    background: rgba(251, 172, 24, 0.08) !important;
+    border: 1px solid rgba(251, 172, 24, 0.25) !important;
+    border-radius: 10px !important;
+    flex-shrink: 0 !important;
+}
+
+.etb-chk-badge-icon svg {
+    display: block !important;
+}
+
+.etb-checkout-card-header h3 {
+    font-size: 17px !important;
+    font-weight: 800 !important;
+    color: #ffffff !important;
+    margin: 0 0 4px 0 !important;
     letter-spacing: 0.02em !important;
 }
 
-.etb-inquiry-title-wrap p {
+.etb-checkout-card-header p {
     font-size: 12px !important;
     color: #94a3b8 !important;
     margin: 0 !important;
+    line-height: 1.4 !important;
 }
 
-.etb-inquiry-close-btn {
-    background: rgba(255, 255, 255, 0.06) !important;
-    border: 1px solid rgba(255, 255, 255, 0.12) !important;
-    color: #94a3b8 !important;
-    font-size: 22px !important;
-    line-height: 2 !important;
-    width: 32px !important;
-    height: 32px !important;
-    border-radius: 50% !important;
-    cursor: pointer !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    transition: all 0.2s ease !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    padding-bottom: 3px !important;
-}
-
-.etb-inquiry-close-btn:hover {
-    background: rgba(220, 38, 38, 0.2) !important;
-    border-color: #dc2626 !important;
-    color: #ffffff !important;
-}
-
-/* 4. Récapitulatif verrouillé du trajet */
-.etb-inquiry-summary-card {
-    background: rgba(251, 172, 24, 0.06) !important;
-    border: 1px solid rgba(251, 172, 24, 0.25) !important;
-    border-radius: 12px !important;
-    padding: 14px 16px !important;
-    margin-bottom: 18px !important;
-}
-
-.etb-inquiry-summary-vehicle {
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    margin-bottom: 8px !important;
-    border-bottom: 1px dashed rgba(251, 172, 24, 0.2) !important;
-    padding-bottom: 8px !important;
-}
-
-.etb-inquiry-summary-vehicle strong {
-    font-size: 15px !important;
-    font-weight: 800 !important;
-    color: #ffffff !important;
-}
-
-.etb-inquiry-summary-price {
-    font-size: 15px !important;
-    font-weight: 800 !important;
-    color: #fbac18 !important;
-}
-
-.etb-inquiry-summary-trip {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 5px !important;
-}
-
-.etb-inquiry-trip-line {
-    display: flex !important;
-    align-items: center !important;
-    gap: 8px !important;
-    font-size: 12px !important;
-    color: #cbd5e1 !important;
-}
-
-.etb-inquiry-trip-line .dashicons {
-    font-size: 14px !important;
-    width: 14px !important;
-    height: 14px !important;
-    color: #fbac18 !important;
-}
-
-/* 5. Champs de formulaire Dark Mode */
-.etb-inquiry-grid-2 {
+/* Champs & Grilles de saisie */
+.etb-chk-grid-2 {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
-    gap: 12px !important;
+    gap: 14px !important;
 }
 
-.etb-inquiry-field {
-    margin-bottom: 14px !important;
+.etb-chk-field {
+    margin-bottom: 16px !important;
 }
 
-.etb-inquiry-field label {
+.etb-chk-field label {
     display: block !important;
     font-size: 11px !important;
     font-weight: 700 !important;
@@ -2860,98 +2881,573 @@
     margin-bottom: 6px !important;
 }
 
-.etb-inquiry-field input,
-.etb-inquiry-field textarea {
+.etb-chk-field input,
+.etb-chk-field select,
+.etb-chk-field textarea {
     width: 100% !important;
     background: #151b29 !important;
     border: 1.5px solid #28334b !important;
     border-radius: 10px !important;
-    padding: 10px 14px !important;
+    padding: 11px 14px !important;
     font-size: 13px !important;
     font-weight: 500 !important;
     color: #ffffff !important;
-    box-sizing: border-box !important;
     outline: none !important;
     transition: all 0.2s ease !important;
 }
 
-.etb-inquiry-field input{
-    max-height: 43px !important;
-    min-height: 41px !important;
-}
-
-.etb-inquiry-field input::placeholder,
-.etb-inquiry-field textarea::placeholder {
+.etb-chk-field input::placeholder,
+.etb-chk-field textarea::placeholder {
     color: rgba(148, 163, 184, 0.5) !important;
 }
 
-.etb-inquiry-field input:focus,
-.etb-inquiry-field textarea:focus {
+.etb-chk-field input:focus,
+.etb-chk-field textarea:focus {
     border-color: #fbac18 !important;
     box-shadow: 0 0 0 3px rgba(251, 172, 24, 0.15) !important;
 }
 
-/* 6. Bouton de soumission */
-.etb-inquiry-submit-btn {
+.etb-checkout-card input {
+    max-height: 42px !important;
+}
+
+.etb-chk-hint {
+    display: block !important;
+    font-size: 11px !important;
+    color: #64748b !important;
+    margin-top: 5px !important;
+    line-height: 1.3 !important;
+}
+
+/* 4. Bascule Blacklane : Myself vs Guest */
+.etb-chk-booker-toggle {
+    display: flex !important;
+    gap: 12px !important;
+    flex-wrap: wrap !important;
+}
+
+.etb-chk-radio-pill {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 10px 18px !important;
+    background: #151b29 !important;
+    border: 1.5px solid #28334b !important;
+    border-radius: 50px !important;
+    color: #94a3b8 !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    user-select: none !important;
+}
+
+.etb-chk-radio-pill input[type="radio"] {
+    display: none !important;
+}
+
+.etb-chk-radio-pill:hover {
+    border-color: #3b82f6 !important;
+    color: #ffffff !important;
+}
+
+.etb-chk-radio-pill.active {
+    background: rgba(251, 172, 24, 0.12) !important;
+    border-color: #fbac18 !important;
+    color: #fbac18 !important;
+    font-weight: 700 !important;
+}
+
+.etb-chk-radio-pill .dashicons {
+    font-size: 16px !important;
+    width: 16px !important;
+    height: 16px !important;
+}
+
+/* 5. Boîte Sièges Enfants */
+.etb-chk-child-seats-box {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    background: rgba(255, 255, 255, 0.03) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 12px !important;
+    padding: 14px 18px !important;
+}
+
+.etb-chk-seat-info {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+}
+
+.etb-chk-seat-info .dashicons {
+    font-size: 20px !important;
+    width: 20px !important;
+    height: 20px !important;
+    color: #fbac18 !important;
+}
+
+.etb-chk-seat-info strong {
+    font-size: 13px !important;
+    color: #ffffff !important;
+}
+
+.etb-chk-seat-info p {
+    font-size: 11px !important;
+    color: #94a3b8 !important;
+    margin: 2px 0 0 0 !important;
+}
+
+.etb-chk-qty-control {
+    display: inline-flex !important;
+    align-items: center !important;
+    background: #1e2638 !important;
+    border: 1px solid #333f57 !important;
+    border-radius: 50px !important;
+    padding: 3px 4px !important;
+    gap: 4px !important;
+}
+
+.etb-chk-qty-btn {
+    background: transparent !important;
+    border: none !important;
+    color: #ffffff !important;
+    width: 26px !important;
+    height: 26px !important;
+    border-radius: 50% !important;
+    font-size: 16px !important;
+    font-weight: bold !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: background 0.2s ease !important;
+    padding: 0 !important;
+    padding-bottom: 2px !important ;
+}
+
+.etb-chk-qty-btn:hover {
+    background: #fbac18 !important;
+    color: #0f172a !important;
+}
+
+.etb-chk-qty-control input {
+    width: 28px !important;
+    background: transparent !important;
+    border: none !important;
+    color: #ffffff !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    text-align: center !important;
+    outline: none !important;
+    padding: 0 !important;
+}
+
+
+/* 5bis. Sélecteur Passagers & Bagages (Checkout) */
+.etb-chk-capacity-box {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 60px !important;
+    background: rgba(255, 255, 255, 0.03) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 12px !important;
+    padding: 14px 18px !important;
+}
+
+.etb-chk-cap-item {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+}
+
+.etb-chk-cap-label {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+}
+
+.etb-chk-cap-label .dashicons {
+    font-size: 18px !important;
+    width: 18px !important;
+    height: 18px !important;
+    color: #fbac18 !important;
+}
+
+.etb-chk-cap-label strong {
+    display: block !important;
+    font-size: 13px !important;
+    color: #ffffff !important;
+}
+
+.etb-chk-cap-label small {
+    display: block !important;
+    font-size: 11px !important;
+    color: #64748b !important;
+}
+
+/* 5ter. Sélecteur de Pourboire Chauffeur (Driver Tip) */
+.etb-chk-tip-section {
+    background: rgba(255, 255, 255, 0.02) !important;
+    border-radius: 12px !important;
+    padding: 14px 16px !important;
+    margin-bottom: 18px !important;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+.etb-chk-tip-title {
+    display: block !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    color: #94a3b8 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    margin-bottom: 10px !important;
+}
+
+.etb-chk-tip-pills {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 8px !important;
+}
+
+.etb-tip-pill {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 8px 0 !important;
+    background: #151b29 !important;
+    border: 1.5px solid #28334b !important;
+    border-radius: 50px !important;
+    color: #94a3b8 !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    user-select: none !important;
+    text-align: center !important;
+}
+
+.etb-tip-pill input[type="radio"] {
+    display: none !important;
+}
+
+.etb-tip-pill:hover {
+    border-color: #3b82f6 !important;
+    color: #ffffff !important;
+}
+
+.etb-tip-pill.active {
+    background: rgba(251, 172, 24, 0.15) !important;
+    border-color: #fbac18 !important;
+    color: #fbac18 !important;
+    box-shadow: 0 0 10px rgba(251, 172, 24, 0.2) !important;
+}
+/* ==========================================================================
+   CARTE RÉCAPITULATIVE STICKY (COLONNE DROITE)
+   ========================================================================== */
+.etb-chk-sticky-card {
+    width: 100% !important;
+    background: #0f1420 !important;
+    border: 1.5px solid #232a3b !important;
+    border-radius: 20px !important;
+    padding: 24px 26px !important;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6) !important;
+}
+.etb-chk-summary-title {
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    color: #ffffff !important;
+    margin: 0 0 16px 0 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    padding-bottom: 12px !important;
+    letter-spacing: 0.02em !important;
+}
+
+/* Aperçu Véhicule */
+.etb-chk-summary-hero {
+    display: flex !important;
+    align-items: center !important;
+    gap: 14px !important;
+    background: rgba(255, 255, 255, 0.03) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 12px !important;
+    padding: 12px 14px !important;
+    margin-bottom: 18px !important;
+}
+
+.etb-chk-summary-hero img {
+    width: 80px !important;
+    height: 50px !important;
+    object-fit: contain !important;
+}
+
+.etb-chk-summary-vehicle-meta h4 {
+    font-size: 15px !important;
+    font-weight: 800 !important;
+    color: #ffffff !important;
+    margin: 0 0 4px 0 !important;
+}
+
+.etb-chk-summary-specs {
+    font-size: 12px !important;
+    color: #94a3b8 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    margin-top: 4px !important;
+}
+
+.etb-summary-spec-item {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+}
+
+.etb-summary-spec-item svg {
+    flex-shrink: 0 !important;
+}
+
+.etb-spec-dot {
+    color: rgba(255, 255, 255, 0.25) !important;
+    font-size: 12px !important;
+}
+
+/* Timeline itinéraire */
+/* Timeline itinéraire avec alignement parfait et ligne de liaison */
+.etb-chk-summary-timeline {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    padding-bottom: 18px !important;
+    margin-bottom: 18px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+    position: relative !important;
+}
+
+.etb-chk-timeline-item {
+    display: flex; /* Sans !important pour permettre à JS de masquer Duration ou Dropoff */
+    align-items: flex-start !important;
+    gap: 14px !important;
+    position: relative !important;
+}
+
+/* Masquage absolu garanti */
+.etb-chk-timeline-item[style*="display: none"],
+.etb-chk-timeline-item.is-hidden {
+    display: none !important;
+}
+
+/* Ligne fine verticale qui relie le départ à l'arrivée (façon GPS) */
+#etb-chk-timeline-pickup-row::after {
+    content: '' !important;
+    position: absolute !important;
+    left: 4px !important;
+    top: 14px !important;
+    bottom: -16px !important;
+    width: 2px !important;
+    background: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Puces colorées parfaitement alignées avec la ligne <small> */
+.etb-chk-bullet {
+    width: 10px !important;
+    height: 10px !important;
+    min-width: 10px !important;
+    border-radius: 50% !important;
+    margin-top: 2px !important; /* Centré avec les petits caractères */
+    flex-shrink: 0 !important;
+    z-index: 2 !important;
+}
+
+.etb-bullet-pickup {
+    background: #16a34a !important;
+    box-shadow: 0 0 8px rgba(22, 163, 74, 0.6) !important;
+}
+
+.etb-bullet-dropoff {
+    background: #e65a15 !important;
+    box-shadow: 0 0 8px rgba(230, 90, 21, 0.6) !important;
+}
+
+.etb-bullet-hourly {
+    background: #00d2ff !important;
+    box-shadow: 0 0 8px rgba(0, 210, 255, 0.6) !important;
+}
+
+.etb-chk-calendar-icon {
+    width: 10px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin-top: 0 !important;
+    flex-shrink: 0 !important;
+}
+
+.etb-chk-calendar-icon svg {
+    display: block !important;
+}
+
+.etb-chk-timeline-text small {
+    display: block !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    color: #64748b !important;
+    letter-spacing: 0.08em !important;
+    line-height: 1 !important;
+    margin-bottom: 4px !important;
+}
+
+.etb-chk-timeline-text strong {
+    font-size: 13px !important;
+    color: #cbd5e1 !important;
+    line-height: 1.35 !important;
+    display: block !important;
+}
+
+/* Garanties Blacklane */
+.etb-chk-guarantees {
+    background: rgba(255, 255, 255, 0.02) !important;
+    border-radius: 10px !important;
+    padding: 12px 14px !important;
+    margin-bottom: 18px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+}
+
+.etb-chk-guarantee-line {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    font-size: 11px !important;
+    color: #94a3b8 !important;
+}
+
+.etb-chk-guarantee-line .dashicons {
+    font-size: 14px !important;
+    width: 14px !important;
+    height: 14px !important;
+    color: #fbac18 !important;
+}
+
+/* Décomposition du prix */
+.etb-chk-price-breakdown {
+    margin-bottom: 18px !important;
+}
+
+.etb-chk-price-row {
+    display: flex; /* Sans !important pour permettre à JavaScript de masquer la ligne */
+    justify-content: space-between !important;
+    align-items: center !important;
+    font-size: 13px !important;
+    color: #94a3b8 !important;
+    margin-bottom: 6px !important;
+}
+
+/* Masquage prioritaire pour la ligne de pourboire inactive */
+#etb-chk-tip-row[style*="display: none"],
+#etb-chk-tip-row:not(.is-visible) {
+    display: none !important;
+}
+
+.etb-chk-price-row.total-row {
+    border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+    padding-top: 10px !important;
+    margin-top: 8px !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+}
+
+.etb-chk-price-row.total-row strong {
+    font-size: 24px !important;
+    font-weight: 900 !important;
+    color: #fbac18 !important;
+    letter-spacing: -0.5px !important;
+}
+
+/* Bouton d'action ultime */
+.etb-chk-submit-btn {
     width: 100% !important;
     background: #fbac18 !important;
     color: #0f172a !important;
     border: none !important;
     border-radius: 50px !important;
-    padding: 13px !important;
-    font-size: 14px !important;
+    padding: 15px 24px !important;
+    font-size: 15px !important;
     font-weight: 800 !important;
     cursor: pointer !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 8px !important;
+    gap: 10px !important;
     transition: all 0.25s ease !important;
-    margin-top: 6px !important;
+    /*box-shadow: 0 8px 25px rgba(251, 172, 24, 0.35) !important;*/
 }
 
-.etb-inquiry-submit-btn:hover {
+.etb-chk-submit-btn:hover {
     background: #e39402 !important;
-    transform: translateY(-2px) !important;
-    box-shadow: 0 6px 20px rgba(251, 172, 24, 0.35) !important;
+    /*transform: translateY(-2px) !important;*/
+    box-shadow: 0 5px 10px rgba(251, 172, 24, 0.5) !important;
 }
 
-.etb-inquiry-submit-btn:disabled {
-    opacity: 0.7 !important;
+.etb-chk-submit-btn:disabled {
+    opacity: 0.65 !important;
     cursor: not-allowed !important;
     transform: none !important;
 }
 
-/* 7. Boîte de feedback */
-.etb-inquiry-feedback {
+.etb-chk-ssl-notice {
+    font-size: 11px !important;
+    color: #64748b !important;
+    text-align: center !important;
+    margin: 12px 0 0 0 !important;
+}
+
+/* Message feedback checkout */
+.etb-chk-feedback {
     padding: 10px 14px !important;
     border-radius: 8px !important;
     font-size: 12px !important;
     font-weight: 600 !important;
-    margin-bottom: 12px !important;
+    margin-bottom: 14px !important;
 }
 
-.etb-inquiry-feedback.is-success {
-    background: rgba(22, 163, 74, 0.15) !important;
-    border: 1px solid #16a34a !important;
-    color: #4ade80 !important;
-}
-
-.etb-inquiry-feedback.is-error {
+.etb-chk-feedback.is-error {
     background: rgba(220, 38, 38, 0.15) !important;
     border: 1px solid #dc2626 !important;
     color: #f87171 !important;
 }
 
-@media (max-width: 600px) {
-    .etb-inquiry-grid-2 {
+.etb-chk-feedback.is-success {
+    background: rgba(22, 163, 74, 0.15) !important;
+    border: 1px solid #16a34a !important;
+    color: #4ade80 !important;
+}
+
+/* 6. Adaptation Mobile & Tablette */
+@media (max-width: 900px) {
+    .etb-checkout-layout {
         grid-template-columns: 1fr !important;
+        gap: 25px !important;
+    }
+
+    .etb-chk-grid-2 {
+        grid-template-columns: 1fr !important;
+    }
+
+    .etb-chk-sticky-card {
+        position: static !important;
     }
 }
 
 
+
+
 /* Adaptation Responsive Mobile */
-@media (max-width: 900px) {
+@media (max-width: 900px) { 
     .etb-quick-glass-bar {
         flex-direction: column !important;
         align-items: stretch !important;
@@ -2972,6 +3468,64 @@
         flex-direction: column !important;
         gap: 14px !important;
         text-align: center !important;
+    }
+
+     /* Barre de confirmation sur tablette et mobile */
+    .etb-quick-confirm-bar {
+        flex-direction: column !important;
+        gap: 16px !important;
+        align-items: stretch !important;
+        padding: 20px 22px !important;
+    }
+
+    .etb-quick-confirm-bar.is-visible {
+        max-height: 600px !important; /* Déploiement total sans masque de découpe */
+    }
+
+    .etb-quick-summary-info {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+        width: 100% !important;
+    }
+
+    .etb-quick-summary-info span {
+        display: block !important;
+        width: 100% !important;
+        font-size: 13px !important;
+    }
+
+    .etb-quick-summary-info #etb-quick-selected-name {
+        display: block !important;
+        margin-top: 3px !important;
+        font-size: 16px !important;
+        font-weight: 800 !important;
+        color: #ffffff !important;
+        white-space: normal !important;
+    }
+
+    /* Actions : rangée fluide et équilibrée */
+    .etb-quick-actions-row {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+        justify-content: stretch !important;
+        width: 100% !important;
+        gap: 10px !important;
+    }
+
+    .etb-quick-actions-row a,
+    .etb-quick-actions-row button {
+        flex: 1 1 auto !important;
+        min-width: 160px !important;
+        justify-content: center !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Le bouton principal Book this Trip prend toute la largeur pour convertir au maximum */
+    .etb-quick-actions-row #etb-quick-book-now-btn {
+        flex: 1 1 100% !important;
     }
 }
 
@@ -2998,6 +3552,8 @@
         padding-left: 10px !important;
         padding-right: 10px !important;
     }
+
+
 
 }
 
@@ -3102,6 +3658,11 @@
 
 }
 
-
+@media (max-width: 600px) {
+    .etb-chk-capacity-box {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+}
 
  

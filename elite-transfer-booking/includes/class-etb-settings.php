@@ -53,9 +53,7 @@ class ETB_Settings {
         $new_input['address_provider']    = ! empty( $input['address_provider'] ) ? sanitize_text_field( $input['address_provider'] ) : 'google';
         $new_input['google_maps_api_key'] = ! empty( $input['google_maps_api_key'] ) ? sanitize_text_field( trim( $input['google_maps_api_key'] ) ) : '';
         $new_input['mapbox_token']         = ! empty( $input['mapbox_token'] ) ? sanitize_text_field( trim( $input['mapbox_token'] ) ) : '';
-
-
-       
+        $new_input['checkout_page_url']    = ! empty( $input['checkout_page_url'] ) ? esc_url_raw( trim( $input['checkout_page_url'] ) ) : '';
 
         // Application de dispatch choisie (Autonome, LimoExpress...)
         $new_input['active_dispatcher'] = isset( $input['active_dispatcher'] ) ? sanitize_text_field( $input['active_dispatcher'] ) : 'none';
@@ -182,12 +180,22 @@ class ETB_Settings {
                             }
                         });
                         </script>
+
+
+                        <tr>
+                            <th scope="row">Page de réservation finale (Checkout)</th>
+                            <td>
+                                <input type="url" name="etb_general_settings[checkout_page_url]" value="<?php echo esc_url( $options['checkout_page_url'] ?? '' ); ?>" class="regular-text" placeholder="https://monsite.com/test-checkout/">
+                                <p class="description">URL de la page WordPress contenant le shortcode <code>[etb_checkout]</code> où le client finalise sa commande.</p>
+                            </td>
+                        </tr>
                         <tr>
                             <th scope="row" colspan="2">
                                 <hr style="margin: 20px 0; border: 0; border-top: 1px solid #dcdcde;">
                                 <h3>🔌 Système de Dispatch (Application externe)</h3>
                             </th>
                         </tr>
+                        
                         <tr>
                             <th scope="row">Application sélectionnée</th>
                             <td>

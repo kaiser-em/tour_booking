@@ -18,6 +18,10 @@ class ETB_Ajax {
         // Route AJAX pour le Micro-Modal de devis rapide (Email Inquiry)
         add_action( 'wp_ajax_etb_send_email_inquiry', array( $this, 'handle_send_email_inquiry' ) );
         add_action( 'wp_ajax_nopriv_etb_send_email_inquiry', array( $this, 'handle_send_email_inquiry' ) );
+
+        // Route AJAX pour le Checkout Blacklane ([etb_checkout])
+        add_action( 'wp_ajax_etb_submit_checkout', array( $this, 'handle_submit_checkout' ) );
+        add_action( 'wp_ajax_nopriv_etb_submit_checkout', array( $this, 'handle_submit_checkout' ) );
     }
 
     public function handle_validate_promo() {
@@ -635,5 +639,226 @@ class ETB_Ajax {
         ) );
     }
 
+    /**
+     * Traitement AJAX : Soumission du Checkout Blacklane ([etb_checkout])
+     */
+    public function handle_submit_checkout() {
+        check_ajax_referer( 'etb_booking_nonce', 'nonce' );
+
+        // 1. Contrôle Anti-Spam (Honeypot + Rate Limiting)
+        if ( ! ETB_Security::verify_honeypot( 'etb_hp_email' ) ) {
+            wp_send_json_error( array( 'message' => 'Security validation failed.' ) );
+        }
+
+        if ( ! ETB_Security::check_rate_limit( 'booking', 10, 600 ) ) {
+            wp_send_json_error( array( 'message' => 'Too many booking requests. Please wait a few minutes.' ) );
+        }
+
+        // 2. Récupération et assainissement des données du formulaire
+        $mode            = sanitize_text_field( $_POST['etb_trip_mode'] ?? 'transfer' );
+        $pickup          = sanitize_text_field( $_POST['etb_pickup_address'] ?? '' );
+        $dropoff         = sanitize_text_field( $_POST['etb_dropoff_address'] ?? '' );
+        $duration        = max( 1, floatval( $_POST['etb_duration'] ?? 4 ) );
+        $date            = sanitize_text_field( $_POST['etb_date'] ?? '' );
+        $time            = sanitize_text_field( $_POST['etb_time'] ?? '' );
+        $vehicle_id      = absint( $_POST['etb_vehicle_id'] ?? 0 );
+        $raw_price       = sanitize_text_field( $_POST['etb_calculated_price'] ?? '0' );
+
+        $flight_number   = sanitize_text_field( $_POST['etb_flight_number'] ?? '' );
+        $pickup_sign     = sanitize_text_field( $_POST['etb_pickup_sign'] ?? '' );
+        $booker_type     = sanitize_text_field( $_POST['etb_booker_type'] ?? 'myself' );
+        $first_name      = sanitize_text_field( $_POST['etb_first_name'] ?? '' );
+        $last_name       = sanitize_text_field( $_POST['etb_last_name'] ?? '' );
+        $email           = sanitize_email( $_POST['etb_email'] ?? '' );
+        $phone           = sanitize_text_field( $_POST['etb_phone'] ?? '' );
+        $booker_name     = sanitize_text_field( $_POST['etb_booker_name'] ?? '' );
+        $booker_email    = sanitize_email( $_POST['etb_booker_email'] ?? '' );
+        $baby_seat_count = min( 4, absint( $_POST['etb_baby_seat_count'] ?? 0 ) );
+        $notes           = sanitize_textarea_field( $_POST['etb_notes'] ?? '' );
+        $cost_center     = sanitize_text_field( $_POST['etb_cost_center'] ?? '' );
+
+        // Nouveautés : Passagers, Bagages et Pourboire chauffeur
+        $passengers_count = max( 1, absint( $_POST['etb_passengers_count'] ?? 1 ) );
+        $luggage_count    = max( 0, absint( $_POST['etb_luggage_count'] ?? 0 ) );
+        $tip_percentage   = max( 0, absint( $_POST['etb_driver_tip'] ?? 0 ) );
+        $tip_amount       = max( 0.0, floatval( $_POST['etb_tip_amount'] ?? 0.0 ) );
+
+        $full_name = trim( $first_name . ' ' . $last_name );
+
+        // 3. Validations obligatoires
+        if ( empty( $full_name ) ) {
+            wp_send_json_error( array( 'message' => 'Please enter the passenger first and last name.' ) );
+        }
+        if ( empty( $email ) || ! is_email( $email ) ) {
+            wp_send_json_error( array( 'message' => 'A valid email address is required.' ) );
+        }
+        if ( empty( $phone ) ) {
+            wp_send_json_error( array( 'message' => 'A mobile phone number is required.' ) );
+        }
+        if ( empty( $pickup ) ) {
+            wp_send_json_error( array( 'message' => 'Pickup location is missing.' ) );
+        }
+        if ( 'transfer' === $mode && empty( $dropoff ) ) {
+            wp_send_json_error( array( 'message' => 'Drop-off location is missing.' ) );
+        }
+        if ( empty( $date ) || empty( $time ) ) {
+            wp_send_json_error( array( 'message' => 'Date and pickup time are required.' ) );
+        }
+        if ( ! $vehicle_id || get_post_type( $vehicle_id ) !== 'tour_vehicle' ) {
+            wp_send_json_error( array( 'message' => 'Invalid vehicle selected.' ) );
+        }
+
+        // 4. Calcul / Validation du prix net
+        $is_quote_ride = ( 'Custom Quote' === $raw_price || floatval( $raw_price ) <= 0 );
+        $final_price   = 0.0;
+
+        if ( ! $is_quote_ride ) {
+            $final_price = floatval( $raw_price );
+            // Recalcul de sécurité pour le mode horaire
+            if ( 'hourly' === $mode && class_exists( 'ETB_Pricing_Engine' ) ) {
+                $final_price = ETB_Pricing_Engine::calculate_vehicle_price( $vehicle_id, $duration );
+            }
+        }
+
+        if ( ! $is_quote_ride ) {
+            $final_price = floatval( $raw_price );
+            // Recalcul de sécurité pour le mode horaire
+            if ( 'hourly' === $mode && class_exists( 'ETB_Pricing_Engine' ) ) {
+                $final_price = ETB_Pricing_Engine::calculate_vehicle_price( $vehicle_id, $duration );
+            }
+        }
+
+        // Ajout du pourboire au total final
+        $grand_total_with_tip = $final_price + $tip_amount;
+
+        $vehicle_title = get_the_title( $vehicle_id );
+        $max_pax       = absint( get_post_meta( $vehicle_id, '_etb_max_pax', true ) ?: 1 );
+        $max_bag       = absint( get_post_meta( $vehicle_id, '_etb_max_baggage', true ) ?: 0 );
+
+        // 5. Création du dossier de réservation dans WordPress (tour_booking)
+        $post_title = sprintf( 'Réservation #%s - %s', $full_name, $date );
+        $booking_id = wp_insert_post( array(
+            'post_title'  => $post_title,
+            'post_type'   => 'tour_booking',
+            'post_status' => 'pending',
+        ) );
+
+        if ( is_wp_error( $booking_id ) || ! $booking_id ) {
+            wp_send_json_error( array( 'message' => 'Could not save reservation in database.' ) );
+        }
+
+        // Enregistrement des métadonnées
+        update_post_meta( $booking_id, '_etb_customer_name', $full_name );
+        update_post_meta( $booking_id, '_etb_customer_email', $email );
+        update_post_meta( $booking_id, '_etb_customer_phone', $phone );
+        update_post_meta( $booking_id, '_etb_booking_date', $date );
+        update_post_meta( $booking_id, '_etb_booking_time', $time );
+        update_post_meta( $booking_id, '_etb_pickup_address', $pickup );
+        update_post_meta( $booking_id, '_etb_dropoff_info', ( 'hourly' === $mode ) ? sprintf( 'By the hour (%sh)', $duration ) : $dropoff );
+        update_post_meta( $booking_id, '_etb_duration_hours', ( 'hourly' === $mode ) ? $duration : 1.0 );
+        update_post_meta( $booking_id, '_etb_adults', $passengers_count );
+        update_post_meta( $booking_id, '_etb_luggage', $luggage_count );
+        update_post_meta( $booking_id, '_etb_vehicles', array( $vehicle_id => 1 ) );
+        update_post_meta( $booking_id, '_etb_base_price', $final_price );
+        update_post_meta( $booking_id, '_etb_tip_amount', $tip_amount );
+        update_post_meta( $booking_id, '_etb_tip_percentage', $tip_percentage );
+        update_post_meta( $booking_id, '_etb_total_price', $grand_total_with_tip );
+
+        // Mention du pourboire dans la note chauffeur LimoExpress
+        $tip_driver_note = '';
+        if ( $tip_amount > 0 ) {
+            $tip_driver_note = sprintf( "\n💸 POURBOIRE CHAUFFEUR INCLUS : %s € (%d%%)", number_format_i18n( $tip_amount, 2 ), $tip_percentage );
+        }
+
+        // Métadonnées exclusives Blacklane
+        update_post_meta( $booking_id, '_etb_flight_number', $flight_number );
+        update_post_meta( $booking_id, '_etb_waiting_board_text', $pickup_sign ?: $full_name );
+        update_post_meta( $booking_id, '_etb_booker_type', $booker_type );
+        update_post_meta( $booking_id, '_etb_booker_name', $booker_name );
+        update_post_meta( $booking_id, '_etb_booker_email', $booker_email );
+        update_post_meta( $booking_id, '_etb_baby_seat_count', $baby_seat_count );
+        update_post_meta( $booking_id, '_etb_cost_center', $cost_center );
+        update_post_meta( $booking_id, '_etb_note', $notes . $tip_driver_note );
+
+        // 6. Préparation des données et transmission en direct à LimoExpress
+        $dispatch_data = array(
+            'name'               => $full_name,
+            'email'              => $email,
+            'phone'              => $phone,
+            'date'               => $date,
+            'time'               => $time,
+            'pickup_address'     => $pickup,
+            'dropoff_info'       => ( 'hourly' === $mode ) ? $pickup : $dropoff,
+            'vehicles'           => array( $vehicle_id => 1 ),
+            'adults'             => $passengers_count,
+            'children'           => 0,
+            'luggage'            => $luggage_count,
+            'baby_seat_count'    => $baby_seat_count,
+            'tip_amount'         => $tip_amount,
+            'note'               => $notes . $tip_driver_note,
+            'flight_number'      => $flight_number,
+            'waiting_board_text' => $pickup_sign ?: $full_name,
+            'cost_center'        => $cost_center,
+            'pricing'            => array(
+                'grand_total'    => $grand_total_with_tip,
+                'duration_hours' => ( 'hourly' === $mode ) ? $duration : 1.0,
+            ),
+        );
+
+        if ( ! class_exists( 'ETB_Dispatcher_Manager' ) ) {
+            require_once ETB_PATH . 'includes/class-etb-dispatcher-manager.php';
+        }
+
+        $dispatch_result = ETB_Dispatcher_Manager::dispatch_booking( $booking_id, $dispatch_data );
+
+        if ( $dispatch_result['success'] ) {
+            update_post_meta( $booking_id, '_etb_limo_status', 'synced' );
+        } else {
+            update_post_meta( $booking_id, '_etb_limo_status', 'failed' );
+            update_post_meta( $booking_id, '_etb_limo_error', $dispatch_result['message'] );
+        }
+
+        // 7. Envoi des e-mails (Client + Administrateur)
+        $gen_settings    = get_option( 'etb_general_settings', array() );
+        $currency_symbol = ! empty( $gen_settings['currency'] ) ? sanitize_text_field( $gen_settings['currency'] ) : '€';
+        $admin_email     = ! empty( $gen_settings['admin_email'] ) && is_email( $gen_settings['admin_email'] ) 
+            ? sanitize_email( $gen_settings['admin_email'] ) 
+            : get_option( 'admin_email' );
+        $company_name    = get_bloginfo( 'name' );
+
+        $formatted_price = $is_quote_ride ? 'Custom Quote (Pending Dispatch)' : number_format_i18n( $final_price, 2 ) . ' ' . $currency_symbol;
+
+        $subject_client = 'Booking Confirmation #' . $booking_id . ' — ' . $company_name;
+        $message_client = '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1e293b; line-height: 1.6;">'
+            . '<div style="background: #0f172a; padding: 20px; border-radius: 8px 8px 0 0; color: #ffffff;">'
+            . '<h2 style="margin: 0; color: #fbac18;">' . esc_html( $company_name ) . '</h2>'
+            . '<p style="margin: 4px 0 0 0; font-size: 13px; color: #94a3b8;">VIP Chauffeur Reservation #' . $booking_id . '</p>'
+            . '</div>'
+            . '<div style="border: 1px solid #e2e8f0; border-top: none; padding: 24px; border-radius: 0 0 8px 8px; background: #ffffff;">'
+            . '<p>Dear <strong>' . esc_html( $full_name ) . '</strong>,</p>'
+            . '<p>Your VIP reservation has been received successfully.</p>'
+            . '<div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px; margin: 16px 0;">'
+            . '<p style="margin: 4px 0;">🚘 <strong>Vehicle:</strong> ' . esc_html( $vehicle_title ) . '</p>'
+            . '<p style="margin: 4px 0;">📍 <strong>Pickup:</strong> ' . esc_html( $pickup ) . '</p>'
+            . '<p style="margin: 4px 0;">🏁 <strong>Drop-off / Service:</strong> ' . esc_html( ( 'hourly' === $mode ) ? sprintf( 'By the hour (%sh)', $duration ) : $dropoff ) . '</p>'
+            . '<p style="margin: 4px 0;">📅 <strong>Date & Time:</strong> ' . esc_html( $date ) . ' at ' . esc_html( $time ) . '</p>'
+            . ( $flight_number ? '<p style="margin: 4px 0;">✈️ <strong>Flight:</strong> ' . esc_html( $flight_number ) . '</p>' : '' )
+            . '<p style="margin: 4px 0;">💰 <strong>Total:</strong> <strong>' . esc_html( $formatted_price ) . '</strong></p>'
+            . '</div>'
+            . '<p>Our dispatch team is assigning your professional chauffeur. You will receive SMS updates prior to pickup.</p>'
+            . '</div>'
+            . '</div>';
+
+        $headers = array( 'Content-Type: text/html; charset=UTF-8' );
+        wp_mail( $email, $subject_client, $message_client, $headers );
+
+        // 8. Réponse JSON de succès
+        $limo_id = get_post_meta( $booking_id, '_etb_limo_booking_id', true );
+        wp_send_json_success( array(
+            'booking_id' => $booking_id,
+            'limo_id'    => $limo_id ?: 'SYNCED',
+            'message'    => 'Your VIP reservation has been confirmed!',
+        ) );
+    }
 
 }

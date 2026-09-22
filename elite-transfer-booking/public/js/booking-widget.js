@@ -1153,14 +1153,46 @@
         const setupGoogleAutocomplete = (inputEl, latEl, lngEl) => {
             if (!inputEl || typeof google === 'undefined' || !google.maps || !google.maps.places) return;
 
+            const loaderEl = inputEl.parentElement ? inputEl.parentElement.querySelector('.etb-quick-input-loader') : null;
+            let typingTimer = null;
+
+            // Allumage du petit loader dès que l'utilisateur tape
+            inputEl.addEventListener('input', function () {
+                const query = this.value.trim();
+                if (query.length >= 2 && loaderEl) {
+                    loaderEl.style.display = 'block';
+                } else if (loaderEl) {
+                    loaderEl.style.display = 'none';
+                }
+
+                clearTimeout(typingTimer);
+                // Extinction de sécurité après 1.8s
+                typingTimer = setTimeout(() => {
+                    if (loaderEl) loaderEl.style.display = 'none';
+                }, 1800);
+            });
+
+            // Extinction du loader dès que Google affiche la liste de suggestions (.pac-container)
+            const pacObserver = new MutationObserver(() => {
+                const pac = document.querySelector('.pac-container');
+                if (pac && pac.style.display !== 'none' && pac.querySelector('.pac-item')) {
+                    if (loaderEl) loaderEl.style.display = 'none';
+                    clearTimeout(typingTimer);
+                }
+            });
+            pacObserver.observe(document.body, { childList: true, subtree: true, attributes: true });
+
             const options = {
                 fields: ['formatted_address', 'geometry', 'name'],
-                componentRestrictions: { country: ['fr', 'mc'] } // France & Monaco
+                componentRestrictions: { country: ['fr', 'mc'] }
             };
 
             const autocomplete = new google.maps.places.Autocomplete(inputEl, options);
 
             autocomplete.addListener('place_changed', function () {
+                if (loaderEl) loaderEl.style.display = 'none';
+                clearTimeout(typingTimer);
+
                 const place = autocomplete.getPlace();
                 if (!place.geometry || !place.geometry.location) return;
 
@@ -1170,15 +1202,18 @@
                 if (latEl) latEl.value = place.geometry.location.lat();
                 if (lngEl) lngEl.value = place.geometry.location.lng();
 
-                // Déclenche l'apparition de la croix car l'adresse est validée
                 inputEl.dispatchEvent(new Event('change'));
             });
 
-            // Empêche la touche Entrée dans Google Places de soumettre le formulaire par erreur
+            inputEl.addEventListener('blur', function () {
+                setTimeout(() => { if (loaderEl) loaderEl.style.display = 'none'; }, 300);
+            });
+
             inputEl.addEventListener('keydown', function(e) {
                 if (e.key === 'Enter') e.preventDefault();
             });
         };
+    
 
         // Branchement selon le fournisseur sélectionné dans les Réglages WP
         const pickupLatEl  = quickRoot.querySelector('#etb-quick-pickup-lat');
@@ -1386,6 +1421,12 @@
                     detailBox.style.display = 'block';
                 }
 
+                // Masquage de la mention "All inclusive" pour les véhicules sur devis
+                var allIncl = c.querySelector('.etb-quick-all-inclusive');
+                if (allIncl) {
+                    allIncl.style.display = 'none';
+                }
+
                 var kmBox = c.querySelector('.etb-quick-km-info');
                 if (kmBox) {
                     kmBox.textContent = '';
@@ -1458,6 +1499,7 @@
 
                 const originalBtnText = getPriceBtn.innerHTML;
                 getPriceBtn.disabled = true;
+                getPriceBtn.classList.add('etb-loading-glow'); // Active le faisceau lumineux tournant
                 getPriceBtn.innerHTML = '<span>Calculating...</span>';
 
                 const formData = new FormData();
@@ -1475,6 +1517,7 @@
                 .then(response => response.json())
                 .then(res => {
                     getPriceBtn.disabled = false;
+                    getPriceBtn.classList.remove('etb-loading-glow'); // Éteint le faisceau
                     getPriceBtn.innerHTML = originalBtnText;
 
                     if (res.success && res.data.pricing_data && res.data.pricing_data.length > 0) {
@@ -1500,19 +1543,56 @@
 
                             if (targetCard) {
                                 var limoPrice = Math.round(item.prices[0].price);
-                                targetCard.dataset.calculatedPrice = limoPrice;
-                                targetCard.dataset.isQuote = '0';
+                               var allInclEl = targetCard.querySelector('.etb-quick-all-inclusive');
+                                var selBtn    = targetCard.querySelector('.etb-quick-select-btn');
 
-                                var priceBox = targetCard.querySelector('.etb-quick-price-display');
-                                if (priceBox) {
-                                    priceBox.innerHTML = '<span class="etb-quick-amount">' + limoPrice + '</span> <span class="etb-quick-currency">' + currency + '</span>';
+                                // Si LimoExpress renvoie 0 € -> CUSTOM QUOTE
+                                if (limoPrice <= 0) {
+                                    targetCard.dataset.calculatedPrice = 'Custom Quote';
+                                    targetCard.dataset.isQuote = '1';
+
+                                    var priceBox = targetCard.querySelector('.etb-quick-price-display');
+                                    if (priceBox) {
+                                        priceBox.innerHTML = '<span class="etb-quick-quote-badge">Custom Quote</span>';
+                                    }
+
+                                    var priceDetailEl = targetCard.querySelector('.etb-quick-price-detail');
+                                    if (priceDetailEl) {
+                                        priceDetailEl.innerHTML = 'Tailored pricing by dispatch';
+                                        priceDetailEl.style.display = 'block';
+                                    }
+
+                                    if (allInclEl) allInclEl.style.display = 'none';
+                                    if (selBtn) selBtn.textContent = 'Request Quote';
+                                } else {
+                                    // Tarif chiffré officiel LimoExpress
+                                    targetCard.dataset.calculatedPrice = limoPrice;
+                                    targetCard.dataset.isQuote = '0';
+
+                                    var priceBox = targetCard.querySelector('.etb-quick-price-display');
+                                    if (priceBox) {
+                                        priceBox.innerHTML = '<span class="etb-quick-amount">' + limoPrice + '</span> <span class="etb-quick-currency">' + currency + '</span>';
+                                    }
+
+                                    var priceDetailEl = targetCard.querySelector('.etb-quick-price-detail');
+                                    if (priceDetailEl) {
+                                        priceDetailEl.style.display = 'none';
+                                        priceDetailEl.innerHTML = '';
+                                    }
+
+                                    if (allInclEl) {
+                                        allInclEl.style.display = 'flex';
+                                        allInclEl.textContent = 'All inclusive';
+                                    }
+                                    if (selBtn) selBtn.textContent = 'Select';
+                                
                                 }
-                                var priceDetailEl = targetCard.querySelector('.etb-quick-price-detail');
-                                if (priceDetailEl) { priceDetailEl.style.display = 'none'; }
+
                                 var kmInfoEl = targetCard.querySelector('.etb-quick-km-info');
-                                if (kmInfoEl) { kmInfoEl.textContent = ''; kmInfoEl.classList.remove('is-visible'); }
-                                var selBtn = targetCard.querySelector('.etb-quick-select-btn');
-                                if (selBtn) { selBtn.textContent = 'Select'; }
+                                if (kmInfoEl) { 
+                                    kmInfoEl.textContent = ''; 
+                                    kmInfoEl.classList.remove('is-visible'); 
+                                }
 
                                 targetCard.style.display = 'flex';
                                 targetCard.classList.remove('selected', 'etb-hidden');
@@ -1536,6 +1616,7 @@
                 .catch(err => {
                     console.error('Pricing error:', err);
                     getPriceBtn.disabled = false;
+                    getPriceBtn.classList.remove('etb-loading-glow'); // Éteint le faisceau
                     getPriceBtn.innerHTML = originalBtnText;
                     triggerCustomQuoteMode();
                 });
@@ -1563,7 +1644,7 @@
                     if (bookingBar) bookingBar.classList.remove('is-visible');
                     const btn = this.querySelector('.etb-quick-select-btn');
                     if (btn) {
-                        btn.textContent = isCarQuote ? 'Request Quote' : 'Select';
+                        btn.textContent = (this.dataset.isQuote === '1' || isQuoteMode) ? 'Request Quote' : 'Select';
                     }
                     return;
                 }
@@ -1573,17 +1654,19 @@
                     c.classList.remove('selected');
                     const b = c.querySelector('.etb-quick-select-btn');
                     if (b) {
-                        const otherIsQuote = (c.dataset.isQuote === '1' || isQuoteMode);
-                        b.textContent = otherIsQuote ? 'Request Quote' : 'Select';
+                        b.textContent = (c.dataset.isQuote === '1' || isQuoteMode) ? 'Request Quote' : 'Select';
                     }
                 });
 
                 // Active la carte cliquée
                 this.classList.add('selected');
-                const selectBtn = this.querySelector('.etb-quick-select-btn');
-                if (selectBtn) {
-                    selectBtn.textContent = '✓ Selected';
+                const activeBtn = this.querySelector('.etb-quick-select-btn');
+                if (activeBtn) {
+                    activeBtn.textContent = 'Selected';
                 }
+
+                
+               
 
                 const carName  = this.querySelector('h4')?.textContent.trim() || 'Vehicle';
                 const carPrice = this.dataset.calculatedPrice || '0';
@@ -1607,32 +1690,43 @@
                         if (bookBtnLabel) bookBtnLabel.textContent = 'Book this Trip';
                     }
 
-                    // Génération du lien WhatsApp officiel pour toutes les réservations
+                    // Données communes pour WhatsApp et Mailto
+                    const pVal     = pickupInput ? pickupInput.value.trim() : '';
+                    const dVal     = (currentMode === 'transfer' && dropoffInput) ? dropoffInput.value.trim() : `By the hour (${durationSelect ? durationSelect.value : 4}h)`;
+                    const dtVal    = dateInput ? dateInput.value.trim() : '';
+                    const tmVal    = timeInput ? timeInput.value.trim() : '';
+                    const waPhone  = (typeof etbAjax !== 'undefined' && etbAjax.company_whatsapp) ? etbAjax.company_whatsapp : '';
+                    const adminMail= (typeof etbAjax !== 'undefined' && etbAjax.admin_email) ? etbAjax.admin_email : '';
+
+                    let msg = `Hello, I would like to `;
+                    if (isCarQuote) {
+                        msg += `request a custom quote for a transfer with ${carName}.\n• From: ${pVal}\n• To: ${dVal}\n• Date: ${dtVal} at ${tmVal}\n• Note: Pending dispatch confirmation.`;
+                    } else {
+                        msg += `inquire about booking a transfer with ${carName}.\n• From: ${pVal}\n• To: ${dVal}\n• Date: ${dtVal} at ${tmVal}\n• Indicative online rate: ${carPrice} ${currency} (Subject to dispatch verification)`;
+                    }
+
+                    // 1. Mise à jour du lien WhatsApp
                     if (whatsappBtn) {
-                        const pVal = pickupInput ? pickupInput.value.trim() : '';
-                        const dVal = dropoffInput ? dropoffInput.value.trim() : '';
-                        const dtVal = dateInput ? dateInput.value.trim() : '';
-                        const tmVal = timeInput ? timeInput.value.trim() : '';
-                        const waPhone = (typeof etbAjax !== 'undefined' && etbAjax.company_whatsapp) ? etbAjax.company_whatsapp : '';
-
-                        let msg = `Hello, I would like to `;
-                        if (isCarQuote) {
-                            msg += `request a custom quote for a transfer with ${carName}.\n• From: ${pVal}\n• To: ${dVal}\n• Date: ${dtVal} at ${tmVal}\n• Note: Pending dispatch confirmation.`;
-                        } else {
-                            msg += `inquire about booking a transfer with ${carName}.\n• From: ${pVal}\n• To: ${dVal}\n• Date: ${dtVal} at ${tmVal}\n• Indicative online rate: ${carPrice} ${currency} (Subject to dispatch verification)`;
-                        }
-
                         const waText = encodeURIComponent(msg);
                         whatsappBtn.href = waPhone 
                             ? `https://wa.me/${waPhone}?text=${waText}` 
                             : `https://api.whatsapp.com/send?text=${waText}`;
                     }
 
+                    // 2. Mise à jour du lien Email Inquiry (Mailto pré-rempli)
+                    const emailInquiryBtn = quickRoot.querySelector('#etb-quick-email-btn');
+                    if (emailInquiryBtn) {
+                        const subject = encodeURIComponent(`[Inquiry] ${carName} — ${dtVal}`);
+                        const body    = encodeURIComponent(msg);
+                        emailInquiryBtn.href = `mailto:${adminMail}?subject=${subject}&body=${body}`;
+                    }
+
                     bookingBar.classList.add('is-visible');
                 }
             });
         });
-        
+
+
         // ==========================================================================
         // CONTRÔLEUR DU MICRO-MODAL VIP (EMAIL INQUIRY)
         // ==========================================================================
@@ -1878,12 +1972,11 @@
         }
         
 
-        // 5. Clic sur "Réserver ce trajet" : Redirection pré-remplie avec contrôle véhicule
+        // 5. Clic sur "Book this Trip" : Handoff vers le Checkout interne Blacklane
         if (bookNowBtn) {
             bookNowBtn.addEventListener('click', function (e) {
                 e.preventDefault();
-                
-                // Contrôle strict : un véhicule doit être obligatoirement sélectionné (English)
+
                 if (!selectedCar) {
                     showError('Please select a vehicle from the list above before proceeding.');
                     return;
@@ -1891,69 +1984,542 @@
 
                 const pickupVal  = pickupInput ? pickupInput.value.trim() : '';
                 const dropoffVal = (currentMode === 'transfer' && dropoffInput) ? dropoffInput.value.trim() : '';
-                const dateVal    = dateInput ? dateInput.value.trim() : ''; // YYYY-MM-DD
-                const timeVal    = timeInput ? timeInput.value.trim() : '09:00'; // HH:MM
+                const durVal     = (currentMode === 'hourly' && durationSelect) ? durationSelect.value : '4';
+                const dateVal    = dateInput ? dateInput.value.trim() : '';
+                const timeVal    = timeInput ? timeInput.value.trim() : '';
 
-                // Conversion de la date au format officiel exigé par le formulaire LimoExpress : DD-MM-YYYY
-                let formattedDateTime = '';
-                if (dateVal) {
-                    const dParts = dateVal.split('-');
-                    if (dParts.length === 3) {
-                        formattedDateTime = `${dParts[2]}-${dParts[1]}-${dParts[0]} ${timeVal}`;
-                    }
-                }
+                // Récupération des détails de la carte active
+                const activeCard = quickRoot.querySelector(`.etb-quick-car-item[data-id="${selectedCar.id}"]`);
+                const carImg     = activeCard ? (activeCard.querySelector('.etb-img-static')?.src || '') : '';
+                const paxCount   = activeCard ? (activeCard.dataset.maxPax || '3') : '3';
+                const bagCount   = activeCard ? (activeCard.dataset.maxBag || '2') : '2';
 
-                // Paramètres LimoExpress configurés dynamiquement dans WordPress (Zéro-Hardcode)
-                const limoBaseUrl      = (typeof etbAjax !== 'undefined' && etbAjax.limo_form_url) ? etbAjax.limo_form_url : 'https://app.limoexpress.me/public/reservation-form';
-                const limoParam        = (typeof etbAjax !== 'undefined' && etbAjax.limo_param) ? etbAjax.limo_param : '479812783e34cb527161c28bee8748d95cee8c85dd26fcdb51f1086d31b3108be443d2';
-                const oneWayTypeId     = (typeof etbAjax !== 'undefined' && etbAjax.limo_oneway_type) ? etbAjax.limo_oneway_type : 'e52e0f08-878d-4e0c-8e2d-b09225b5a0cf';
-                const hourlyRentTypeId = (typeof etbAjax !== 'undefined' && etbAjax.limo_hourly_type) ? etbAjax.limo_hourly_type : '89bc0301-9af8-4bd0-858a-998e21f0bf13';
-                
-                // Construction de l'URL avec les IDs officiels LimoExpress
+                // Stockage dans sessionStorage pour transition propre
+                const checkoutData = {
+                    mode: currentMode,
+                    pickup: pickupVal,
+                    dropoff: dropoffVal,
+                    duration: durVal,
+                    date: dateVal,
+                    time: timeVal,
+                    vehicle_id: selectedCar.id,
+                    vehicle_name: selectedCar.name,
+                    vehicle_img: carImg,
+                    pax: paxCount,
+                    bag: bagCount,
+                    price: selectedCar.price
+                };
+
+                try {
+                    sessionStorage.setItem('etb_checkout_data', JSON.stringify(checkoutData));
+                } catch (err) {}
+
+                // URL de la page Checkout configurée dans les Réglages
+                const targetCheckoutUrl = (typeof etbAjax !== 'undefined' && etbAjax.checkout_url) 
+                    ? etbAjax.checkout_url 
+                    : window.location.href;
+
                 const queryParams = new URLSearchParams({
-                    param: limoParam,
-                    from: pickupVal,
-                    language: 'en'
+                    mode: currentMode,
+                    pickup: pickupVal,
+                    dropoff: dropoffVal,
+                    duration: durVal,
+                    date: dateVal,
+                    time: timeVal,
+                    vehicle_id: selectedCar.id,
+                    vehicle_name: selectedCar.name,
+                    vehicle_img: carImg,
+                    price: selectedCar.price,
+                    pax: paxCount,
+                    bag: bagCount
                 });
 
-                // Mode 1 : Location À l'heure (Hourly rent)
-                if (currentMode === 'hourly') {
-                    const durHours = durationSelect ? durationSelect.value : '4';
-                    
-                    // Formatage de la durée au format attendu par LimoExpress : HH:MM (ex: "04:00")
-                    const formattedDuration = String(durHours).padStart(2, '0') + ':00';
+                // Redirection vers votre propre Checkout interne
+                window.location.href = `${targetCheckoutUrl}${targetCheckoutUrl.includes('?') ? '&' : '?'}${queryParams.toString()}`;
+            });
+        }        
+    };
 
-                    // L'URL accepte ces paramètres pour forcer l'onglet "Hourly" et masquer la dépose
-                    queryParams.append('booking_type_id', hourlyRentTypeId);
-                    queryParams.append('driving_type_id', '2'); // 2 = Hourly (selon la nomenclature interne de leur Vue.js)
-                    queryParams.append('duration', formattedDuration);
-                    queryParams.append('num_of_hours', durHours);
-                } 
-                // Mode 2 : Trajet simple Point A -> B
-                else {
-                    queryParams.append('booking_type_id', oneWayTypeId);
-                    if (dropoffVal) {
-                        queryParams.append('to', dropoffVal);
+    // ==========================================================================
+    // MOTEUR DU CHECKOUT BLACKLANE ([etb_checkout])
+    // ==========================================================================
+    const initCheckoutApp = function () {
+        const checkoutRoot = document.querySelector('#etb-checkout-app');
+        if (!checkoutRoot) return;
+
+        // 1. Éléments du DOM
+        const formEl          = checkoutRoot.querySelector('#etb-checkout-form');
+        const submitBtn       = checkoutRoot.querySelector('#etb-chk-submit-btn');
+        const submitText      = checkoutRoot.querySelector('#etb-chk-submit-text');
+        const feedbackEl      = checkoutRoot.querySelector('#etb-chk-feedback');
+
+        // Champs cachés du trajet
+        const modeInput       = checkoutRoot.querySelector('#etb-chk-mode');
+        const pickupInput     = checkoutRoot.querySelector('#etb-chk-pickup');
+        const dropoffInput    = checkoutRoot.querySelector('#etb-chk-dropoff');
+        const durationInput   = checkoutRoot.querySelector('#etb-chk-duration');
+        const dateInput       = checkoutRoot.querySelector('#etb-chk-date');
+        const timeInput       = checkoutRoot.querySelector('#etb-chk-time');
+        const vehicleIdInput  = checkoutRoot.querySelector('#etb-chk-vehicle-id');
+        const priceInput      = checkoutRoot.querySelector('#etb-chk-price');
+
+        // Champs passager
+        const firstNameInput  = checkoutRoot.querySelector('#etb-passenger-first-name');
+        const lastNameInput   = checkoutRoot.querySelector('#etb-passenger-last-name');
+        const pickupSignInput = checkoutRoot.querySelector('#etb-pickup-sign');
+        const airportCard     = checkoutRoot.querySelector('#etb-chk-airport-card');
+
+        // Bascule Booker Type (Myself / Guest)
+        const toggleMyself    = checkoutRoot.querySelector('#etb-toggle-myself');
+        const toggleGuest     = checkoutRoot.querySelector('#etb-toggle-guest');
+        const guestFields     = checkoutRoot.querySelector('#etb-guest-booker-fields');
+
+        // Sièges enfants
+        const seatMinusBtn    = checkoutRoot.querySelector('.etb-seat-minus');
+        const seatPlusBtn     = checkoutRoot.querySelector('.etb-seat-plus');
+        const seatInput       = checkoutRoot.querySelector('#etb-chk-baby-seats');
+
+        // Éléments de la carte récapitulative droite (Summary Sticky)
+        const sumVehicleName  = checkoutRoot.querySelector('#etb-chk-summary-vehicle-name');
+        const sumImg          = checkoutRoot.querySelector('#etb-chk-summary-img');
+        const sumPax          = checkoutRoot.querySelector('#etb-chk-pax-count');
+        const sumBag          = checkoutRoot.querySelector('#etb-chk-bag-count');
+        const sumPickup       = checkoutRoot.querySelector('#etb-chk-summary-pickup');
+        const sumDropoff      = checkoutRoot.querySelector('#etb-chk-summary-dropoff');
+        const sumDropoffRow   = checkoutRoot.querySelector('#etb-chk-timeline-dropoff-row');
+        const sumDuration     = checkoutRoot.querySelector('#etb-chk-summary-duration');
+        const sumDurationRow  = checkoutRoot.querySelector('#etb-chk-timeline-duration-row');
+        const sumDatetime     = checkoutRoot.querySelector('#etb-chk-summary-datetime');
+        const sumBasePrice    = checkoutRoot.querySelector('#etb-chk-breakdown-base');
+        const sumTotalPrice   = checkoutRoot.querySelector('#etb-chk-total-price');
+
+        const currency = (typeof etbAjax !== 'undefined' && etbAjax.currency) ? etbAjax.currency : '€';
+
+        
+        
+
+        // 2. Hydratation automatique des données (URL Query Params ou sessionStorage)
+        const hydrateFromHandoff = () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            let sessionData = {};
+
+            try {
+                const rawSession = sessionStorage.getItem('etb_checkout_data');
+                if (rawSession) sessionData = JSON.parse(rawSession);
+            } catch (e) {}
+
+            // Lecture prioritaire : URL params > Session data
+            const tripMode    = urlParams.get('mode') || sessionData.mode || 'transfer';
+            const pickupAddr  = urlParams.get('pickup') || sessionData.pickup || '';
+            const dropoffAddr = urlParams.get('dropoff') || sessionData.dropoff || '';
+            const durVal      = urlParams.get('duration') || sessionData.duration || '4';
+            const dateVal     = urlParams.get('date') || sessionData.date || '';
+            const timeVal     = urlParams.get('time') || sessionData.time || '';
+            // Détection du véhicule transmis ou sélection de secours si test direct
+            let vehicleId   = urlParams.get('vehicle_id') || sessionData.vehicle_id || '';
+            let vehicleName = urlParams.get('vehicle_name') || sessionData.vehicle_name || '';
+
+            // Si accès direct à la page de test sans passer par la recherche
+            if (!vehicleId) {
+                // On sélectionne par défaut le premier véhicule existant
+                const firstCardInput = document.querySelector('.etb-quick-car-item');
+                vehicleId = firstCardInput ? firstCardInput.dataset.id : '1';
+                vehicleName = vehicleName || 'Mercedes VIP Fleet';
+            }
+
+            const vehicleImg  = urlParams.get('vehicle_img') || sessionData.vehicle_img || '';
+            const paxCount    = urlParams.get('pax') || sessionData.pax || '3';
+            const bagCount    = urlParams.get('bag') || sessionData.bag || '2';
+            const priceVal    = urlParams.get('price') || sessionData.price || 'Custom Quote';
+
+            // Injection dans les champs cachés
+            if (modeInput) modeInput.value = tripMode;
+            if (pickupInput) pickupInput.value = pickupAddr;
+            if (dropoffInput) dropoffInput.value = dropoffAddr;
+            if (durationInput) durationInput.value = durVal;
+            if (dateInput) dateInput.value = dateVal;
+            if (timeInput) timeInput.value = timeVal;
+            if (vehicleIdInput) vehicleIdInput.value = vehicleId;
+            if (priceInput) priceInput.value = priceVal;
+
+            // Mise à jour visuelle de la carte de droite (Sticky Summary)
+            if (sumVehicleName && vehicleName) sumVehicleName.textContent = vehicleName;
+            if (sumImg && vehicleImg) {
+                sumImg.src = vehicleImg;
+                sumImg.style.display = 'block';
+            }
+            if (sumPax) sumPax.textContent = paxCount;
+            if (sumBag) sumBag.textContent = bagCount;
+            if (sumPickup) sumPickup.textContent = pickupAddr || 'To be determined';
+
+            if (tripMode === 'hourly') {
+                if (sumDropoffRow) {
+                    sumDropoffRow.classList.add('is-hidden');
+                    sumDropoffRow.style.setProperty('display', 'none', 'important');
+                }
+                if (sumDurationRow) {
+                    sumDurationRow.classList.remove('is-hidden');
+                    sumDurationRow.style.setProperty('display', 'flex', 'important');
+                    if (sumDuration) sumDuration.textContent = `${durVal} Hours rental`;
+                }
+            } else {
+                // En mode One-Way : DURATION est 100 % masqué
+                if (sumDurationRow) {
+                    sumDurationRow.classList.add('is-hidden');
+                    sumDurationRow.style.setProperty('display', 'none', 'important');
+                }
+                if (sumDropoffRow) {
+                    sumDropoffRow.classList.remove('is-hidden');
+                    sumDropoffRow.style.setProperty('display', 'flex', 'important');
+                    if (sumDropoff) sumDropoff.textContent = dropoffAddr || 'To be determined';
+                }
+            }
+
+            if (sumDatetime) {
+                sumDatetime.textContent = (dateVal && timeVal) ? `${dateVal} at ${timeVal}` : 'To be determined';
+            }
+
+            const formattedPrice = (priceVal === 'Custom Quote' || parseFloat(priceVal) <= 0) ? 'Custom Quote' : `${priceVal} ${currency}`;
+            if (sumBasePrice) sumBasePrice.textContent = formattedPrice;
+            if (sumTotalPrice) sumTotalPrice.textContent = formattedPrice;
+
+            // 3. Détection aéroport intelligente & contextuelle (Arrivée vs Dépose)
+            const checkAirportKeywords = (str) => {
+                if (!str) return false;
+                const airportRegex = /\b(airport|aeroport|aéroport|terminal|aeropuerto|flughafen|nce|cdg|ory|heathrow|gatwick|jfk)\b/i;
+                return airportRegex.test(str);
+            };
+
+            if (airportCard) {
+                const isPickupAirport  = checkAirportKeywords(pickupAddr);
+                const isDropoffAirport = checkAirportKeywords(dropoffAddr);
+
+                const airportTitle = checkoutRoot.querySelector('#etb-chk-airport-title');
+                const airportDesc  = checkoutRoot.querySelector('#etb-chk-airport-desc');
+                const flightLabel  = checkoutRoot.querySelector('#etb-chk-flight-label');
+                const flightHint   = checkoutRoot.querySelector('#etb-chk-flight-hint');
+                const signField    = checkoutRoot.querySelector('#etb-chk-sign-field');
+                const airportGrid  = checkoutRoot.querySelector('#etb-chk-airport-grid');
+
+                const waitTimeText = checkoutRoot.querySelector('#etb-chk-wait-time-text');
+
+                // CAS 1 : ARRIVÉE À L'AÉROPORT (Pickup est un aéroport -> 60 min d'attente)
+                if (isPickupAirport) {
+                    airportCard.style.display = 'block';
+                    if (airportTitle) airportTitle.textContent = 'Airport Arrival & Greeting';
+                    if (airportDesc)  airportDesc.textContent  = 'Real-time flight tracking included. Your chauffeur tracks your flight and adjusts pickup time automatically in case of delays.';
+                    if (flightLabel)  flightLabel.textContent  = 'Airline & Flight Number (e.g. AF 7704)';
+                    if (flightHint)   flightHint.textContent   = '60 minutes complimentary wait time included after flight landing.';
+                    if (signField)    signField.style.display  = 'block';
+                    if (airportGrid)  airportGrid.style.gridTemplateColumns = '';
+
+                    // 60 minutes d'attente gratuite en cas d'arrivée d'avion
+                    if (waitTimeText) {
+                        waitTimeText.textContent = '60 min complimentary wait time included (flight tracking)';
                     }
                 }
+                // CAS 2 : DÉPOSE À L'AÉROPORT (Drop-off est un aéroport -> Départ standard = 15 min)
+                else if (isDropoffAirport) {
+                    airportCard.style.display = 'block';
+                    if (airportTitle) airportTitle.textContent = 'Airport Drop-off & Departure Terminal';
+                    if (airportDesc)  airportDesc.textContent  = 'Helps your chauffeur drop you off directly in front of the correct departures terminal gate.';
+                    if (flightLabel)  flightLabel.textContent  = 'Flight Number or Departure Terminal (Optional)';
+                    if (flightHint)   flightHint.textContent   = 'e.g. Terminal 2E, AF 7704 — Ensures a seamless curbside drop-off.';
+                    if (signField) {
+                        signField.style.display = 'none';
+                        const signInput = signField.querySelector('input');
+                        if (signInput) signInput.value = '';
+                    }
+                    if (airportGrid)  airportGrid.style.gridTemplateColumns = '1fr';
 
+                    // Départ depuis un hôtel/domicile -> 15 min d'attente standard
+                    if (waitTimeText) {
+                        waitTimeText.textContent = '15 min complimentary wait time included';
+                    }
+                }
+                // CAS 3 : TRAJET DE VILLE À VILLE SANS AÉROPORT (15 min standard)
+                else {
+                    airportCard.style.display = 'none';
+                    if (waitTimeText) {
+                        waitTimeText.textContent = '15 min complimentary wait time included';
+                    }
+                }
+            }
+            // 4. Initialisation et mémorisation du plafond maximal
+            const maxPaxAllowed = parseInt(paxCount, 10) || 3;
+            const maxBagAllowed = parseInt(bagCount, 10) || 2;
 
-                if (formattedDateTime) {
-                    queryParams.append('pickup_time', formattedDateTime);
+            const paxHint = checkoutRoot.querySelector('#etb-chk-max-pax-hint');
+            const bagHint = checkoutRoot.querySelector('#etb-chk-max-bag-hint');
+            if (paxHint) paxHint.textContent = `Max: ${maxPaxAllowed}`;
+            if (bagHint) bagHint.textContent = `Max: ${maxBagAllowed}`;
+
+            const paxInput = checkoutRoot.querySelector('#etb-chk-pax-input');
+            const bagInput = checkoutRoot.querySelector('#etb-chk-bag-input');
+            
+            if (paxInput) {
+                paxInput.value = '1';
+                paxInput.dataset.max = maxPaxAllowed; // Plafond immuable
+            }
+            if (bagInput) {
+                bagInput.value = Math.min(1, maxBagAllowed);
+                bagInput.dataset.max = maxBagAllowed; // Plafond immuable
+            }
+
+            // 5. Initialisation du calcul du Pourboire Chauffeur (Driver Tip)
+            let baseNumericPrice = parseFloat(priceVal) || 0;
+            const isQuoteRide    = (priceVal === 'Custom Quote' || baseNumericPrice <= 0);
+
+            const tipPills       = checkoutRoot.querySelectorAll('.etb-tip-pill');
+            const tipAmountInput = checkoutRoot.querySelector('#etb-chk-tip-amount');
+            const tipRow         = checkoutRoot.querySelector('#etb-chk-tip-row');
+            const tipPercentText = checkoutRoot.querySelector('#etb-chk-tip-percent');
+            const tipBreakdown   = checkoutRoot.querySelector('#etb-chk-breakdown-tip');
+
+            const recalculateTotalWithTip = (tipPercent) => {
+                if (isQuoteRide) {
+                    if (tipRow) {
+                        tipRow.classList.remove('is-visible');
+                        tipRow.style.setProperty('display', 'none', 'important');
+                    }
+                    if (tipAmountInput) tipAmountInput.value = '0';
+                    if (sumTotalPrice) sumTotalPrice.textContent = 'Custom Quote';
+                    return;
                 }
 
-                const finalUrl = `${limoBaseUrl}?${queryParams.toString()}`;
+                const tipVal = Math.round((baseNumericPrice * (tipPercent / 100)) * 100) / 100;
+                if (tipAmountInput) tipAmountInput.value = tipVal;
 
-                // Ouverture propre dans un nouvel onglet
-                window.open(finalUrl, '_blank');
+                if (tipVal > 0) {
+                    if (tipRow) {
+                        tipRow.classList.add('is-visible');
+                        tipRow.style.setProperty('display', 'flex', 'important');
+                    }
+                    if (tipPercentText) tipPercentText.textContent = `${tipPercent}%`;
+                    if (tipBreakdown) tipBreakdown.textContent = `+ ${tipVal.toFixed(2)} ${currency}`;
+                    if (sumTotalPrice) sumTotalPrice.textContent = `${(baseNumericPrice + tipVal).toFixed(2)} ${currency}`;
+                } else {
+                    // Quand "None" est choisi (tipVal === 0) : disparition nette de la ligne
+                    if (tipRow) {
+                        tipRow.classList.remove('is-visible');
+                        tipRow.style.setProperty('display', 'none', 'important');
+                    }
+                    if (tipAmountInput) tipAmountInput.value = '0';
+                    if (sumTotalPrice) sumTotalPrice.textContent = `${baseNumericPrice.toFixed(0)} ${currency}`;
+                }
+            };
+
+            // Écouteur de clic sur les pilules de pourboire
+            tipPills.forEach(pill => {
+                pill.addEventListener('click', function () {
+                    tipPills.forEach(p => p.classList.remove('active'));
+                    this.classList.add('active');
+
+                    const radio = this.querySelector('input[type="radio"]');
+                    if (radio) radio.checked = true;
+
+                    const percent = parseInt(this.dataset.tip, 10) || 0;
+                    recalculateTotalWithTip(percent);
+                });
+            });
+        };
+
+        hydrateFromHandoff();
+
+        // 6. Bascule Blacklane : Myself vs Guest
+        if (toggleMyself && toggleGuest && guestFields) {
+            toggleMyself.addEventListener('click', function () {
+                toggleMyself.classList.add('active');
+                toggleGuest.classList.remove('active');
+                guestFields.style.display = 'none';
+            });
+
+            toggleGuest.addEventListener('click', function () {
+                toggleGuest.classList.add('active');
+                toggleMyself.classList.remove('active');
+                guestFields.style.display = 'block';
             });
         }
+
+        // 7. Auto-remplissage de la pancarte chauffeur
+        const updateGreetingSign = () => {
+            const fName = firstNameInput ? firstNameInput.value.trim() : '';
+            const lName = lastNameInput ? lastNameInput.value.trim() : '';
+            if (pickupSignInput && !pickupSignInput.dataset.manualEdit) {
+                if (fName || lName) {
+                    pickupSignInput.value = `Mr./Ms. ${lName || fName}`;
+                }
+            }
+        };
+
+        if (firstNameInput) firstNameInput.addEventListener('input', updateGreetingSign);
+        if (lastNameInput) lastNameInput.addEventListener('input', updateGreetingSign);
+        if (pickupSignInput) {
+            pickupSignInput.addEventListener('input', function () {
+                this.dataset.manualEdit = '1';
+            });
+        }
+
+        // 8. Contrôle des compteurs Passagers et Bagages (Plafond fixe et déblocage total)
+        const paxMinusBtn = checkoutRoot.querySelector('.etb-pax-minus');
+        const paxPlusBtn  = checkoutRoot.querySelector('.etb-pax-plus');
+        const paxInputEl  = checkoutRoot.querySelector('#etb-chk-pax-input');
+
+        const bagMinusBtn = checkoutRoot.querySelector('.etb-bag-minus');
+        const bagPlusBtn  = checkoutRoot.querySelector('.etb-bag-plus');
+        const bagInputEl  = checkoutRoot.querySelector('#etb-chk-bag-input');
+
+        if (paxMinusBtn && paxPlusBtn && paxInputEl) {
+            paxMinusBtn.addEventListener('click', function () {
+                let val = parseInt(paxInputEl.value, 10) || 1;
+                if (val > 1) {
+                    paxInputEl.value = val - 1;
+                    if (sumPax) sumPax.textContent = paxInputEl.value;
+                }
+            });
+
+            paxPlusBtn.addEventListener('click', function () {
+                let val = parseInt(paxInputEl.value, 10) || 1;
+                const maxLimit = parseInt(paxInputEl.dataset.max, 10) || 3;
+                if (val < maxLimit) {
+                    paxInputEl.value = val + 1;
+                    if (sumPax) sumPax.textContent = paxInputEl.value;
+                }
+            });
+        }
+
+        if (bagMinusBtn && bagPlusBtn && bagInputEl) {
+            bagMinusBtn.addEventListener('click', function () {
+                let val = parseInt(bagInputEl.value, 10) || 0;
+                if (val > 0) {
+                    bagInputEl.value = val - 1;
+                    if (sumBag) sumBag.textContent = bagInputEl.value;
+                }
+            });
+
+            bagPlusBtn.addEventListener('click', function () {
+                let val = parseInt(bagInputEl.value, 10) || 0;
+                const maxLimit = parseInt(bagInputEl.dataset.max, 10) || 2;
+                if (val < maxLimit) {
+                    bagInputEl.value = val + 1;
+                    if (sumBag) sumBag.textContent = bagInputEl.value;
+                }
+            });
+        }
+
+        // 9. Contrôle des sièges enfants (+/-)
+        if (seatMinusBtn && seatPlusBtn && seatInput) {
+            seatMinusBtn.addEventListener('click', function () {
+                let val = parseInt(seatInput.value, 10) || 0;
+                if (val > 0) seatInput.value = val - 1;
+            });
+
+            seatPlusBtn.addEventListener('click', function () {
+                let val = parseInt(seatInput.value, 10) || 0;
+                if (val < 4) seatInput.value = val + 1;
+            });
+        }
+
+        // 10. Soumission AJAX du Checkout
+        if (submitBtn) {
+            submitBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                if (feedbackEl) feedbackEl.style.display = 'none';
+
+                const fNameVal = firstNameInput ? firstNameInput.value.trim() : '';
+                const lNameVal = lastNameInput ? lastNameInput.value.trim() : '';
+                const emailVal = checkoutRoot.querySelector('#etb-passenger-email')?.value.trim() || '';
+                const phoneVal = checkoutRoot.querySelector('#etb-passenger-phone')?.value.trim() || '';
+                const vehicleId = vehicleIdInput ? vehicleIdInput.value : '';
+
+                if (!fNameVal || !lNameVal) {
+                    return showFeedback('Please enter the passenger first and last name.', 'error');
+                }
+                if (!emailVal || !emailVal.includes('@')) {
+                    return showFeedback('Please enter a valid email address for ride confirmation.', 'error');
+                }
+                if (!phoneVal) {
+                    return showFeedback('Please enter a mobile phone number for chauffeur SMS updates.', 'error');
+                }
+                if (!vehicleId) {
+                    return showFeedback('No vehicle selected. Please return and choose a vehicle.', 'error');
+                }
+
+                const originalText = submitText ? submitText.textContent : 'Confirm & Book Now';
+                submitBtn.disabled = true;
+                if (submitText) submitText.textContent = 'Securing & Dispatching...';
+
+                const formData = new FormData(formEl);
+                formData.append('action', 'etb_submit_checkout');
+                formData.append('nonce', etbAjax.nonce);
+
+                const tipAmountInput = checkoutRoot.querySelector('#etb-chk-tip-amount');
+                const activeTipRadio = checkoutRoot.querySelector('input[name="etb_driver_tip"]:checked');
+                formData.set('etb_tip_amount', tipAmountInput ? tipAmountInput.value : '0');
+                formData.set('etb_driver_tip', activeTipRadio ? activeTipRadio.value : '0');
+
+                fetch(etbAjax.ajax_url, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(function (response) {
+                    return response.json();
+                })
+                .then(function (res) {
+                    submitBtn.disabled = false;
+                    if (submitText) submitText.textContent = originalText;
+
+                    if (res.success) {
+                        try { sessionStorage.removeItem('etb_checkout_data'); } catch (e) {}
+
+                        const homeReturnUrl = (typeof etbAjax !== 'undefined' && etbAjax.home_url) 
+                            ? etbAjax.home_url 
+                            : (window.location.origin + '/');
+
+                        const leftCol = checkoutRoot.querySelector('.etb-checkout-left-col');
+                        if (leftCol) {
+                            leftCol.innerHTML = '<div class="etb-checkout-card" style="text-align: center; padding: 45px 30px; border-color: #16a34a; background: #0b1410;">'
+                                + '<div style="display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; background: rgba(34, 197, 94, 0.15); border: 2px solid #22c55e; border-radius: 50%; margin-bottom: 18px; color: #4ade80;">'
+                                + '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>'
+                                + '</div>'
+                                + '<h2 style="color: #4ade80; font-size: 24px; font-weight: 800; margin: 0 0 10px 0;">Reservation Confirmed!</h2>'
+                                + '<p style="color: #cbd5e1; font-size: 15px; margin-bottom: 25px; line-height: 1.5;">'
+                                + 'Your VIP transfer dossier <strong>#' + res.data.booking_id + '</strong> has been created and dispatched to LimoExpress (Course <strong>#' + res.data.limo_id + '</strong>).'
+                                + '</p>'
+                                + '<div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 18px; margin-bottom: 30px; text-align: left; font-size: 13px; color: #cbd5e1; line-height: 1.6;">'
+                                + '<p style="margin: 6px 0;">An official confirmation receipt has been sent to <strong>' + emailVal + '</strong>.</p>'
+                                + '<p style="margin: 6px 0;">Your chauffeur will send an SMS notification prior to pickup.</p>'
+                                + '</div>'
+                                + '<a href="' + homeReturnUrl + '" class="etb-chk-submit-btn" style="text-decoration: none; display: inline-flex; width: auto; padding: 14px 35px;">Return to Home</a>'
+                                + '</div>';
+                        }
+                    } else {
+                        showFeedback(res.data.message || 'An error occurred during booking dispatch.', 'error');
+                    }
+                })
+                .catch(function (err) {
+                    console.error('Checkout error:', err);
+                    submitBtn.disabled = false;
+                    if (submitText) submitText.textContent = originalText;
+                    showFeedback('Communication error. Please try again.', 'error');
+                });
+            });
+        }
+
+        const showFeedback = function (msg, type) {
+            if (!feedbackEl) return;
+            feedbackEl.textContent = msg;
+            feedbackEl.className = 'etb-chk-feedback is-' + type;
+            feedbackEl.style.display = 'block';
+            feedbackEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        };
     };
 
     // Lancement universel au chargement de la page
     const startApp = function () {
-        init();            // Initialise le layout classique des circuits (si présent)
-        initQuickWidget();   // Initialise le widget minimal [etb_transfer] (si présent)
+        init();            // Initialise les circuits
+        initQuickWidget();   // Initialise le widget minimal [etb_transfer]
+        initCheckoutApp();  // Initialise le Checkout [etb_checkout]
     };
 
     if (document.readyState === 'loading') {
@@ -1962,6 +2528,7 @@
         startApp();
     }
 })();
+
 
 
 
