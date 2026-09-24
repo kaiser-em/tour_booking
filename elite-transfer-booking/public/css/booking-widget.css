@@ -1903,15 +1903,23 @@
 }
 
 
-/* 4. Rangée des 5 Équipements VIP (Climate, Water, Comfort, Safety, Wifi) */
+/* 4. Rangée des 6 Équipements VIP (Climate, Water, Comfort, Safety, Wifi, Baby seat) */
 .etb-quick-amenities {
     display: grid !important;
-    grid-template-columns: repeat(5, 1fr) !important;
-    gap: 5px !important;
-    padding: 5px 0 !important;
-    margin-bottom: 10px !important;
-    margin-top: 10px !important;
+    grid-template-columns: repeat(6, 1fr) !important;
+    gap: 4px !important;
+    padding: 12px 0 !important;
+    margin-bottom: 16px !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.etb-amenity-col small {
+    font-size: 9px !important;
+    font-weight: 600 !important;
+    color: #94a3b8 !important;
+    letter-spacing: 0.01em !important;
+    white-space: nowrap !important;
 }
 
 
@@ -2902,6 +2910,7 @@
 }
 
 .etb-chk-field input:focus,
+.etb-chk-field select:focus,
 .etb-chk-field textarea:focus {
     border-color: #fbac18 !important;
     box-shadow: 0 0 0 3px rgba(251, 172, 24, 0.15) !important;
@@ -3426,6 +3435,460 @@
     border: 1px solid #16a34a !important;
     color: #4ade80 !important;
 }
+/* ==========================================================================
+   MODULE DE PAIEMENT SÉCURISÉ EDEN CAB / STRIPE (ÉTAPE 2)
+   ========================================================================== */
+
+/* Animation d'apparition du panneau */
+.etb-chk-step-panel {
+    animation: etbPanelSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+@keyframes etbPanelSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-15px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Lien retour vers l'Étape 1 */
+.etb-chk-step-back-link {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    color: #94a3b8 !important;
+    text-decoration: none !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    margin-bottom: 16px !important;
+    transition: color 0.2s ease !important;
+}
+
+.etb-chk-step-back-link:hover {
+    color: #fbac18 !important;
+}
+
+.etb-chk-step-back-link .dashicons {
+    font-size: 15px !important;
+    width: 15px !important;
+    height: 15px !important;
+}
+
+/* En-tête de marque EDEN CAB */
+.etb-payment-company-header {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    padding-bottom: 16px !important;
+    margin-bottom: 20px !important;
+}
+
+.etb-payment-logo-wrap {
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.etb-payment-brand-title {
+    font-size: 20px !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.1em !important;
+    color: #ffffff !important;
+}
+
+.etb-payment-brand-sub {
+    font-size: 11px !important;
+    color: #fbac18 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.15em !important;
+    font-weight: 700 !important;
+}
+
+.etb-payment-company-address p {
+    margin: 0 !important;
+    font-size: 11px !important;
+    color: #94a3b8 !important;
+    text-align: right !important;
+    line-height: 1.4 !important;
+}
+
+/* ==========================================================================
+   BOUCLIER ANTI-THÈME TOTAL : TYPOGRAPHIE INTER, COULEURS & MANDAT VIP
+   ========================================================================== */
+
+/* A. Forcer la police moderne Inter sur TOUT le Checkout (élimine les polices serif du thème) */
+#etb-checkout-app,
+#etb-checkout-app *,
+.etb-checkout-wrapper,
+.etb-checkout-wrapper * {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    text-shadow: none !important;
+}
+
+/* Protection indispensable de la police d'icônes Dashicons (flèches, valises, utilisateurs) */
+#etb-checkout-app .dashicons,
+.etb-checkout-wrapper .dashicons {
+    font-family: dashicons !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    vertical-align: middle !important;
+    line-height: 1 !important;
+}
+
+
+/* B. Neutraliser la couleur bleue du thème sur les balises <strong> */
+#etb-checkout-app strong,
+.etb-checkout-wrapper strong {
+    color: #ffffff !important;
+}
+
+/* C. Tableau comptable gauche : Grand Total blanc et Total Due Now en Or */
+.etb-payment-breakdown-box {
+    background: rgba(255, 255, 255, 0.02) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 12px !important;
+    padding: 16px 20px !important;
+    margin-bottom: 22px !important;
+}
+
+.etb-payment-breakdown-box h4 {
+    margin: 0 0 12px 0 !important;
+    font-size: 14px !important;
+    font-weight: 800 !important;
+    color: #ffffff !important;
+    letter-spacing: 0.03em !important;
+}
+
+.etb-payment-ledger-row {
+    display: flex;
+    justify-content: space-between !important;
+    align-items: center !important;
+    font-size: 13px !important;
+    color: #cbd5e1 !important;
+    margin-bottom: 7px !important;
+}
+
+.etb-payment-ledger-row span {
+    color: #cbd5e1 !important;
+}
+
+.etb-payment-ledger-divider {
+    height: 1px !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    margin: 10px 0 !important;
+}
+
+/* Grand Total : forcer le blanc pur (plus de bleu foncé) */
+.etb-payment-ledger-row.etb-ledger-grand-total span,
+.etb-payment-ledger-row.etb-ledger-grand-total strong,
+#etb-pay-grand-total {
+    font-size: 14px !important;
+    color: #ffffff !important;
+    font-weight: 800 !important;
+}
+
+/* Total Due Now : forcer l'or ambré */
+.etb-payment-ledger-row.etb-ledger-due strong:first-child {
+    font-size: 15px !important;
+    color: #ffffff !important;
+}
+
+.etb-payment-ledger-row.etb-ledger-due strong:last-child,
+#etb-pay-total-due {
+    color: #fbac18 !important;
+    font-size: 20px !important;
+    font-weight: 900 !important;
+}
+
+/* Pourboire vert dans la colonne droite (sans couleur bleue du thème) */
+#etb-chk-tip-row,
+#etb-chk-tip-row span,
+#etb-chk-tip-row strong,
+#etb-chk-tip-percent {
+    color: #4ade80 !important;
+}
+
+/* D. Formulaire Carte Bancaire */
+.etb-payment-section-title {
+    font-size: 15px !important;
+    font-weight: 800 !important;
+    color: #ffffff !important;
+    margin: 0 0 16px 0 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+}
+
+.etb-card-label-row {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    margin-bottom: 6px !important;
+}
+
+.etb-card-brand-icons {
+    display: flex !important;
+    gap: 4px !important;
+}
+
+.etb-brand-badge {
+    font-size: 9px !important;
+    font-weight: 800 !important;
+    padding: 3px 7px !important;
+    border-radius: 4px !important;
+    background: #1e2638 !important;
+    border: 1px solid #333f57 !important;
+    color: #64748b !important;
+    letter-spacing: 0.05em !important;
+    transition: all 0.2s ease !important;
+}
+
+.etb-brand-badge.active {
+    background: #fbac18 !important;
+    border-color: #fbac18 !important;
+    color: #0f172a !important;
+    font-weight: 900 !important;
+    box-shadow: 0 0 12px rgba(251, 172, 24, 0.45) !important;
+    transform: scale(1.08) !important;
+}
+
+.etb-card-input-wrapper {
+    position: relative !important;
+    width: 100% !important;
+}
+
+/* Boîtier Sécurisé Stripe Elements (Dark Mode VIP) */
+.etb-stripe-mount-box {
+    background: #151b29 !important;
+    border: 1.5px solid #28334b !important;
+    border-radius: 10px !important;
+    padding: 13px 14px !important;
+    transition: all 0.2s ease !important;
+    box-sizing: border-box !important;
+    min-height: 44px !important;
+}
+
+/* État actif : liseré or ambré quand le client tape sa carte */
+.etb-stripe-mount-box.StripeElement--focus {
+    border-color: #fbac18 !important;
+    box-shadow: 0 0 0 3px rgba(251, 172, 24, 0.15) !important;
+}
+
+/* État carte invalide : liseré rouge */
+.etb-stripe-mount-box.StripeElement--invalid {
+    border-color: #f87171 !important;
+}
+
+.etb-card-input-wrapper input {
+    padding-right: 38px !important;
+    letter-spacing: 0.08em !important;
+    font-family: monospace, -apple-system, sans-serif !important;
+    font-size: 14px !important;
+}
+
+.etb-card-input-wrapper .dashicons {
+    position: absolute !important;
+    right: 12px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    color: #64748b !important;
+    font-size: 16px !important;
+    width: 16px !important;
+    height: 16px !important;
+    pointer-events: none !important;
+}
+
+/* ==========================================================================
+   E. DOMPTAGE DU COMPOSANT THEME "NICE-SELECT" EN DARK MODE VIP
+   ========================================================================== */
+
+/* ==========================================================================
+   E. MENU PAYS CUSTOM VIP (100% IMMUNISÉ CONTRE LES SCRIPTS DE THÈMES)
+   ========================================================================== */
+
+/* Boîte fermée (identique aux inputs de carte bancaire) */
+.etb-chk-field .etb-custom-select {
+    position: relative !important;
+    width: 100% !important;
+    user-select: none !important;
+}
+
+.etb-chk-field .etb-custom-select-trigger {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    background: #151b29 !important;
+    border: 1.5px solid #28334b !important;
+    border-radius: 10px !important;
+    height: 44px !important;
+    padding: 0 14px !important;
+    color: #ffffff !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    box-sizing: border-box !important;
+}
+
+.etb-chk-field .etb-custom-select-trigger:hover,
+.etb-chk-field .etb-custom-select.is-open .etb-custom-select-trigger {
+    border-color: #fbac18 !important;
+    box-shadow: 0 0 0 3px rgba(251, 172, 24, 0.15) !important;
+}
+
+/* Flèche dorée */
+.etb-chk-field .etb-custom-select-trigger .dashicons {
+    color: #fbac18 !important;
+    font-size: 16px !important;
+    width: 16px !important;
+    height: 16px !important;
+    transition: transform 0.25s ease !important;
+}
+
+.etb-chk-field .etb-custom-select.is-open .etb-custom-select-trigger .dashicons {
+    transform: rotate(180deg) !important;
+}
+
+/* Liste déroulante ouverte (Fond noir nuit #0f1420 avec ombre et scroll) */
+.etb-chk-field .etb-custom-select-options {
+    position: absolute !important;
+    top: 100% !important;
+    left: 0 !important;
+    width: 100% !important;
+    background: #0f1420 !important;
+    border: 1.5px solid #28334b !important;
+    border-radius: 10px !important;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.8) !important;
+    margin-top: 6px !important;
+    max-height: 240px !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+    display: none !important;
+    flex-direction: column !important;
+    z-index: 99999 !important;
+    box-sizing: border-box !important;
+}
+
+.etb-chk-field .etb-custom-select.is-open .etb-custom-select-options {
+    display: flex !important;
+}
+
+/* Chaque pays dans la liste */
+.etb-chk-field .etb-custom-option {
+    padding: 10px 14px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: #cbd5e1 !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+}
+
+.etb-chk-field .etb-custom-option:hover {
+    background: #1e2638 !important;
+    color: #fbac18 !important;
+}
+
+.etb-chk-field .etb-custom-option.selected {
+    background: #141b2b !important;
+    color: #fbac18 !important;
+    font-weight: 800 !important;
+    border-left: 3px solid #fbac18 !important;
+}
+/* ==========================================================================
+   F. CASE À COCHER SUR-MESURE VIP (NE DEVIENT JAMAIS BLANCHE QUAND DÉCOCHÉE)
+   ========================================================================== */
+.etb-payment-mandate-box {
+    display: block !important;
+    width: 100% !important;
+    clear: both !important;
+    float: none !important;
+    background: rgba(255, 255, 255, 0.02) !important;
+    border: 1px solid rgba(255, 255, 255, 0.07) !important;
+    border-radius: 12px !important;
+    padding: 16px 18px !important;
+    margin-top: 20px !important;
+    position: static !important;
+    box-sizing: border-box !important;
+}
+
+.etb-mandate-label {
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+    cursor: pointer !important;
+    width: 100% !important;
+    color: #ffffff !important;
+    margin: 0 !important;
+    user-select: none !important;
+}
+
+/* Case à cocher personnalisée : dessinée en pur CSS (zéro blanc natif) */
+.etb-mandate-label input[type="checkbox"] {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    width: 18px !important;
+    height: 18px !important;
+    min-width: 18px !important;
+    margin: 2px 0 0 0 !important;
+    background-color: #151b29 !important;
+    border: 1.5px solid #333f57 !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: all 0.2s ease !important;
+    flex-shrink: 0 !important;
+    position: relative !important;
+}
+
+/* Survol de la case */
+.etb-mandate-label:hover input[type="checkbox"] {
+    border-color: #fbac18 !important;
+}
+
+/* Quand la case est cochée : fond or ambré et crochet noir net */
+.etb-mandate-label input[type="checkbox"]:checked {
+    background-color: #fbac18 !important;
+    border-color: #fbac18 !important;
+}
+
+.etb-mandate-label input[type="checkbox"]:checked::after {
+    content: '' !important;
+    display: block !important;
+    width: 4px !important;
+    height: 9px !important;
+    border: solid #0f172a !important;
+    border-width: 0 2.5px 2.5px 0 !important;
+    transform: rotate(45deg) !important;
+    margin-top: -2px !important;
+}
+
+.etb-mandate-label span,
+.etb-mandate-label strong {
+    font-size: 13px !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    line-height: 1.4 !important;
+    white-space: normal !important;
+}
+
+.etb-mandate-legal-text {
+    display: block !important;
+    width: 100% !important;
+    font-size: 11px !important;
+    color: #94a3b8 !important;
+    line-height: 1.55 !important;
+    margin: 10px 0 0 0 !important;
+    padding-top: 10px !important;
+    border-top: 1px dashed rgba(255, 255, 255, 0.08) !important;
+    white-space: normal !important;
+}
 
 /* 6. Adaptation Mobile & Tablette */
 @media (max-width: 900px) {
@@ -3442,7 +3905,6 @@
         position: static !important;
     }
 }
-
 
 
 

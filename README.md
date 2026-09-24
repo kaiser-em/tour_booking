@@ -1,81 +1,106 @@
 
-# 🚗 Elite Transfer Booking (Unified) — Manuel d'Exploitation v2.1.0
+# 🚗 Elite Transfer Booking  — Manuel d'Exploitation v2.2.0
 
-Extension WordPress professionnelle dédiée à la réservation d'excursions touristiques privées, circuits multi-villes et transferts VTC VIP, avec synchronisation temps réel vers la plateforme de dispatch **LimoExpress**.
+Extension WordPress professionnelle dédiée à la réservation de transferts VTC VIP, excursions privées et circuits, avec synchronisation en temps réel vers votre plateforme de dispatch **LimoExpress** et sécurisation bancaire **Stripe**.
 
 ---
 
 ## 📋 Table des matières
 
-1. [Prérequis](#-prérequis)
-2. [Installation Rapide](#-installation-rapide)
-3. [Configuration du Tunnel de Réservation Complet](#-configuration-du-tunnel-de-réservation-complet)
+1. [Philosophie : LimoExpress Tour de Contrôle](#-philosophie--limoexpress-tour-de-contrôle)
+2. [Installation & Configuration Rapide](#-installation--configuration-rapide)
+3. [Configuration de la Passerelle Stripe](#-configuration-de-la-passerelle-stripe)
+4. [Configuration du Tunnel de Réservation](#-configuration-du-tunnel-de-réservation)
    - [Étape 1 : Le Widget d'Accueil [etb_transfer]](#étape-1--le-widget-daccueil-etb_transfer)
-   - [Étape 2 : La Page de Checkout [etb_checkout]](#étape-2--la-page-de-checkout-etb_checkout)
-   - [Étape 3 : Relier le bouton de réservation](#étape-3--lier-la-page-dans-les-réglages)
-4. [Intégration WhatsApp & Devis E-mail](#-intégration-whatsapp--devis-e-mail)
-5. [Liaison LimoExpress & Pourboires (Gratuity)](#-liaison-limoexpress--pourboires-gratuity)
+   - [Étape 2 : Le Checkout VIP Blacklane [etb_checkout]](#étape-2--le-checkout-vip-blacklane-etb_checkout)
+5. [Comment Gérer vos Courses dans LimoExpress](#-comment-gérer-vos-courses-dans-limoexpress)
 6. [Guide des Shortcodes Officiels](#-guide-des-shortcodes-officiels)
 
 ---
 
-## ⚡ Prérequis
+## 🏛️ Philosophie : LimoExpress Tour de Contrôle
 
-* **WordPress** : Version 5.8 ou supérieure (certifié WP 6.x).
-* **PHP** : Version 7.4, 8.0, 8.1 ou 8.2+.
-* **Dépendances** : **0 dépendance** (Vanilla JS natif, CSS3 isolé, SVG vectoriel pur).
+Ce plugin a été conçu pour simplifier votre quotidien :
+* **WordPress** gère l'acquisition client, le calcul des tarifs en direct et l'expérience de réservation haut de gamme en marque blanche.
+* **LimoExpress** est votre **seul outil de travail quotidien** : vous gérez vos chauffeurs, vos plannings, vos factures et vos encaissements directement sur `app.limoexpress.me`. Vous n'avez pas besoin d'ouvrir WordPress pour gérer vos courses !
 
 ---
 
-## 🚀 Configuration du Tunnel de Réservation Complet
+## 💳 Configuration de la Passerelle Stripe
 
-Le plugin intègre désormais le tunnel de réservation standardisé de l'industrie (modèle Blacklane) en 2 étapes sans friction :
+Le plugin intègre le modèle d'empreinte bancaire sécurisé de Blacklane (l'argent est pré-autorisé à la réservation, vous encaissez le montant exact une fois la mission terminée) :
+
+1. Rendez-vous dans **Tour Booking > Réglages > Onglet Général**.
+2. Dans la section **💳 Passerelle de Paiement Stripe** :
+   * Cochez **`[✓] Activer Stripe`**.
+   * Choisissez le mode : **`🟡 Test / Sandbox`** ou **`🟢 Live / Production`**.
+   * Renseignez votre **Clé Publique** (`pk_test_...` ou `pk_live_...`).
+   * Renseignez votre **Clé Secrète** (`sk_test_...` ou `sk_live_...`).
+   * Méthode de prélèvement : sélectionnez **`🔒 Empreinte Bancaire / Pré-autorisation (Modèle Blacklane)`**.
+3. Cliquez sur **Enregistrer les modifications**.
+
+---
+
+## 🚀 Configuration du Tunnel de Réservation
 
 ### Étape 1 : Le Widget d'Accueil `[etb_transfer]`
-Insérez le shortcode **`[etb_transfer]`** sur votre page d'accueil ou page de présentation.
-* Permet au client de choisir entre **One way (Trajet simple)** et **By the hour (À l'heure)**.
-* Propose les durées de 3h à 24h avec recalcul instantané des tarifs en direct.
-* Affiche votre flotte sur des cartes Dark Mode VIP avec photos bord-à-bord, 5 prestations (Climate, Water, Comfort, Safety, Wifi) et badge de réassurance *All inclusive*.
+Placez le shortcode **`[etb_transfer]`** sur votre page d'accueil ou page de réservation rapide.
+* Recherche Trajet simple (One way) ou À l'heure (By the hour de 3h à 24h).
+* Cartes Dark Mode haute couture avec photos bord-à-bord, 6 équipements VIP et calcul en temps réel.
+* Prise en charge automatique des demandes sur devis (*Custom Quote*).
 
-### Étape 2 : La Page de Checkout `[etb_checkout]`
-1. Créez une nouvelle page WordPress (ex: **Pages > Ajouter une page**) nommée **Réservation** ou **Checkout** (slug : `/checkout/`).
-2. Insérez le shortcode : **`[etb_checkout]`**.
-3. Publiez la page.
-
-### Étape 3 : Lier la page dans les Réglages
-1. Rendez-vous dans **Tour Booking > Réglages > Onglet Général**.
-2. Dans le champ **Page de réservation finale (Checkout)**, collez l'adresse complète de votre page (ex: `https://monsite.com/checkout/`).
-3. Cliquez sur **Enregistrer les modifications**.
-4. Désormais, dès qu'un client choisit une voiture sur l'accueil et clique sur **`Book this Trip >`**, il est automatiquement transféré vers votre page de Checkout avec son véhicule, son itinéraire et son tarif déjà verrouillés !
+### Étape 2 : Le Checkout VIP Blacklane `[etb_checkout]`
+1. Créez une page WordPress nommée **Checkout** ou **Réservation** (ex: `/checkout/`).
+2. Insérez le shortcode : **`[etb_checkout]`** et publiez la page.
+3. Dans **Tour Booking > Réglages > Onglet Général**, renseignez le champ **Page de réservation finale (Checkout)** avec l'URL de cette page.
+4. Le clic sur `Book this Trip >` depuis l'accueil transférera automatiquement vos clients vers ce checkout avec un **Quote Token serveur sécurisé** (`?ref=q_XXXX`).
 
 ---
 
-## 💬 Intégration WhatsApp & Devis E-mail
+## 📋 Comment Gérer vos Courses dans LimoExpress
 
-Dans la barre de confirmation, le client dispose de 3 actions complémentaires :
-* **Quick Inquiry (WhatsApp)** : Ouvre une discussion directe avec votre numéro d'entreprise pré-configuré (dans les Réglages) avec un message pré-rédigé incluant le véhicule et l'itinéraire.
-* **Email Inquiry** : Génère un e-mail pré-rempli ciblant votre adresse d'administration pour les demandes personnalisées.
-* **Book this Trip** : Finalise la réservation sur votre Checkout.
-
----
-
-## 🚙 Liaison LimoExpress & Pourboires (Gratuity)
-
-* **Transmission immédiate** : Dès la validation du Checkout, la course est créée dans LimoExpress (`PUT /api/integration/booking-with-fees/`) avec le statut initial choisi.
-* **Pourboire Chauffeur détaxé** : Le pourboire sélectionné par le client (10%, 15%, 20%) est injecté sous la catégorie officielle **`gratuity_amount`** dans `extra_fees` LimoExpress, garantissant qu'aucune taxe de transport ne soit prélevée sur le pourboire.
-* **Accueil Chauffeur** : Le numéro de vol ✈️ et le texte de la pancarte d'accueil sont automatiquement transmis sur l'application du chauffeur.
+Dès qu'une réservation est validée sur votre site :
+1. Ouvrez votre compte **LimoExpress** (`app.limoexpress.me`).
+2. Dans la liste de vos réservations, la course apparaît instantanément :
+   * **Client & Passagers** : Fiche client créée avec son numéro de portable international.
+   * **Paiement carte** : Dans la section *Historique des paiements*, la ligne de carte `Visa •••• 0000` est enregistrée avec le montant payé et la date d'expiration.
+   * **Pourboire** : Si le client a ajouté un pourboire, il apparaît sous **`Gratuity amount`** dans le tableau *Extra fees* (séparé du transport pour éviter la TVA).
+   * **Vol & Pancarte** : Le numéro de vol ✈️ et le nom de la pancarte chauffeur sont renseignés.
+   * **Lien Stripe direct** : Dans la **Note Répartiteur** de la course, un lien direct vers votre transaction Stripe est affiché pour débiter ou ajuster la course en 1 clic !
 
 ---
 
 ## 🔌 Guide des Shortcodes Officiels
 
-| Shortcode | Rôle | Recommandation d'emplacement |
+| Shortcode | Description | Emplacement recommandé |
 | :--- | :--- | :--- |
-| **`[etb_transfer]`** | Widget de recherche VTC rapide (One Way / Hourly) avec cartes luxury et calcul en direct. | Page d'accueil, page d'atterrissage. |
-| **`[etb_checkout]`** | Tunnel de réservation Blacklane 2 colonnes (coordonnées, vol, pancarte, pourboire, récapitulatif). | Page dédiée `/checkout/` ou `/booking/`. |
-| **`[circuit_view id="XX"]`** | Vue complète pour excursions touristiques privées avec timeline et inclusions. | Fiches circuits touristiques. |
+| **`[etb_transfer]`** | Widget VTC d'accueil (Trajet simple / À l'heure 3-24h) avec cartes luxury. | Page d'accueil, landing page. |
+| **`[etb_checkout]`** | Tunnel de réservation Blacklane 2 étapes (passager, vol, pourboire, Stripe). | Page dédiée `/checkout/`. |
+| **`[circuit_view id="XX"]`** | Vue Split Layout pour excursions touristiques privées avec timeline. | Fiches circuits touristiques. |
 | **`[tour_booking]`** | Formulaire de réservation classique. | Barres latérales. |
 
 ---
 
-*Elite Transfer Booking v2.1.0 — Kaiser EM & Reich C.*
+*Elite Transfer Booking v2.2.0 — Kaiser EM & Reich C.*
+
+
+
+
+
+chore(release): bump version to 2.2.0, finalize Blacklane checkout, and sync docs
+
+- feat(checkout): implement 2-step in-place Blacklane checkout funnel with Stripe Elements
+- feat(security): add server-side Quote Token generator (?ref=q_XXXX) with 30-min transient expiry
+- feat(limoexpress): full integration of payment_logs, gratuity_amount, flight_number, and waiting_board_text
+- feat(limoexpress): inject direct clickable Stripe transaction link into LimoExpress dispatcher notes
+- feat(ui): build 100% theme-immune Dark Mode Custom Select for billing country
+- feat(ui): implement smooth GPU-accelerated bi-directional sticky summary sidebar
+- feat(ui): context-aware airport arrival vs dropoff detection and dynamic wait times
+- feat(ui): luxury vehicle cards with 6 amenities including SVG water bottle and baby seat
+- feat(ux): add address input autocomplete spinner and loading border beam on Show Prices
+- fix(stripe): resolve card last4/expiry extraction and card expiration month/year validation
+- fix(responsive): ensure vehicle names and confirmation buttons wrap cleanly without clipping
+- docs: update Document.md specification to v2.2.0 with LimoExpress-First architecture
+- docs: update README.md user guide with complete checkout setup and LimoExpress workflow
+
+

@@ -258,6 +258,17 @@ $now_time = '';
                                 <small>Wifi</small>
                             </div>
 
+                            <!-- 6. Siège bébé / Enfant après le Wifi -->
+                            <div class="etb-amenity-col" title="Child & baby seats available upon request">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="etb-amenity-icon">
+                                    <path d="M12 2a4 4 0 0 0-4 4v3h8V6a4 4 0 0 0-4-4z"/>
+                                    <path d="M6 10v6a4 4 0 0 0 4 4h4a4 4 0 0 0 4-4v-6"/>
+                                    <circle cx="12" cy="14" r="2"/>
+                                </svg>
+                                <small>Baby seat</small>
+                            </div>
+
+
                             <div class="etb-amenity-col" title="Comfort leather seats">
                                 <span class="dashicons dashicons-nametag"></span>
                                 <small>Comfort</small>

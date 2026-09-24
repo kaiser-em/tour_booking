@@ -11,7 +11,7 @@ class ETB_Ajax {
         add_action( 'wp_ajax_etb_resync_booking', array( $this, 'handle_resync_booking' ) );
 
 
-        /// Nouvelle route AJAX pour le calcul de prix en direct (Point A -> Point B)
+        // Nouvelle route AJAX pour le calcul de prix en direct (Point A -> Point B)
         add_action( 'wp_ajax_etb_quick_pricing', array( $this, 'handle_quick_pricing' ) );
         add_action( 'wp_ajax_nopriv_etb_quick_pricing', array( $this, 'handle_quick_pricing' ) );
 
@@ -19,9 +19,17 @@ class ETB_Ajax {
         add_action( 'wp_ajax_etb_send_email_inquiry', array( $this, 'handle_send_email_inquiry' ) );
         add_action( 'wp_ajax_nopriv_etb_send_email_inquiry', array( $this, 'handle_send_email_inquiry' ) );
 
-        // Route AJAX pour le Checkout Blacklane ([etb_checkout])
+       // Route AJAX pour le Checkout Blacklane ([etb_checkout])
         add_action( 'wp_ajax_etb_submit_checkout', array( $this, 'handle_submit_checkout' ) );
         add_action( 'wp_ajax_nopriv_etb_submit_checkout', array( $this, 'handle_submit_checkout' ) );
+
+        /// Route AJAX pour générer un jeton de devis scellé (Quote Token Handoff)
+        add_action( 'wp_ajax_etb_create_quote', array( $this, 'handle_create_quote' ) );
+        add_action( 'wp_ajax_nopriv_etb_create_quote', array( $this, 'handle_create_quote' ) );
+
+        // Route AJAX pour initialiser le paiement ou l'empreinte bancaire Stripe
+        add_action( 'wp_ajax_etb_create_payment_intent', array( $this, 'handle_create_payment_intent' ) );
+        add_action( 'wp_ajax_nopriv_etb_create_payment_intent', array( $this, 'handle_create_payment_intent' ) );
     }
 
     public function handle_validate_promo() {
@@ -780,6 +788,44 @@ class ETB_Ajax {
         update_post_meta( $booking_id, '_etb_cost_center', $cost_center );
         update_post_meta( $booking_id, '_etb_note', $notes . $tip_driver_note );
 
+        // Construction des logs de paiement conformes au Swagger LimoExpress avec lien Stripe
+        $payment_logs = array();
+        $is_paid_status = false;
+
+        $card_last4 = sanitize_text_field( $_POST['etb_card_last4'] ?? '' );
+        $card_brand = sanitize_text_field( $_POST['etb_card_brand'] ?? 'card' );
+        $card_exp   = sanitize_text_field( $_POST['etb_card_exp'] ?? '' );
+        $intent_id  = sanitize_text_field( $_POST['etb_payment_intent_id'] ?? '' );
+
+        // Construction du lien direct vers votre transaction Stripe
+        $stripe_mode = ( isset( $gen_settings['stripe_mode'] ) && 'live' === $gen_settings['stripe_mode'] ) ? 'live' : 'test';
+        $stripe_url  = ! empty( $intent_id )
+            ? ( 'live' === $stripe_mode 
+                ? 'https://dashboard.stripe.com/payments/' . $intent_id 
+                : 'https://dashboard.stripe.com/test/payments/' . $intent_id )
+            : '';
+
+        if ( ! empty( $card_last4 ) || ! empty( $intent_id ) ) {
+            $payment_logs[] = array(
+                'amount'         => (float) round( $grand_total_with_tip, 2 ),
+                'method'         => 'card',
+                'last_4_digits'  => substr( $card_last4 ?: '4242', -4 ),
+                'brand'          => strtolower( $card_brand ),
+                'expire_date'    => $card_exp,
+                'receipt_number' => $intent_id,  // Remplira "Numéro du reçu"
+                'remark'         => $stripe_url, // Remplira "Remarque" avec le lien direct
+               'paid_at'        => wp_date( 'Y-m-d H:i:s' ),
+            );
+            $is_paid_status = true;
+
+            // Sauvegarde de l'ID Stripe dans WordPress
+            update_post_meta( $booking_id, '_etb_stripe_payment_intent_id', $intent_id );
+        }
+
+
+        // Injection du lien Stripe direct dans la note répartiteur LimoExpress
+        $stripe_note_info = ! empty( $stripe_url ) ? "\n💳 PAIEMENT STRIPE : " . $stripe_url . "\n" : "";
+
         // 6. Préparation des données et transmission en direct à LimoExpress
         $dispatch_data = array(
             'name'               => $full_name,
@@ -795,6 +841,9 @@ class ETB_Ajax {
             'luggage'            => $luggage_count,
             'baby_seat_count'    => $baby_seat_count,
             'tip_amount'         => $tip_amount,
+            'paid'               => $is_paid_status,
+            'payment_logs'       => $payment_logs,
+            'payment_intent_id'  => $intent_id,
             'note'               => $notes . $tip_driver_note,
             'flight_number'      => $flight_number,
             'waiting_board_text' => $pickup_sign ?: $full_name,
@@ -858,6 +907,173 @@ class ETB_Ajax {
             'booking_id' => $booking_id,
             'limo_id'    => $limo_id ?: 'SYNCED',
             'message'    => 'Your VIP reservation has been confirmed!',
+        ) );
+    }
+
+    /**
+     * Traitement AJAX : Génération d'un devis scellé serveur avec jeton temporaire (Quote Token)
+     */
+    public function handle_create_quote() {
+        check_ajax_referer( 'etb_booking_nonce', 'nonce' );
+
+        // 1. Rate Limiting Anti-Abus (Max 20 devis / 10 minutes par IP)
+        if ( ! ETB_Security::check_rate_limit( 'create_quote', 20, 600 ) ) {
+            wp_send_json_error( array( 'message' => 'Too many requests. Please wait a moment.' ) );
+        }
+
+        // 2. Récupération et assainissement des critères de course
+        $mode       = sanitize_text_field( $_POST['mode'] ?? 'transfer' );
+        $pickup     = sanitize_text_field( $_POST['pickup'] ?? '' );
+        $dropoff    = sanitize_text_field( $_POST['dropoff'] ?? '' );
+        $duration   = max( 1, floatval( $_POST['duration'] ?? 4 ) );
+        $date       = sanitize_text_field( $_POST['date'] ?? '' );
+        $time       = sanitize_text_field( $_POST['time'] ?? '' );
+        $vehicle_id = absint( $_POST['vehicle_id'] ?? 0 );
+        $raw_price  = sanitize_text_field( $_POST['price'] ?? '0' );
+
+        if ( empty( $pickup ) ) {
+            wp_send_json_error( array( 'message' => 'Pickup location is required.' ) );
+        }
+        if ( 'transfer' === $mode && empty( $dropoff ) ) {
+            wp_send_json_error( array( 'message' => 'Drop-off location is required.' ) );
+        }
+        if ( empty( $date ) || empty( $time ) ) {
+            wp_send_json_error( array( 'message' => 'Date and time are required.' ) );
+        }
+        if ( ! $vehicle_id || get_post_type( $vehicle_id ) !== 'tour_vehicle' ) {
+            wp_send_json_error( array( 'message' => 'Invalid vehicle selected.' ) );
+        }
+
+        // 3. Calcul / Verrouillage du prix côté serveur
+        $is_quote_ride = ( 'Custom Quote' === $raw_price || floatval( $raw_price ) <= 0 );
+        $locked_price  = 0.0;
+
+        if ( ! $is_quote_ride ) {
+            if ( 'hourly' === $mode && class_exists( 'ETB_Pricing_Engine' ) ) {
+                $locked_price = ETB_Pricing_Engine::calculate_vehicle_price( $vehicle_id, $duration );
+            } else {
+                $locked_price = floatval( $raw_price );
+            }
+        }
+
+        // Récupération des informations officielles du véhicule
+        $vehicle_name = get_the_title( $vehicle_id );
+        $vehicle_img  = get_the_post_thumbnail_url( $vehicle_id, 'full' ) ?: '';
+        $max_pax      = absint( get_post_meta( $vehicle_id, '_etb_max_pax', true ) ?: 1 );
+        $max_bag      = absint( get_post_meta( $vehicle_id, '_etb_max_baggage', true ) ?: 0 );
+
+        // 4. Génération d'un jeton aléatoire unique cryptographique (ex: q_8f94c2d1)
+        $token = 'q_' . substr( md5( uniqid( (string) wp_rand(), true ) ), 0, 8 );
+
+        // 5. Enregistrement du devis dans la mémoire sécurisée WordPress (Transient 30 minutes)
+        $quote_data = array(
+            'ref'          => $token,
+            'mode'         => $mode,
+            'pickup'       => $pickup,
+            'dropoff'      => $dropoff,
+            'duration'     => $duration,
+            'date'         => $date,
+            'time'         => $time,
+            'vehicle_id'   => $vehicle_id,
+            'vehicle_name' => $vehicle_name,
+            'vehicle_img'  => $vehicle_img,
+            'pax'          => $max_pax,
+            'bag'          => $max_bag,
+            'price'        => $is_quote_ride ? 'Custom Quote' : $locked_price,
+            'created_at'   => current_time( 'timestamp' ),
+        );
+
+        set_transient( 'etb_quote_' . $token, $quote_data, 30 * MINUTE_IN_SECONDS );
+
+        // 6. Construction de l'URL de redirection propre
+        $gen_settings = get_option( 'etb_general_settings', array() );
+        $checkout_url = ! empty( $gen_settings['checkout_page_url'] ) ? esc_url( $gen_settings['checkout_page_url'] ) : home_url( '/checkout/' );
+        $redirect_url = add_query_arg( 'ref', $token, $checkout_url );
+
+        wp_send_json_success( array(
+            'ref'          => $token,
+            'redirect_url' => $redirect_url,
+        ) );
+    }
+
+    /**
+     * Traitement AJAX : Initialisation du PaymentIntent Stripe (Modèle Blacklane avec capture différée)
+     */
+    public function handle_create_payment_intent() {
+        check_ajax_referer( 'etb_booking_nonce', 'nonce' );
+
+        // 1. Contrôle Anti-Abus (Max 10 tentatives / 10 minutes par IP)
+        if ( ! ETB_Security::check_rate_limit( 'stripe_intent', 10, 600 ) ) {
+            wp_send_json_error( array( 'message' => 'Too many payment attempts. Please wait a few minutes.' ) );
+        }
+
+        // 2. Vérification que Stripe est activé et configuré
+        $settings = get_option( 'etb_general_settings', array() );
+        $stripe_enabled = ! empty( $settings['stripe_enabled'] ) && '1' === $settings['stripe_enabled'];
+        $secret_key     = ! empty( $settings['stripe_secret_key'] ) ? trim( $settings['stripe_secret_key'] ) : '';
+
+        if ( ! $stripe_enabled || empty( $secret_key ) ) {
+            wp_send_json_error( array( 'message' => 'Stripe payment gateway is not active.' ) );
+        }
+
+        if ( ! class_exists( 'ETB_Stripe' ) ) {
+            require_once ETB_PATH . 'includes/class-etb-stripe.php';
+        }
+
+        // 3. Récupération et assainissement des données de transaction
+        $name       = sanitize_text_field( $_POST['name'] ?? 'VIP Customer' );
+        $email      = sanitize_email( $_POST['email'] ?? '' );
+        $phone      = sanitize_text_field( $_POST['phone'] ?? '' );
+        $amount     = max( 0.0, floatval( $_POST['amount'] ?? 0.0 ) );
+        $currency   = sanitize_text_field( $_POST['currency'] ?? 'eur' );
+        $route_info = sanitize_text_field( $_POST['route'] ?? 'VIP Ride' );
+        $car_name   = sanitize_text_field( $_POST['vehicle_name'] ?? 'Chauffeured Vehicle' );
+
+        if ( $amount <= 0 ) {
+            wp_send_json_error( array( 'message' => 'Invalid payment amount.' ) );
+        }
+
+        if ( empty( $email ) || ! is_email( $email ) ) {
+            wp_send_json_error( array( 'message' => 'A valid email address is required.' ) );
+        }
+
+        // 4. Création du client dans Stripe
+        $customer_res = ETB_Stripe::create_customer( $name, $email, $phone );
+        $customer_id  = '';
+        if ( ! is_wp_error( $customer_res ) && ! empty( $customer_res['id'] ) ) {
+            $customer_id = $customer_res['id'];
+        }
+
+        // 5. Méthode de prélèvement : 'manual' (Modèle Blacklane) ou 'automatic' (Débit direct)
+        $capture_method = ( isset( $settings['stripe_capture_method'] ) && 'immediate' === $settings['stripe_capture_method'] ) ? 'automatic' : 'manual';
+
+        // Métadonnées visibles dans votre Dashboard Stripe
+        $metadata = array(
+            'customer_name' => $name,
+            'customer_email'=> $email,
+            'customer_phone'=> $phone,
+            'vehicle'       => $car_name,
+            'route'         => substr( $route_info, 0, 200 ),
+            'source'        => 'EDEN CAB - Checkout Funnel',
+        );
+
+        // 6. Création du PaymentIntent officiel auprès de Stripe
+        $intent_res = ETB_Stripe::create_payment_intent( $amount, $currency, $customer_id, $metadata, $capture_method );
+
+        if ( is_wp_error( $intent_res ) ) {
+            wp_send_json_error( array( 'message' => $intent_res->get_error_message() ) );
+        }
+
+        if ( empty( $intent_res['client_secret'] ) ) {
+            wp_send_json_error( array( 'message' => 'Could not initialize payment with Stripe.' ) );
+        }
+
+        // 7. Transmission du client_secret au navigateur pour sécurisation 3D Secure
+        wp_send_json_success( array(
+            'client_secret'     => $intent_res['client_secret'],
+            'payment_intent_id' => $intent_res['id'],
+            'customer_id'       => $customer_id,
+            'capture_method'    => $capture_method,
         ) );
     }
 

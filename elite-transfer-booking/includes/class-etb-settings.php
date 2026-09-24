@@ -55,6 +55,13 @@ class ETB_Settings {
         $new_input['mapbox_token']         = ! empty( $input['mapbox_token'] ) ? sanitize_text_field( trim( $input['mapbox_token'] ) ) : '';
         $new_input['checkout_page_url']    = ! empty( $input['checkout_page_url'] ) ? esc_url_raw( trim( $input['checkout_page_url'] ) ) : '';
 
+        // Configuration de la passerelle de paiement Stripe
+        $new_input['stripe_enabled']         = isset( $input['stripe_enabled'] ) ? '1' : '0';
+        $new_input['stripe_mode']            = ( isset( $input['stripe_mode'] ) && 'live' === $input['stripe_mode'] ) ? 'live' : 'test';
+        $new_input['stripe_publishable_key'] = ! empty( $input['stripe_publishable_key'] ) ? sanitize_text_field( trim( $input['stripe_publishable_key'] ) ) : '';
+        $new_input['stripe_secret_key']      = ! empty( $input['stripe_secret_key'] ) ? sanitize_text_field( trim( $input['stripe_secret_key'] ) ) : '';
+        $new_input['stripe_capture_method']  = ( isset( $input['stripe_capture_method'] ) && 'immediate' === $input['stripe_capture_method'] ) ? 'immediate' : 'manual';
+
         // Application de dispatch choisie (Autonome, LimoExpress...)
         $new_input['active_dispatcher'] = isset( $input['active_dispatcher'] ) ? sanitize_text_field( $input['active_dispatcher'] ) : 'none';
 
@@ -189,6 +196,56 @@ class ETB_Settings {
                                 <p class="description">URL de la page WordPress contenant le shortcode <code>[etb_checkout]</code> où le client finalise sa commande.</p>
                             </td>
                         </tr>
+                        <tr>
+                            <th scope="row" colspan="2">
+                                <hr style="margin: 20px 0; border: 0; border-top: 1px solid #dcdcde;">
+                                <h3>💳 Passerelle de Paiement Stripe (Standard Blacklane)</h3>
+                                <p class="description">Gère la sécurisation bancaire 3D Secure, les empreintes de cartes et la transmission des logs de paiement vers LimoExpress.</p>
+                            </th>
+                        </tr>
+                        <tr>
+                            <th scope="row">Activer Stripe</th>
+                            <td>
+                                <label>
+                                    <input type="checkbox" name="etb_general_settings[stripe_enabled]" value="1" <?php checked( $options['stripe_enabled'] ?? '0', '1' ); ?>>
+                                    <span>Activer les paiements et empreintes bancaires par carte</span>
+                                </label>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Mode Stripe</th>
+                            <td>
+                                <select name="etb_general_settings[stripe_mode]" class="regular-text">
+                                    <option value="test" <?php selected( $options['stripe_mode'] ?? 'test', 'test' ); ?>>🟡 Test / Sandbox (pk_test_...)</option>
+                                    <option value="live" <?php selected( $options['stripe_mode'] ?? 'test', 'live' ); ?>>🟢 Live / Production (pk_live_...)</option>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Clé Publique Stripe (Publishable Key)</th>
+                            <td>
+                                <input type="text" name="etb_general_settings[stripe_publishable_key]" value="<?php echo esc_attr( $options['stripe_publishable_key'] ?? '' ); ?>" class="regular-text" placeholder="pk_test_... ou pk_live_...">
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Clé Secrète Stripe (Secret Key)</th>
+                            <td>
+                                <input type="password" name="etb_general_settings[stripe_secret_key]" value="<?php echo esc_attr( $options['stripe_secret_key'] ?? '' ); ?>" class="regular-text" placeholder="sk_test_... ou sk_live_...">
+                                <p class="description">Disponible dans votre Dashboard Stripe (Développeurs &gt; Clés API).</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Méthode de Prélèvement</th>
+                            <td>
+                                <select name="etb_general_settings[stripe_capture_method]" class="regular-text">
+                                    <option value="manual" <?php selected( $options['stripe_capture_method'] ?? 'manual', 'manual' ); ?>>🔒 Empreinte Bancaire / Pré-autorisation (Modèle Blacklane - Capture à la fin de course)</option>
+                                    <option value="immediate" <?php selected( $options['stripe_capture_method'] ?? 'manual', 'immediate' ); ?>>⚡ Débit Immédiat (Paiement direct à la réservation)</option>
+                                </select>
+                                <p class="description">Le mode Empreinte bloque les fonds sans débiter la carte, vous permettant d'ajuster d'éventuels suppléments lors de la mission.</p>
+                            </td>
+                        </tr>
+
+                        
                         <tr>
                             <th scope="row" colspan="2">
                                 <hr style="margin: 20px 0; border: 0; border-top: 1px solid #dcdcde;">

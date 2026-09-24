@@ -605,6 +605,24 @@ class ETB_Meta_Manager {
                         </span>
                     </p>
 
+                    <?php 
+                    // Affichage du paiement Stripe sécurisé si existant
+                    $stripe_pi = get_post_meta( $post->ID, '_etb_stripe_payment_intent_id', true );
+                    if ( ! empty( $stripe_pi ) ) :
+                        $gen_settings = get_option( 'etb_general_settings', array() );
+                        $stripe_mode  = ( ! empty( $gen_settings['stripe_mode'] ) && 'live' === $gen_settings['stripe_mode'] ) ? 'live' : 'test';
+                        $stripe_url   = ( 'live' === $stripe_mode ) 
+                            ? 'https://dashboard.stripe.com/payments/' . esc_attr( $stripe_pi )
+                            : 'https://dashboard.stripe.com/test/payments/' . esc_attr( $stripe_pi );
+                    ?>
+                        <p style="margin: 8px 0 8px 0; padding: 8px; background: #f8fafc; border-left: 3px solid #635bff; border-radius: 3px;">
+                            <strong>💳 Transaction Stripe :</strong> <code style="font-size: 11px;"><?php echo esc_html( $stripe_pi ); ?></code><br>
+                            <a href="<?php echo esc_url( $stripe_url ); ?>" target="_blank" class="button button-small" style="margin-top: 5px; background: #635bff; color: #fff; border-color: #635bff; font-weight: 600;">
+                                🔗 Ouvrir dans le Dashboard Stripe
+                            </a>
+                        </p>
+                    <?php endif; ?>
+
                     <!-- Bouton de transfert manuel avec bouclier anti-doublon -->
                     <div>
                         <?php 

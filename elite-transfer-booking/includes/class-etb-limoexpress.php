@@ -304,8 +304,10 @@ class ETB_LimoExpress {
             $client_note
         );
 
-        $dispatcher_note = sprintf(
-            "══ DÉTAILS RÉSERVATION #%d ══\n" .
+        
+
+        $dispatcher_note = $stripe_block . sprintf(
+            "══════ DÉTAILS RÉSERVATION #%d ══════\n" .
             "📍 Prestation : %s\n" .
             "🚘 Véhicule(s) : %s\n" .
             "👥 Passagers : %d Adulte(s), %d Enfant(s) (Total : %d)\n" .
@@ -324,6 +326,24 @@ class ETB_LimoExpress {
             $promo_text,
             $client_note
         );
+
+        // Bloc Stripe officiel injecté dans LimoExpress
+        $stripe_block = '';
+        if ( ! empty( $data['payment_intent_id'] ) ) {
+            $stripe_mode = ( ! empty( $settings['stripe_mode'] ) && 'live' === $settings['stripe_mode'] ) ? 'live' : 'test';
+            $stripe_url  = ( 'live' === $stripe_mode ) 
+                ? 'https://dashboard.stripe.com/payments/' . $data['payment_intent_id']
+                : 'https://dashboard.stripe.com/test/payments/' . $data['payment_intent_id'];
+
+            $stripe_block = sprintf(
+                "══ PAIEMENT STRIPE (EMPREINTE) ══\n" .
+                "💳 ID Transaction : %s\n" .
+                "🔗 LIEN DIRECT STRIPE :\n%s\n" .
+                "\n\n",
+                $data['payment_intent_id'],
+                $stripe_url
+            );
+        }
 
         // 8. Passagers : client principal uniquement
         $passengers_array = array(
@@ -396,6 +416,8 @@ class ETB_LimoExpress {
             'passengers'             => $passengers_array,
             'checkpoints'            => $checkpoints,
             'extra_fees'             => $extra_fees,
+            'paid'                   => ! empty( $data['paid'] ),
+            'payment_logs'           => ! empty( $data['payment_logs'] ) && is_array( $data['payment_logs'] ) ? $data['payment_logs'] : array(),
         );
 
         // 10. Requête HTTP PUT vers LimoExpress

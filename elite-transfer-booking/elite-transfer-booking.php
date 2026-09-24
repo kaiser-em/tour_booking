@@ -41,24 +41,31 @@ class Elite_Transfer_Booking {
         if ( 'google' === $provider && ! empty( $google_key ) ) {
             wp_enqueue_script( 'google-maps-places', 'https://maps.googleapis.com/maps/api/js?key=' . esc_attr( $google_key ) . '&libraries=places&language=en', array(), null, true );
         }
-        
+
+        // Chargement de la librairie officielle Stripe.js si activée
+        $stripe_enabled = ! empty( $gen_settings['stripe_enabled'] ) && '1' === $gen_settings['stripe_enabled'];
+        $stripe_pk      = ! empty( $gen_settings['stripe_publishable_key'] ) ? trim( $gen_settings['stripe_publishable_key'] ) : '';
+
+        if ( $stripe_enabled && ! empty( $stripe_pk ) ) {
+            wp_enqueue_script( 'stripe-js', 'https://js.stripe.com/v3/', array(), null, true );
+        }
+
         wp_enqueue_script( 'etb-booking-script', ETB_URL . 'public/js/booking-widget.js', array(), ETB_VERSION, true );
 
+        // Transmission des variables sécurisées à JavaScript
         wp_localize_script( 'etb-booking-script', 'etbAjax', array(
-            'ajax_url'         => admin_url( 'admin-ajax.php' ),
-            'nonce'            => wp_create_nonce( 'etb_booking_nonce' ),
-            'currency'         => $currency_symbol,
-            'address_provider' => $provider,
-            'google_key'       => $google_key,
-            'mapbox_token'     => $mapbox_token,
-            'checkout_url'     => ! empty( $gen_settings['checkout_page_url'] ) ? esc_url( $gen_settings['checkout_page_url'] ) : '',
-            'home_url'              => esc_url( home_url( '/' ) ),
-            'admin_email'       => ! empty( $gen_settings['admin_email'] ) && is_email( $gen_settings['admin_email'] ) ? sanitize_email( $gen_settings['admin_email'] ) : get_option( 'admin_email' ),
+            'ajax_url'          => admin_url( 'admin-ajax.php' ),
+            'nonce'             => wp_create_nonce( 'etb_booking_nonce' ),
+            'currency'          => $currency_symbol,
+            'address_provider'  => $provider,
+            'google_key'        => $google_key,
+            'mapbox_token'      => $mapbox_token,
+            'checkout_url'      => ! empty( $gen_settings['checkout_page_url'] ) ? esc_url( $gen_settings['checkout_page_url'] ) : '',
+            'home_url'          => esc_url( home_url( '/' ) ),
             'company_whatsapp'  => ! empty( $gen_settings['company_whatsapp'] ) ? preg_replace( '/[^0-9]/', '', $gen_settings['company_whatsapp'] ) : '',
-            'limo_form_url'     => ! empty( $gen_settings['limo_form_url'] ) ? esc_url( $gen_settings['limo_form_url'] ) : 'https://app.limoexpress.me/public/reservation-form',
-            'limo_param'        => ! empty( $gen_settings['limo_form_param'] ) ? sanitize_text_field( $gen_settings['limo_form_param'] ) : '479812783e34cb527161c28bee8748d95cee8c85dd26fcdb51f1086d31b3108be443d2',
-            'limo_oneway_type'  => ! empty( $gen_settings['limo_booking_type_id'] ) ? sanitize_text_field( $gen_settings['limo_booking_type_id'] ) : 'e52e0f08-878d-4e0c-8e2d-b09225b5a0cf',
-            'limo_hourly_type'  => ! empty( $gen_settings['limo_hourly_type_id'] ) ? sanitize_text_field( $gen_settings['limo_hourly_type_id'] ) : '89bc0301-9af8-4bd0-858a-998e21f0bf13',
+            'admin_email'       => ! empty( $gen_settings['admin_email'] ) && is_email( $gen_settings['admin_email'] ) ? sanitize_email( $gen_settings['admin_email'] ) : get_option( 'admin_email' ),
+            'stripe_enabled'    => $stripe_enabled ? '1' : '0',
+            'stripe_pk'         => $stripe_pk,
         ) );
     }
     
@@ -70,6 +77,7 @@ class Elite_Transfer_Booking {
 
     private function load_dependencies() {
          require_once ETB_PATH . 'includes/class-etb-limoexpress.php'; // <-- AJOUT DE CETTE LIGNE
+         require_once ETB_PATH . 'includes/class-etb-stripe.php'; // <-- Connecteur Stripe autonome
          require_once ETB_PATH . 'includes/class-etb-dispatcher-manager.php'; // <-- AJOUT DE CETTE LIGNE
         require_once ETB_PATH . 'includes/class-etb-security.php';
         require_once ETB_PATH . 'includes/class-etb-cpt-manager.php';
