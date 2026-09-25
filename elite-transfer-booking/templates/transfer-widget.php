@@ -27,7 +27,20 @@ $tomorrow_display = sprintf( '%s %s %s', $d_day, $months[ $d_m_idx ] ?? 'Sep', $
 $now_time = '';
 ?>
 
-<div class="etb-quick-widget" id="etb-quick-widget-app">
+<div class="etb-quick-widget" id="etb-quick-widget-app" data-etb-theme="dark" style="position: relative;">
+    
+    <!-- BOUTON SWITCHER THÈME (PILULE COULISSANTE VIP) -->
+        <button type="button" class="etb-theme-toggle-btn etb-theme-switch" aria-label="Basculer le thème">
+            <span class="etb-switch-track">
+                <svg class="etb-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+                <svg class="etb-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+                <span class="etb-switch-thumb"></span>
+            </span>
+        </button>
 
 
     <!-- TITRE ANIMÉ STYLE AI STUDIO (THINKING SHIMMER) -->
@@ -281,14 +294,15 @@ $now_time = '';
                         </div>
 
                         <!-- 3. PIED DE CARTE (Prix & All inclusive à gauche, Bouton Select à droite) -->
+                        <!-- 3. PIED DE CARTE (Prix & All inclusive à droite du montant, Bouton Select à droite) -->
                         <div class="etb-quick-card-footer">
                             <div class="etb-quick-price-box">
                                 <div class="etb-quick-price-display">
                                     <span class="etb-quick-amount">0</span>
                                     <span class="etb-quick-currency"><?php echo esc_html( $currency ); ?></span>
+                                    <span class="etb-quick-all-inclusive">All inclusive</span>
                                 </div>
                                 <div class="etb-quick-price-detail" style="display: none;"></div>
-                                <div class="etb-quick-all-inclusive">All inclusive</div>
                             </div>
 
                             <button type="button" class="etb-quick-select-btn">

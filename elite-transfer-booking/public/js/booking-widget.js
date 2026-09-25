@@ -3,6 +3,9 @@
  * Elite Transfer Booking (Unified) - Frontend Engine
  * Ordre d'initialisation sécurisé (zéro erreur TDZ / ReferenceError)
  */
+
+
+
 (function () {
     'use strict';
 
@@ -1344,10 +1347,10 @@
                     kmInfoEl.classList.add('is-visible'); // <-- Activation via la classe CSS
                 }
 
-                // 1. Régénération complète du prix chiffré (écrase tout ancien badge Custom Quote)
+                // 1. Régénération complète du prix chiffré avec "All inclusive" à côté
                 const priceBox = card.querySelector('.etb-quick-price-display');
                 if (priceBox) {
-                    priceBox.innerHTML = '<span class="etb-quick-amount">' + calculatedPrice + '</span> <span class="etb-quick-currency">' + currency + '</span>';
+                    priceBox.innerHTML = '<span class="etb-quick-amount">' + calculatedPrice + '</span> <span class="etb-quick-currency">' + currency + '</span> <span class="etb-quick-all-inclusive">All inclusive</span>';
                 }
 
                 // 2. Mise à jour de la ligne d'explication horaire
@@ -1571,18 +1574,13 @@
 
                                     var priceBox = targetCard.querySelector('.etb-quick-price-display');
                                     if (priceBox) {
-                                        priceBox.innerHTML = '<span class="etb-quick-amount">' + limoPrice + '</span> <span class="etb-quick-currency">' + currency + '</span>';
+                                        priceBox.innerHTML = '<span class="etb-quick-amount">' + limoPrice + '</span> <span class="etb-quick-currency">' + currency + '</span> <span class="etb-quick-all-inclusive">All inclusive</span>';
                                     }
 
                                     var priceDetailEl = targetCard.querySelector('.etb-quick-price-detail');
                                     if (priceDetailEl) {
                                         priceDetailEl.style.display = 'none';
                                         priceDetailEl.innerHTML = '';
-                                    }
-
-                                    if (allInclEl) {
-                                        allInclEl.style.display = 'flex';
-                                        allInclEl.textContent = 'All inclusive';
                                     }
                                     if (selBtn) selBtn.textContent = 'Select';
                                 
@@ -2117,23 +2115,31 @@
             try {
                 stripeInstance = Stripe(etbAjax.stripe_pk);
                 const elements = stripeInstance.elements();
-                stripeCardElement = elements.create('card', {
-                    hidePostalCode: true,
-                    style: {
+
+                // Détection de la couleur du texte selon le thème actif
+                const getStripeThemeStyle = () => {
+                    const isLight = document.documentElement.getAttribute('data-etb-theme') === 'light' 
+                                 || localStorage.getItem('etb_theme_mode') === 'light';
+                    return {
                         base: {
-                            color: '#ffffff',
+                            color: isLight ? '#1e293b' : '#ffffff',
                             fontFamily: "'Inter', -apple-system, sans-serif",
                             fontSize: '14px',
                             fontWeight: '500',
                             letterSpacing: '0.04em',
-                            '::placeholder': { color: 'rgba(148, 163, 184, 0.6)' },
+                            '::placeholder': { color: isLight ? '#94a3b8' : 'rgba(148, 163, 184, 0.6)' },
                             iconColor: '#fbac18'
                         },
                         invalid: {
                             color: '#f87171',
                             iconColor: '#f87171'
                         }
-                    }
+                    };
+                };
+
+                stripeCardElement = elements.create('card', {
+                    hidePostalCode: true,
+                    style: getStripeThemeStyle()
                 });
 
                 const mountPoint = checkoutRoot.querySelector('#etb-stripe-card-mount');
@@ -2868,13 +2874,107 @@
         };
     };
 
-    // Lancement universel au chargement de la page
-    const startApp = function () {
-        init();            // Initialise les circuits
-        initQuickWidget();   // Initialise le widget minimal [etb_transfer]
-        initCheckoutApp();  // Initialise le Checkout [etb_checkout]
-    };
 
+    // ==========================================================================
+    // MOTEUR UNIVERSEL DE GESTION DARK / LIGHT MODE (INFAILLIBLE)
+    // ==========================================================================
+    const initThemeDetector = function () {
+        
+        // 1. Détection intelligente du mode à appliquer (Manuel -> Thème du site -> Système OS)
+        const detectOptimalTheme = () => {
+            const saved = localStorage.getItem('etb_theme_mode');
+            if (saved === 'dark' || saved === 'light') return saved;
+
+            // Détection via les classes courantes des thèmes WordPress sur <html> ou <body>
+            const rootClasses = (document.documentElement.className + ' ' + document.body.className).toLowerCase();
+            if (rootClasses.includes('dark') || rootClasses.includes('night') || rootClasses.includes('black')) {
+                return 'dark';
+            }
+            if (rootClasses.includes('light') || rootClasses.includes('day') || rootClasses.includes('white')) {
+                return 'light';
+            }
+
+            // Détection selon la préférence du système / navigateur
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+                return 'light';
+            }
+
+            return 'dark'; // Repli par défaut : VIP Dark Mode
+        };
+
+        // 2. Application de l'attribut au DOM (sur <html> et sur chaque conteneur ETB)
+        // 2. Application de l'attribut au DOM (sur <html> et sur chaque conteneur ETB)
+        const applyTheme = (themeName) => {
+            // Applique au conteneur racine <html> pour que les popups globales comme .pac-container en profitent
+            document.documentElement.setAttribute('data-etb-theme', themeName);
+
+            const targets = document.querySelectorAll('#etb-quick-widget-app, #etb-checkout-app, .co-circuit-wrapper');
+            targets.forEach(el => {
+                el.setAttribute('data-etb-theme', themeName);
+            });
+
+            // Mise à jour en direct de la couleur du texte Stripe Elements si présent sur la page
+            const mountBox = document.querySelector('#etb-stripe-card-mount');
+            if (mountBox && typeof stripeCardElement !== 'undefined' && stripeCardElement) {
+                const isLight = (themeName === 'light');
+                stripeCardElement.update({
+                    style: {
+                        base: {
+                            color: isLight ? '#1e293b' : '#ffffff',
+                            '::placeholder': { color: isLight ? '#94a3b8' : 'rgba(148, 163, 184, 0.6)' }
+                        }
+                    }
+                });
+            }
+
+            console.log("🌟 Thème appliqué :", themeName);
+        };
+
+        // 3. Lancement immédiat
+        applyTheme(detectOptimalTheme());
+
+        // 4. Fonction d'attachement direct du clic sur les boutons
+        const bindToggleButtons = () => {
+            const buttons = document.querySelectorAll('.etb-theme-toggle-btn');
+            buttons.forEach(btn => {
+                if (btn.dataset.bound) return; // Évite les doubles clics
+                btn.dataset.bound = 'true';
+                
+                btn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    // Lecture du thème actuel et inversion
+                    const currentTheme = localStorage.getItem('etb_theme_mode') || 'dark';
+                    const nextTheme    = (currentTheme === 'dark') ? 'light' : 'dark';
+
+                    localStorage.setItem('etb_theme_mode', nextTheme);
+                    applyTheme(nextTheme);
+                });
+            });
+        };
+
+        bindToggleButtons();
+
+        // 5. RADAR (MutationObserver) si le thème charge le widget en décalé
+        const themeObserver = new MutationObserver(() => {
+            bindToggleButtons();
+            const unstyledWidgets = document.querySelectorAll('#etb-quick-widget-app:not([data-etb-theme]), #etb-checkout-app:not([data-etb-theme])');
+            if (unstyledWidgets.length > 0) {
+                applyTheme(detectOptimalTheme());
+            }
+        });
+        themeObserver.observe(document.body, { childList: true, subtree: true });
+    };
+    
+   // Lancement universel au chargement de la page
+    const startApp = function () {
+        initThemeDetector(); // Active la détection et la bascule Dark / Light
+        init();              // Initialise les circuits
+        initQuickWidget();   // Initialise le widget minimal [etb_transfer]
+        initCheckoutApp();   // Initialise le Checkout [etb_checkout]
+    };
+    
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', startApp);
     } else {

@@ -35,13 +35,28 @@ $formatted_price = ( 'Custom Quote' === $price_val || floatval( $price_val ) <= 
 
 <div class="etb-checkout-wrapper" id="etb-checkout-app">
     
-    <!-- En-tête de retour / Titre de page -->
-    <div class="etb-checkout-top-nav">
-        <a href="javascript:history.back();" class="etb-checkout-back-link">
-            <span class="dashicons dashicons-arrow-left-alt2"></span>
-            <span>Edit Ride Details</span>
-        </a>
-        <h1 class="etb-checkout-page-title">Finalize Your VIP Reservation</h1>
+    <!-- En-tête de retour & Switcher Thème -->
+    <div class="etb-checkout-top-nav" style="display: flex; justify-content: space-between; align-items: flex-end;">
+        <div>
+            <a href="javascript:history.back();" class="etb-checkout-back-link">
+                <span class="dashicons dashicons-arrow-left-alt2"></span>
+                <span>Edit Ride Details</span>
+            </a>
+            <h1 class="etb-checkout-page-title">Finalize Your VIP Reservation</h1>
+        </div>
+
+        <!-- BOUTON SWITCHER THÈME (PILULE COULISSANTE VIP) -->
+        <button type="button" class="etb-theme-toggle-btn etb-theme-switch" aria-label="Basculer le thème">
+            <span class="etb-switch-track">
+                <svg class="etb-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+                <svg class="etb-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+                <span class="etb-switch-thumb"></span>
+            </span>
+        </button>
     </div>
 
     <!-- Formulaire englobant les 2 colonnes -->

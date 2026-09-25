@@ -52,6 +52,136 @@
 }
 
 /* ==========================================================================
+   QUICK WIDGET VARIABLES
+   ========================================================================== */
+
+.etb-quick-widget {
+    /* --- VARIABLES CENTRALISÉES DU WIDGET (MODIFIABLES EN 1 SEUL ENDROIT) --- */
+    --etb-qw-bg-bar: rgba(11, 15, 25, 0.88);       /* Fond barre flottante nuit */
+    --etb-qw-bg-capsule: rgba(10, 14, 22, 0.85);   /* Fond capsule mode */
+    --etb-qw-bg-card: #111622;                     /* Fond des cartes de véhicules */
+    --etb-qw-bg-card-selected: #141b2b;            /* Fond carte sélectionnée */
+    --etb-qw-bg-dropdown: #0f1420;                 /* Fond menu suggestions adresses */
+    --etb-qw-bg-hover: #1a2336;                    /* Survol et surbrillance clavier */
+    
+  
+    
+    --etb-qw-border: #232a3b;                      /* Bordures principales */
+    --etb-qw-border-subtle: rgba(255, 255, 255, 0.16); /* Bordures translucides */
+    --etb-qw-border-input: rgba(255, 255, 255, 0.25);  /* Soulignement des champs */
+    
+    --etb-qw-text-white: #ffffff;                  /* Titres et textes clairs */
+    --etb-qw-text-muted: #94a3b8;                  /* Textes secondaires argentés */
+    --etb-qw-text-dark: #0f172a;                   /* Textes sur fond clair */
+
+    position: relative !important;
+    z-index: 9999 !important; /* Priorité absolue sur tous les blocs suivants de la page */
+    width: 100% !important;
+    max-width: 1150px !important;
+    margin: 35px auto !important;
+    padding: 16px !important;
+    border: 1px solid var(--etb-border-main, #232a3b) !important;
+    border-radius: 20px !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+
+/* ==========================================================================
+   VARIABLES GLOBALES & THEME TOKENS (DARK / LIGHT MODE)
+   ========================================================================== */
+
+/* ── THÈME SOMBRE VIP (PAR DÉFAUT) ── */
+[data-etb-theme="dark"] {
+    --etb-bg-app: transparent;
+    --etb-bg-card: #0f1420;
+    --etb-bg-card-hover: #141b2b;
+    --etb-bg-input: #151b29;
+    --etb-bg-glass: rgba(11, 15, 25, 0.88);
+    
+    --etb-border-main: #232a3b;
+    --etb-border-input: #28334b;
+    --etb-border-light: rgba(255, 255, 255, 0.08);
+    
+    --etb-text-primary: #ffffff;
+    --etb-text-secondary: #94a3b8;
+    --etb-text-muted: #64748b;
+    
+    --etb-accent-gold: #fbac18;
+    --etb-accent-gold-hover: #e39402;
+    
+    --etb-shadow-base: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+/* ── THÈME CLAIR ÉLÉGANT (LIGHT MODE VIP) ── */
+[data-etb-theme="light"] {
+    --etb-bg-app: transparent;
+    --etb-bg-card: #ffffff;
+    --etb-bg-card-hover: #f8fafc;
+    --etb-bg-input: #f1f5f9;
+    --etb-bg-glass: rgba(255, 255, 255, 0.92);
+    
+    --etb-border-main: #e2e8f0;
+    --etb-border-input: #cbd5e1;
+    --etb-border-light: rgba(0, 0, 0, 0.08);
+    
+    --etb-text-primary: #0f172a; /* Texte noir ardoise */
+    --etb-text-secondary: #475569;
+    --etb-text-muted: #94a3b8;
+    
+    --etb-accent-gold: #e65a15; /* Orange légèrement plus soutenu pour contraste sur fond blanc */
+    --etb-accent-gold-hover: #c2410c;
+    
+    --etb-shadow-base: 0 10px 30px rgba(0, 0, 0, 0.06);
+}
+
+/* Application des tokens sur les éléments racines */
+#etb-quick-widget-app,
+#etb-checkout-app,
+.etb-checkout-wrapper {
+    color: var(--etb-text-primary) !important;
+}
+
+/* Remplacement massif des couleurs en dur par les variables sur le widget d'accueil */
+.etb-quick-glass-bar {
+    background: var(--etb-bg-glass) !important;
+    border-color: var(--etb-border-main) !important;
+}
+
+.etb-quick-car-item {
+    background: var(--etb-bg-card) !important;
+    border-color: var(--etb-border-main) !important;
+    box-shadow: var(--etb-shadow-base) !important;
+}
+
+.etb-quick-car-title,
+.etb-quick-amount {
+    color: var(--etb-text-primary) !important;
+}
+
+.etb-quick-specs,
+.etb-quick-currency {
+    color: var(--etb-text-secondary) !important;
+}
+
+.etb-quick-col input {
+    color: var(--etb-text-primary) !important;
+    border-bottom-color: var(--etb-border-input) !important;
+}
+
+.etb-quick-submit-btn,
+.etb-quick-book-trip-btn,
+.etb-chk-submit-btn {
+    background: var(--etb-accent-gold) !important;
+    color: #ffffff !important;
+}
+
+
+/* ==========================================================================
    2. BOUCLIER ANTI-THÈME (SCOPED CSS RESET & ISOLATION)
    ========================================================================== */
 
@@ -1233,40 +1363,6 @@
    WIDGET MINIMAL : DESIGN SYSTEM OFFICIEL "EDEN CAB" (DESIGN TOKENS)
    ========================================================================== */
 
-.etb-quick-widget {
-    /* --- VARIABLES CENTRALISÉES DU WIDGET (MODIFIABLES EN 1 SEUL ENDROIT) --- */
-    --etb-qw-bg-bar: rgba(11, 15, 25, 0.88);       /* Fond barre flottante nuit */
-    --etb-qw-bg-capsule: rgba(10, 14, 22, 0.85);   /* Fond capsule mode */
-    --etb-qw-bg-card: #111622;                     /* Fond des cartes de véhicules */
-    --etb-qw-bg-card-selected: #141b2b;            /* Fond carte sélectionnée */
-    --etb-qw-bg-dropdown: #0f1420;                 /* Fond menu suggestions adresses */
-    --etb-qw-bg-hover: #1a2336;                    /* Survol et surbrillance clavier */
-    
-  
-    
-    --etb-qw-border: #232a3b;                      /* Bordures principales */
-    --etb-qw-border-subtle: rgba(255, 255, 255, 0.16); /* Bordures translucides */
-    --etb-qw-border-input: rgba(255, 255, 255, 0.25);  /* Soulignement des champs */
-    
-    --etb-qw-text-white: #ffffff;                  /* Titres et textes clairs */
-    --etb-qw-text-muted: #94a3b8;                  /* Textes secondaires argentés */
-    --etb-qw-text-dark: #0f172a;                   /* Textes sur fond clair */
-
-    position: relative !important;
-    z-index: 9999 !important; /* Priorité absolue sur tous les blocs suivants de la page */
-    width: 100% !important;
-    max-width: 1150px !important;
-    margin: 35px auto !important;
-    padding: 16px !important;
-    border: 1px solid var(--etb-qw-border) !important;
-    border-radius: 20px !important;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-    box-sizing: border-box !important;
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    justify-content: center !important;
-}
 
 
 .etb-quick-widget * {
@@ -1327,16 +1423,15 @@
 /* 1. Toggle Capsule supérieure (Trajet simple / À l'heure) */
 .etb-quick-mode-capsule {
     display: inline-flex !important;
-    background: #0b0f19  !important;
+    background: var(--etb-bg-card, #0b0f19) !important;
     backdrop-filter: blur(12px) !important;
     -webkit-backdrop-filter: blur(12px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.12) !important;
-    border-radius:30px !important;
+    border: 1px solid var(--etb-border-main, rgba(255, 255, 255, 0.12)) !important;
+    border-radius: 30px !important;
     padding: 5px !important;
     margin: 0 auto 16px auto !important;
     gap: 4px !important;
     max-height: 45px !important;
-   /* box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;*/
 }
 
 .etb-quick-mode-btn {
@@ -1344,7 +1439,7 @@
     align-items: center !important;
     background: transparent !important;
     border: none !important;
-    color: #94a3b8 !important;
+    color: var(--etb-text-secondary, #94a3b8) !important;
     padding: 9px 22px !important;
     border-radius: 20px !important;
     font-size: 13px !important;
@@ -1354,29 +1449,28 @@
 }
 
 .etb-quick-mode-btn:hover {
-    color: #ffffff !important;
+    color: var(--etb-text-primary, #ffffff) !important;
 }
 
 .etb-quick-mode-btn.active {
-    background: #fbac18 !important; /* Bleu Eden Cab */
+    background: var(--etb-accent-gold, #fbac18) !important;
     color: #000000 !important;
-    /*box-shadow: 0 4px 15px rgba(0, 114, 229, 0.45) !important;*/
 }
 
 /* 2. Barre Horizontale Flottante Translucide */
 .etb-quick-glass-bar {
     position: relative !important;
-    z-index: 100 !important; /* Priorité absolue sur la flotte en dessous */
+    z-index: 100 !important;
     display: flex !important;
     align-items: center !important;
-    background: #0b0f19  !important; /* Fond nuit Eden Cab */
+    background: var(--etb-bg-glass, #0b0f19) !important;
     backdrop-filter: blur(18px) !important;
     -webkit-backdrop-filter: blur(18px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.16) !important;
+    border: 1px solid var(--etb-border-main, rgba(255, 255, 255, 0.16)) !important;
+    /*box-shadow: var(--etb-shadow-base, 0 10px 30px rgba(0, 0, 0, 0.1)) !important;*/
     border-radius: 16px !important;
     padding: 18px 24px !important;
     gap: 18px !important;
-    /*box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45) !important;*/
     width: 100% !important;
 }
 
@@ -1467,16 +1561,7 @@
     align-items: center !important;
 }
 
-.etb-quick-date-display {
-    color: var(--etb-qw-text-white, #ffffff) !important;
-    font-size: 14px !important;
-    font-weight: 600 !important;
-    padding: 6px 0 !important;
-    border-bottom: 1.5px solid var(--etb-qw-border-input, rgba(255, 255, 255, 0.25)) !important;
-    width: 100% !important;
-    white-space: nowrap !important;
-    pointer-events: none !important;
-}
+
 
 /* Le champ de calendrier natif devient transparent pour capter le clic sur la date */
 .etb-quick-date-wrapper input[type="date"] {
@@ -1493,10 +1578,21 @@
 .etb-quick-label {
     font-size: 11px !important;
     font-weight: 700 !important;
-    color: #94a3b8 !important; /* Argenté clair */
+    color: var(--etb-text-secondary, #64748b) !important;
     margin-bottom: 5px !important;
     text-transform: uppercase !important;
     letter-spacing: 0.06em !important;
+}
+
+.etb-quick-date-display {
+    color: var(--etb-text-primary, #0f172a) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    padding: 6px 0 !important;
+    border-bottom: 1.5px solid var(--etb-border-input, rgba(255, 255, 255, 0.25)) !important;
+    width: 100% !important;
+    white-space: nowrap !important;
+    pointer-events: none !important;
 }
 
 /* Inputs épurés soulignés */
@@ -1504,9 +1600,9 @@
 .etb-quick-col select {
     background: transparent !important;
     border: none !important;
-    border-bottom: 1.5px solid rgba(255, 255, 255, 0.25) !important;
+    border-bottom: 1.5px solid var(--etb-border-input, rgba(255, 255, 255, 0.25)) !important;
     border-radius: 0 !important;
-    color: #ffffff !important;
+    color: var(--etb-text-primary, #0f172a) !important;
     font-size: 14px !important;
     font-weight: 600 !important;
     padding: 6px 0 !important;
@@ -1517,9 +1613,10 @@
 }
 
 .etb-quick-col input::placeholder {
-    color: rgba(148, 163, 184, 0.6) !important;
+    color: var(--etb-text-muted, #64748b) !important;
     font-size: 13px !important;
-    font-weight: 400 !important;
+    font-weight: 500 !important;
+    opacity: 0.85 !important;
 }
 
 .etb-quick-col input:focus,
@@ -1536,7 +1633,7 @@
 .etb-quick-divider {
     width: 1px !important;
     height: 38px !important;
-    background: rgba(255, 255, 255, 0.14) !important;
+    background: var(--etb-border-input, rgba(255, 255, 255, 0.14)) !important;
     margin: 0 4px !important;
 }
 
@@ -1551,7 +1648,7 @@
     color: #000000 !important;
     border: none !important;
     border-radius: 50px !important;
-    padding: 13px 26px !important;
+    padding: 13px 26px 11px !important;
     font-size: 14px !important;
     font-weight: 700 !important;
     cursor: pointer !important;
@@ -1590,6 +1687,7 @@
 /* Contour lumineux tournant bicolore autour du bouton Show Prices pendant Calculating... */
 .etb-quick-submit-btn.etb-loading-glow {
     position: relative !important;
+    background-color: #f1f5f9 !important;
     /*box-shadow: 0 0 20px rgba(251, 172, 24, 0.5), 0 0 35px rgba(0, 210, 255, 0.35) !important;
     */
 }
@@ -1663,10 +1761,10 @@
 
 /* 1. Carte globale : Bords arrondis 20px, zéro padding extérieur pour l'image */
 .etb-quick-car-item {
-    background: #111622 !important;
-    border: 1.5px solid #232a3b !important;
+    background: var(--etb-bg-card, #111622) !important;
+    border: 1.5px solid var(--etb-border-main, #232a3b) !important;
     border-radius: 20px !important;
-    padding: 0 !important; /* Image collée aux bordures */
+    padding: 0 !important;
     cursor: pointer !important;
     position: relative !important;
     display: flex !important;
@@ -1677,7 +1775,7 @@
     min-width: 290px !important;
     width: 100% !important;
     overflow: hidden !important;
-    /*box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4) !important;*/
+    box-shadow: var(--etb-shadow-base, 0 10px 30px rgba(0, 0, 0, 0.08)) !important;
     transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1) !important;
 }
 
@@ -1693,9 +1791,9 @@
 }
 
 .etb-quick-car-item.selected {
-    border-color: #fbac18 !important;
-    background: #141b2b !important;
-    box-shadow: 0 0 0 2px #fbac18, 0 16px 40px rgba(251, 172, 24, 0.25) !important;
+    border-color: var(--etb-accent-gold, #fbac18) !important;
+    background: var(--etb-bg-card-hover, #141b2b) !important;
+    box-shadow: 0 0 0 2px var(--etb-accent-gold, #fbac18), 0 16px 40px rgba(251, 172, 24, 0.25) !important;
 }
 
 /* 2. Zone En-tête Héroïque : Plein écran sans bordure + Dégradé fondu */
@@ -1703,13 +1801,13 @@
     position: relative !important;
     width: 100% !important;
     height: 185px !important;
-    background: #0f1420 !important;
+    background: var(--etb-bg-input, #0f1420) !important;
     border-radius: 20px 20px 0 0 !important;
     overflow: hidden !important;
     display: block !important;
 }
 
-/* Voile dégradé noir fumé : fusionne le bas de la photo dans la carte */
+/* Voile dégradé : fondu adaptatif selon le thème */
 .etb-quick-card-hero::after {
     content: '' !important;
     position: absolute !important;
@@ -1717,7 +1815,7 @@
     left: 0 !important;
     width: 100% !important;
     height: 75px !important;
-    background: linear-gradient(to bottom, rgba(17, 22, 34, 0) 0%, rgba(17, 22, 34, 0.65) 50%, #111622 100%) !important;
+    background: linear-gradient(to bottom, transparent 0%, var(--etb-bg-card, #111622) 100%) !important;
     pointer-events: none !important;
     z-index: 5 !important;
 }
@@ -1799,14 +1897,7 @@
     opacity: 0 !important;
 }
 
-/* Support SVG pour l'icône Climate dans les amenities */
-.etb-amenity-col svg,
-.etb-amenity-icon {
-    display: inline-block !important;
-    width: 16px !important;
-    height: 16px !important;
-    stroke: #cbd5e1 !important;
-}
+
 
 .etb-quick-car-item:hover .etb-img-hover,
 .etb-quick-car-item.selected .etb-img-hover {
@@ -1822,15 +1913,7 @@
     opacity: 0 !important;
 }
 
-.etb-quick-car-item:hover .etb-img-hover,
-.etb-quick-car-item.selected .etb-img-hover {
-    opacity: 1 !important;
-}
 
-.etb-quick-car-item:hover .etb-img-static,
-.etb-quick-car-item.selected .etb-img-static {
-    opacity: 0 !important;
-}
 
 /* 3. Corps de la carte avec padding aéré */
 .etb-quick-card-body {
@@ -1845,7 +1928,7 @@
     font-family: 'Inter', sans-serif !important;
     font-size: 17px !important;
     font-weight: 800 !important;
-    color: #ffffff !important;
+    color: var(--etb-text-primary, #0f172a) !important;
     margin: 0 0 10px 0 !important;
     letter-spacing: 0.02em !important;
 }
@@ -1882,18 +1965,17 @@
 /* Pilule Kilométrique : Masquée d'office sans laisser d'ovale vide */
 .etb-quick-km-pill {
     display: none !important;
-
 }
 
 .etb-quick-km-pill.is-visible {
-    display: inline-block !important; /* Visible UNIQUEMENT si .is-visible est ajoutée */
-    background: rgba(255, 255, 255, 0.04) !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    display: inline-block !important;
+    background: var(--etb-bg-input, rgba(255, 255, 255, 0.04)) !important;
+    border: 1px solid var(--etb-border-input, rgba(255, 255, 255, 0.1)) !important;
     border-radius: 20px !important;
     padding: 5px 12px !important;
     font-size: 11px !important;
     font-weight: 600 !important;
-    color: #cbd5e1 !important;
+    color: var(--etb-text-secondary, #cbd5e1) !important;
     margin-bottom: 12px !important;
     width: fit-content !important;
 }
@@ -1903,48 +1985,60 @@
 }
 
 
-/* 4. Rangée des 6 Équipements VIP (Climate, Water, Comfort, Safety, Wifi, Baby seat) */
+/* 4. Rangée des 6 Équipements VIP : alignement strict sur 1 seule ligne */
 .etb-quick-amenities {
-    display: grid !important;
-    grid-template-columns: repeat(6, 1fr) !important;
-    gap: 4px !important;
-    padding: 12px 0 !important;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 2px !important;
+    padding: 10px 0 !important;
     margin-bottom: 16px !important;
-    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-top: 1px solid var(--etb-border-light, rgba(255, 255, 255, 0.08)) !important;
+    border-bottom: 1px solid var(--etb-border-light, rgba(255, 255, 255, 0.08)) !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
 }
-
-.etb-amenity-col small {
-    font-size: 9px !important;
-    font-weight: 600 !important;
-    color: #94a3b8 !important;
-    letter-spacing: 0.01em !important;
-    white-space: nowrap !important;
-}
-
 
 .etb-amenity-col {
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 5px !important;
-    padding: 4px 2px !important;
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    padding: 2px !important;
     text-align: center !important;
 }
 
+.etb-amenity-col svg,
+.etb-amenity-icon {
+    display: block !important;
+    width: 15px !important;
+    height: 15px !important;
+    margin: 0 auto 3px auto !important;
+    stroke: var(--etb-text-secondary, #64748b) !important;
+}
+
 .etb-amenity-col .dashicons {
-    font-size: 16px !important;
-    width: 16px !important;
-    height: 16px !important;
-    color: #cbd5e1 !important;
+    font-size: 15px !important;
+    width: 15px !important;
+    height: 15px !important;
+    margin: 0 auto 3px auto !important;
+    color: var(--etb-text-secondary, #64748b) !important;
 }
 
 .etb-amenity-col small {
-    font-size: 10px !important;
+    font-size: 9px !important;
     font-weight: 600 !important;
-    color: #94a3b8 !important;
-    letter-spacing: 0.02em !important;
+    color: var(--etb-text-secondary, #64748b) !important;
+    letter-spacing: -0.02em !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: block !important;
+    max-width: 100% !important;
 }
 
 /* 5. Pied de Carte : Split Prix à gauche & Bouton pilule à droite */
@@ -1964,32 +2058,35 @@
 .etb-quick-price-display {
     font-size: 24px !important;
     font-weight: 900 !important;
-    color: #fbac18 !important;
+    color: var(--etb-text-primary, #0f172a) !important;
     display: flex !important;
     align-items: baseline !important;
-    gap: 3px !important;
+    flex-wrap: wrap !important;
+    gap: 4px 6px !important;
     letter-spacing: -0.5px !important;
 }
 
 .etb-quick-amount {
     font-size: 26px !important;
     font-weight: 900 !important;
+    color: var(--etb-text-primary, #0f172a) !important;
 }
 
 .etb-quick-currency {
     font-size: 18px !important;
     font-weight: 700 !important;
+    color: var(--etb-text-primary, #0f172a) !important;
 }
 
 .etb-quick-price-detail {
     font-size: 10px !important;
-    color: #94a3b8 !important;
+    color: var(--etb-text-secondary, #94a3b8) !important;
     margin-top: 2px !important;
     line-height: 1.3 !important;
 }
 
 .etb-quick-price-detail strong {
-    color: #ffffff !important;
+    color: var(--etb-text-primary, #ffffff) !important;
 }
 
 
@@ -2015,9 +2112,9 @@
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    background: #1e2638 !important;
-    border: 1px solid #333f57 !important;
-    color: #ffffff !important;
+    background: var(--etb-bg-input, #1e2638) !important;
+    border: 1px solid var(--etb-border-input, #333f57) !important;
+    color: var(--etb-text-primary, #ffffff) !important;
     padding: 9px 20px !important;
     border-radius: 50px !important;
     font-size: 13px !important;
@@ -2027,6 +2124,7 @@
     white-space: nowrap !important;
     user-select: none !important;
 }
+
 
 .etb-quick-select-btn:hover {
     background: #28334b !important;
@@ -2108,29 +2206,27 @@
 .etb-quick-confirm-bar.is-visible {
     display: flex !important;
     position: relative !important;
-    max-height: 600px !important; /* Capacité d'accueil suffisante pour tous les écrans */
+    max-height: 600px !important;
     z-index: 50 !important;
     width: 100% !important;
-    background: #0b0f19 !important; 
-    /*border: 1.5px solid #232a3b !important;*/
+    background: var(--etb-bg-card, #0b0f19) !important;
+    border: 1.5px solid var(--etb-border-main, #232a3b) !important;
+    box-shadow: var(--etb-shadow-base, 0 10px 30px rgba(0, 0, 0, 0.1)) !important;
     border-radius: 16px !important;
     padding: 18px 26px !important;
     margin-top: 40px !important; 
     margin-bottom: 20px !important;
     opacity: 1 !important;
-    border-color: #232a3b !important;
+    border-color: var(--etb-border-main, #232a3b) !important;
     transform: translateY(0) scale(1) !important;
     pointer-events: auto !important;
-     max-height: 180px !important;
+    max-height: 180px !important;
     justify-content: space-between !important;
     align-items: center !important;
     gap: 16px !important;
     box-sizing: border-box !important;
     clear: both !important;
 }
-
-
-
 
 
 
@@ -2144,13 +2240,15 @@
 
 .etb-quick-summary-info span {
     font-size: 14px !important;
-    color: #94a3b8 !important; /* Argenté clair */
-    font-weight: 500 !important;
+    color: var(--etb-text-secondary, #64748b) !important;
+    font-weight: 600 !important;
 }
 
-.etb-quick-summary-info strong {
-    color: #ffffff !important; /* Blanc éclatant */
-    font-weight: 700 !important;
+.etb-quick-summary-info strong,
+#etb-quick-selected-name {
+    color: var(--etb-text-primary, #0f172a) !important;
+    background: transparent !important; /* Supprime tout fond bleu du thème */
+    font-weight: 800 !important;
 }
 
 #etb-quick-selected-total {
@@ -2312,14 +2410,14 @@
     left: 0 !important;
     width: 100% !important;
     min-width: 360px !important;
-    background: #0f1420 !important;
-    border: 1.5px solid #28334b !important;
+    background: var(--etb-bg-card, #0f1420) !important;
+    border: 1.5px solid var(--etb-border-main, #28334b) !important;
     border-radius: 12px !important;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7) !important;
+    box-shadow: var(--etb-shadow-base, 0 20px 40px rgba(0, 0, 0, 0.7)) !important;
     max-height: 250px !important;
     overflow-y: auto !important;
     overscroll-behavior: contain !important;
-    z-index: 99999 !important; /* Passe au-dessus de tout sans exception */
+    z-index: 99999 !important;
     margin-top: 10px !important;
     pointer-events: auto !important;
 }
@@ -2327,31 +2425,31 @@
 .etb-quick-suggestion-item {
     padding: 10px 14px !important;
     font-size: 13px !important;
-    color: #e2e8f0 !important;
+    color: var(--etb-text-primary, #e2e8f0) !important;
     cursor: pointer !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+    border-bottom: 1px solid var(--etb-border-light, rgba(255, 255, 255, 0.06)) !important;
     display: flex !important;
     align-items: center !important;
     gap: 8px !important;
     transition: background 0.2s ease !important;
 }
 
+.etb-quick-sug-title {
+    color: var(--etb-text-primary, #ffffff) !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+}
+
+.etb-quick-sug-sub {
+    color: var(--etb-text-secondary, #94a3b8) !important;
+    font-size: 11px !important;
+}
+
 .etb-quick-suggestion-item:last-child {
     border-bottom: none !important;
 }
 
-.etb-quick-suggestion-item {
-    padding: 12px 16px !important;
-    font-size: 13px !important;
-    color: var(--etb-qw-text-white) !important;
-    cursor: pointer !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 12px !important;
-    transition: background 0.15s ease, color 0.15s ease !important;
-    user-select: none !important;
-}
+
 
 /* Survol souris ET navigation au clavier (Flèche Haut / Flèche Bas) */
 .etb-quick-suggestion-item:hover,
@@ -2373,16 +2471,6 @@
     flex: 1 !important;
 }
 
-.etb-quick-sug-title {
-    color: var(--etb-qw-text-white) !important;
-    font-size: 13px !important;
-    font-weight: 700 !important;
-}
-
-.etb-quick-sug-sub {
-    color: var(--etb-qw-text-muted) !important;
-    font-size: 11px !important;
-}
 
 .etb-quick-suggestion-item .dashicons {
     color: #0072e5 !important;
@@ -2397,10 +2485,10 @@
     top: 100% !important;
     left: 0 !important;
     width: 175px !important;
-    background: #0f1420 !important;
-    border: 1.5px solid #28334b !important;
+    background: var(--etb-bg-card, #0f1420) !important;
+    border: 1.5px solid var(--etb-border-main, #28334b) !important;
     border-radius: 12px !important;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7) !important;
+    box-shadow: var(--etb-shadow-base, 0 20px 40px rgba(0, 0, 0, 0.7)) !important;
     display: none !important;
     flex-direction: column !important;
     padding: 10px !important;
@@ -2408,6 +2496,27 @@
     margin-top: 10px !important;
 }
 
+.etb-time-head {
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    color: var(--etb-text-secondary, #94a3b8) !important;
+    text-transform: uppercase !important;
+    text-align: center !important;
+    padding-bottom: 4px !important;
+    border-bottom: 1px solid var(--etb-border-light, rgba(255, 255, 255, 0.1)) !important;
+    margin-bottom: 4px !important;
+}
+
+.etb-time-opt {
+    padding: 6px 0 !important;
+    text-align: center !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: var(--etb-text-primary, #e2e8f0) !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+}
 .etb-quick-time-picker-popup.is-open {
     display: flex !important;
 }
@@ -2426,7 +2535,7 @@
     flex: 1 !important;
     background: transparent !important;
     border: none !important;
-    color: #fbac18 !important;
+    color: var(--etb-text-secondary, #94a3b8) !important;
     padding: 5px 0 !important;
     font-size: 11px !important;
     font-weight: 700 !important;
@@ -2454,33 +2563,12 @@
     flex-direction: column !important;
 }
 
-.etb-time-head {
-    font-size: 10px !important;
-    font-weight: 700 !important;
-    color: #94a3b8 !important;
-    text-transform: uppercase !important;
-    text-align: center !important;
-    padding-bottom: 4px !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
-    margin-bottom: 4px !important;
-}
-
 .etb-time-scroll {
     max-height: 160px !important;
     overflow-y: auto !important;
     overscroll-behavior: contain !important;
 }
 
-.etb-time-opt {
-    padding: 6px 0 !important;
-    text-align: center !important;
-    font-size: 13px !important;
-    font-weight: 600 !important;
-    color: #e2e8f0 !important;
-    border-radius: 6px !important;
-    cursor: pointer !important;
-    transition: all 0.15s ease !important;
-}
 
 .etb-time-opt:hover,
 .etb-time-opt.active {
@@ -2493,10 +2581,10 @@
    ========================================================================== */
 
 .pac-container {
-    background-color: #0f1420 !important;
-    border: 1.5px solid #28334b !important;
+    background-color: var(--etb-bg-card, #0f1420) !important;
+    border: 1.5px solid var(--etb-border-main, #28334b) !important;
     border-radius: 12px !important;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7) !important;
+    box-shadow: var(--etb-shadow-base, 0 20px 40px rgba(0, 0, 0, 0.7)) !important;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     z-index: 999999 !important;
     margin-top: 8px !important;
@@ -2509,17 +2597,32 @@
     grid-column-gap: 12px !important;
     align-items: center !important;
     padding: 10px 16px !important;
-    border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
-    color: #94a3b8 !important;
+    border-top: 1px solid var(--etb-border-light, rgba(255, 255, 255, 0.06)) !important;
+    color: var(--etb-text-secondary, #94a3b8) !important;
     cursor: pointer !important;
     line-height: 1.35 !important;
 }
 
 .pac-item:hover,
 .pac-item-selected {
-    background-color: #1a2336 !important;
-    border-left: 3px solid var(--etb-qw-accent) !important;
+    background-color: var(--etb-bg-card-hover, #1a2336) !important;
+    border-left: 3px solid var(--etb-accent-gold, #fbac18) !important;
 }
+
+.pac-item-query {
+    grid-row: 1 !important;
+    grid-column: 2 !important;
+    color: var(--etb-text-primary, #ffffff) !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    padding-right: 0 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: block !important;
+}
+
+
 
 .pac-icon {
     grid-row: 1 / span 2 !important;
@@ -2529,18 +2632,7 @@
     align-self: center !important;
 }
 
-.pac-item-query {
-    grid-row: 1 !important;
-    grid-column: 2 !important;
-    color: #ffffff !important;
-    font-size: 14px !important;
-    font-weight: 700 !important;
-    padding-right: 0 !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    display: block !important;
-}
+
 
 /* Détails d'adresse non gras (ville, région, pays) sur la 2e ligne */
 .pac-item > span:not(.pac-icon):not(.pac-item-query) {
@@ -2580,7 +2672,7 @@
     transform: translateY(-50%) !important;
     width: 20px !important;
     height: 20px !important;
-    background: rgba(255, 255, 255, 0.16) !important;
+    background:  rgba(255, 255, 255, 0.16) !important;
     color: rgba(255, 255, 255, 0.75) !important;
     border: none !important;
     border-radius: 50% !important;
@@ -2602,8 +2694,8 @@
     transform: translateY(-50%) !important;
     width: 20px !important;
     height: 20px !important;
-    background: rgba(255, 255, 255, 0.16) !important;
-    color: rgba(255, 255, 255, 0.75) !important;
+    background: var( --etb-border, rgba(255, 255, 255, 0.16)) !important;
+    color: var(--etb-text-secondary, rgba(255, 255, 255, 0.75)) !important;
     border: none !important;
     border-radius: 50% !important;
     align-items: center !important;
@@ -2640,13 +2732,17 @@
     justify-content: space-between !important;
     align-items: center !important;
     background: transparent !important;
-    border-bottom: 1.5px solid var(--etb-qw-border-input, rgba(255, 255, 255, 0.25)) !important;
-    color: var(--etb-qw-text-white, #ffffff) !important;
+    border-bottom: 1.5px solid var(--etb-border-input, rgba(255, 255, 255, 0.25)) !important;
+    color: var(--etb-text-primary, #ffffff) !important;
     font-size: 14px !important;
     font-weight: 600 !important;
     padding: 6px 0 !important;
     cursor: pointer !important;
     transition: all 0.25s ease !important;
+}
+
+.etb-custom-select-trigger span {
+    color: var(--etb-text-primary, #ffffff) !important;
 }
 
 .etb-custom-select-trigger:hover,
@@ -2672,32 +2768,32 @@
     top: 100% !important;
     left: 0 !important;
     width: 100% !important;
-    background: var(--etb-qw-bg-dropdown, #0f1420) !important;
-    border: 1px solid var(--etb-qw-border, #28334b) !important;
+    background: var(--etb-bg-card, #0f1420) !important;
+    border: 1px solid var(--etb-border-main, #28334b) !important;
     border-radius: 8px !important;
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6) !important;
+    box-shadow: var(--etb-shadow-base, 0 15px 35px rgba(0, 0, 0, 0.6)) !important;
     margin-top: 8px !important;
     display: none !important;
     flex-direction: column !important;
     z-index: 99999 !important;
-    max-height: 240px !important; /* Hauteur optimale pour défilement */
-    overflow-y: auto !important; /* Défilement fluide de 3h à 24h */
+    max-height: 240px !important;
+    overflow-y: auto !important;
     overscroll-behavior: contain !important;
-}
-
-
-
-.etb-custom-select.is-open .etb-custom-select-options {
-    display: flex !important;
 }
 
 .etb-custom-option {
     padding: 10px 14px !important;
     font-size: 13px !important;
     font-weight: 600 !important;
-    color: var(--etb-qw-text-white, #ffffff) !important;
+    color: var(--etb-text-primary, #ffffff) !important;
     cursor: pointer !important;
     transition: background 0.2s ease !important;
+}
+
+
+
+.etb-custom-select.is-open .etb-custom-select-options {
+    display: flex !important;
 }
 
 .etb-custom-option:hover {
@@ -2784,7 +2880,7 @@
 .etb-checkout-page-title {
     font-size: 26px !important;
     font-weight: 800 !important;
-    color: #ffffff !important;
+    color: var(--etb-text-primary, #ffffff) !important;
     margin: 0 !important;
     letter-spacing: -0.5px !important;
 }
@@ -2827,6 +2923,14 @@
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4) !important;
 }
 
+.etb-checkout-card-header h3 {
+    font-size: 17px !important;
+    font-weight: 800 !important;
+    color: #ffffff !important;
+    margin: 0 0 4px 0 !important;
+    letter-spacing: 0.02em !important;
+}
+
 .etb-checkout-card-header {
     display: flex !important;
     align-items: flex-start !important;
@@ -2853,13 +2957,7 @@
     display: block !important;
 }
 
-.etb-checkout-card-header h3 {
-    font-size: 17px !important;
-    font-weight: 800 !important;
-    color: #ffffff !important;
-    margin: 0 0 4px 0 !important;
-    letter-spacing: 0.02em !important;
-}
+
 
 .etb-checkout-card-header p {
     font-size: 12px !important;
@@ -2893,13 +2991,13 @@
 .etb-chk-field select,
 .etb-chk-field textarea {
     width: 100% !important;
-    background: #151b29 !important;
-    border: 1.5px solid #28334b !important;
+    background: var(--etb-bg-input, #151b29) !important;
+    border: 1.5px solid var(--etb-border-input, #28334b) !important;
     border-radius: 10px !important;
     padding: 11px 14px !important;
     font-size: 13px !important;
     font-weight: 500 !important;
-    color: #ffffff !important;
+    color: var(--etb-text-primary, #ffffff) !important;
     outline: none !important;
     transition: all 0.2s ease !important;
 }
@@ -3158,18 +3256,18 @@
    ========================================================================== */
 .etb-chk-sticky-card {
     width: 100% !important;
-    background: #0f1420 !important;
-    border: 1.5px solid #232a3b !important;
+    background: var(--etb-bg-card, #0f1420) !important;
+    border: 1.5px solid var(--etb-border-main, #232a3b) !important;
     border-radius: 20px !important;
     padding: 24px 26px !important;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6) !important;
+    box-shadow: var(--etb-shadow-base, 0 20px 50px rgba(0, 0, 0, 0.1)) !important;
 }
 .etb-chk-summary-title {
     font-size: 18px !important;
     font-weight: 800 !important;
-    color: #ffffff !important;
+    color: var(--etb-text-primary, #ffffff) !important;
     margin: 0 0 16px 0 !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-bottom: 1px solid var(--etb-border-light, rgba(255, 255, 255, 0.08)) !important;
     padding-bottom: 12px !important;
     letter-spacing: 0.02em !important;
 }
@@ -3180,7 +3278,7 @@
     align-items: center !important;
     gap: 14px !important;
     background: rgba(255, 255, 255, 0.03) !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(25, 25, 25, 0.16) !important;
     border-radius: 12px !important;
     padding: 12px 14px !important;
     margin-bottom: 18px !important;
@@ -3195,7 +3293,7 @@
 .etb-chk-summary-vehicle-meta h4 {
     font-size: 15px !important;
     font-weight: 800 !important;
-    color: #ffffff !important;
+    color: var(--etb-text-primary, #ffffff) !important;
     margin: 0 0 4px 0 !important;
 }
 
@@ -3310,7 +3408,7 @@
 
 .etb-chk-timeline-text strong {
     font-size: 13px !important;
-    color: #cbd5e1 !important;
+    color: var(--etb-text-primary, #cbd5e1) !important;
     line-height: 1.35 !important;
     display: block !important;
 }
@@ -3427,7 +3525,8 @@
 .etb-chk-feedback.is-error {
     background: rgba(220, 38, 38, 0.15) !important;
     border: 1px solid #dc2626 !important;
-    color: #f87171 !important;
+    color: #ff1111 !important;
+    text-align: center !important;
 }
 
 .etb-chk-feedback.is-success {
@@ -3435,6 +3534,267 @@
     border: 1px solid #16a34a !important;
     color: #4ade80 !important;
 }
+
+
+/* ==========================================================================
+   ADAPTATION COMPLÈTE DU CHECKOUT EN LIGHT MODE VIP
+   ========================================================================== */
+[data-etb-theme="light"] .etb-checkout-wrapper {
+    color: #0f172a !important;
+}
+
+/* 1. Titre et cartes principales à gauche (Doux et velouté) */
+[data-etb-theme="light"] .etb-checkout-page-title {
+    color: #1e293b !important; /* Anthracite noble au lieu de noir dur */
+}
+
+[data-etb-theme="light"] .etb-checkout-card {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04) !important;
+}
+
+[data-etb-theme="light"] .etb-checkout-card-header {
+    border-bottom: 1px solid #f1f5f9 !important;
+}
+
+[data-etb-theme="light"] .etb-checkout-card-header h3 {
+    color: #1e293b !important; /* Anthracite noble */
+}
+
+[data-etb-theme="light"] .etb-checkout-card-header p {
+    color: #475569 !important; /* Gris chaud lisible */
+}
+
+/* 2. Boutons radio Myself / Guest & Boîtes intérieures */
+[data-etb-theme="light"] .etb-chk-radio-pill {
+    background: #f1f5f9 !important;
+    border: 1.5px solid #cbd5e1 !important;
+    color: #475569 !important;
+}
+
+[data-etb-theme="light"] .etb-chk-radio-pill:hover {
+    border-color: #fbac18 !important;
+    color: #0f172a !important;
+}
+
+[data-etb-theme="light"] .etb-chk-radio-pill.active {
+    background: rgba(251, 172, 24, 0.15) !important;
+    border-color: #fbac18 !important;
+    color: #b45309 !important;
+}
+
+[data-etb-theme="light"] .etb-chk-child-seats-box,
+[data-etb-theme="light"] .etb-chk-capacity-box,
+[data-etb-theme="light"] .etb-payment-mandate-box {
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
+/* Neutralisation du blanc forcé sur les textes et balises strong en mode clair */
+[data-etb-theme="light"] #etb-checkout-app strong,
+[data-etb-theme="light"] .etb-checkout-wrapper strong,
+[data-etb-theme="light"] .etb-chk-cap-label strong,
+[data-etb-theme="light"] .etb-chk-cap-label span,
+[data-etb-theme="light"] .etb-chk-seat-info strong,
+[data-etb-theme="light"] .etb-chk-seat-info span,
+[data-etb-theme="light"] .etb-mandate-label span,
+[data-etb-theme="light"] .etb-mandate-label strong {
+    color: #1e293b !important;
+    background: transparent !important;
+}
+
+[data-etb-theme="light"] .etb-chk-seat-info p,
+[data-etb-theme="light"] .etb-chk-cap-label small,
+[data-etb-theme="light"] .etb-mandate-legal-text {
+    color: #64748b !important;
+}
+
+/* Boutons +/- de quantité */
+[data-etb-theme="light"] .etb-chk-qty-control {
+    background: #e2e8f0 !important;
+    border: 1px solid #cbd5e1 !important;
+}
+
+[data-etb-theme="light"] .etb-chk-qty-btn {
+    color: #0f172a !important;
+}
+
+[data-etb-theme="light"] .etb-chk-qty-control input {
+    color: #0f172a !important;
+}
+
+/* 3. Inputs de saisie : UNIFORMISATION STRICTE DE TOUS LES CHAMPS EN LIGHT MODE */
+[data-etb-theme="light"] .etb-chk-field label {
+    color: #334155 !important;
+    font-weight: 700 !important;
+}
+
+/* Identique pour tous les champs : inputs, textarea, stripe, select pays */
+[data-etb-theme="light"] .etb-chk-field input,
+[data-etb-theme="light"] .etb-chk-field select,
+[data-etb-theme="light"] .etb-chk-field textarea,
+[data-etb-theme="light"] .etb-stripe-mount-box,
+[data-etb-theme="light"] .etb-chk-field .etb-custom-select-trigger {
+    background: #ffffff !important;
+    border: 1px solid #8b8b8b !important;
+    border-radius: 10px !important;
+    color: #1e293b !important;
+    /*box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;*/
+    transition: all 0.2s ease !important;
+}
+
+/* Survol harmonisé */
+[data-etb-theme="light"] .etb-chk-field input:hover,
+[data-etb-theme="light"] .etb-chk-field textarea:hover,
+[data-etb-theme="light"] .etb-stripe-mount-box:hover,
+[data-etb-theme="light"] .etb-chk-field .etb-custom-select-trigger:hover {
+    border-color: #94a3b8 !important;
+}
+
+/* Focus harmonisé (liseré or ambré subtil) */
+[data-etb-theme="light"] .etb-chk-field input:focus,
+[data-etb-theme="light"] .etb-chk-field textarea:focus,
+[data-etb-theme="light"] .etb-stripe-mount-box.StripeElement--focus,
+[data-etb-theme="light"] .etb-chk-field .etb-custom-select.is-open .etb-custom-select-trigger {
+    background: #ffffff !important;
+    border-color: #fbac18 !important;
+    box-shadow: 0 0 0 3px rgba(251, 172, 24, 0.15) !important;
+}
+
+[data-etb-theme="light"] .etb-stripe-mount-box.StripeElement--invalid {
+    border-color: #f87171 !important;
+}
+
+[data-etb-theme="light"] .etb-chk-field input:hover,
+[data-etb-theme="light"] .etb-chk-field textarea:hover {
+    border-color: #94a3b8 !important;
+}
+
+[data-etb-theme="light"] .etb-chk-field input:focus,
+[data-etb-theme="light"] .etb-chk-field textarea:focus {
+    background: #ffffff !important;
+    border-color: #fbac18 !important;
+    box-shadow: 0 0 0 3px rgba(251, 172, 24, 0.15) !important;
+}
+
+[data-etb-theme="light"] .etb-chk-hint {
+    color: #64748b !important;
+}
+
+/* 4. Étape 2 : Paiement EDEN CAB */
+[data-etb-theme="light"] .etb-payment-company-header {
+    border-bottom: 1px solid #e2e8f0 !important;
+}
+
+[data-etb-theme="light"] .etb-payment-brand-title {
+    color: #0f172a !important;
+}
+
+[data-etb-theme="light"] .etb-payment-company-address p {
+    color: #64748b !important;
+}
+
+[data-etb-theme="light"] .etb-payment-section-title {
+    color: #0f172a !important;
+}
+
+
+[data-etb-theme="light"] .etb-brand-badge {
+    background: #e2e8f0 !important;
+    border-color: #cbd5e1 !important;
+    color: #475569 !important;
+}
+
+/* 5. Colonne Droite : Ride Summary (Doux, équilibré et chaleureux) */
+[data-etb-theme="light"] .etb-chk-sticky-card {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04) !important;
+}
+
+[data-etb-theme="light"] .etb-chk-summary-title {
+    color: #1e293b !important; /* Ardoise doux */
+    border-bottom: 1px solid #f1f5f9 !important;
+}
+
+[data-etb-theme="light"] .etb-chk-summary-vehicle-meta h4 {
+    color: #1e293b !important;
+}
+
+[data-etb-theme="light"] .etb-chk-summary-specs {
+    color: #475569 !important;
+}
+
+[data-etb-theme="light"] .etb-chk-summary-specs strong {
+    color: #1e293b !important;
+}
+
+/* Lignes Pickup, Dropoff, Date */
+[data-etb-theme="light"] .etb-chk-timeline-text small {
+    color: #64748b !important; /* Plus visible que le gris pâle 94a3b8 */
+    font-weight: 700 !important;
+}
+
+[data-etb-theme="light"] .etb-chk-timeline-text strong {
+    color: #1e293b !important;
+}
+
+/* Garanties (lisibles sans être agressives) */
+[data-etb-theme="light"] .etb-chk-guarantees {
+    background: #f8fafc !important;
+    border: 1px solid #f1f5f9 !important;
+}
+
+[data-etb-theme="light"] .etb-chk-guarantee-line {
+    color: #334155 !important; /* Gris anthracite parfaitement lisible */
+}
+
+/* Boutons Pourboire (None, 10%, 15%, 20%) */
+[data-etb-theme="light"] .etb-chk-tip-section {
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
+[data-etb-theme="light"] .etb-chk-tip-title {
+    color: #475569 !important;
+}
+
+[data-etb-theme="light"] .etb-tip-pill {
+    background: #ffffff !important;
+    border: 1.5px solid #cbd5e1 !important;
+    color: #334155 !important;
+}
+
+[data-etb-theme="light"] .etb-tip-pill:hover {
+    border-color: #fbac18 !important;
+    color: #0f172a !important;
+}
+
+[data-etb-theme="light"] .etb-tip-pill.active {
+    background: rgba(251, 172, 24, 0.15) !important;
+    border-color: #fbac18 !important;
+    color: #b45309 !important;
+}
+
+/* Décomposition des prix */
+[data-etb-theme="light"] .etb-chk-price-row {
+    color: #475569 !important;
+}
+
+[data-etb-theme="light"] .etb-chk-price-row strong {
+    color: #0f172a !important;
+}
+
+[data-etb-theme="light"] .etb-chk-price-row.total-row {
+    border-top: 1px solid #e2e8f0 !important;
+    color: #0f172a !important;
+}
+
+[data-etb-theme="light"] .etb-chk-price-row.total-row strong {
+    color: #e65a15 !important;
+}
+
 /* ==========================================================================
    MODULE DE PAIEMENT SÉCURISÉ EDEN CAB / STRIPE (ÉTAPE 2)
    ========================================================================== */
@@ -3889,6 +4249,111 @@
     border-top: 1px dashed rgba(255, 255, 255, 0.08) !important;
     white-space: normal !important;
 }
+
+
+
+/* ==========================================================================
+   BOUTON SWITCHER THÈME (PILULE COULISSANTE / TOGGLE SWITCH)
+   ========================================================================== */
+
+/* 1. Neutralisation totale du thème WordPress (Zéro carré rose) */
+.etb-theme-toggle-btn.etb-theme-switch {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    cursor: pointer !important;
+    outline: none !important;
+    box-shadow: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+}
+
+.etb-theme-toggle-btn.etb-theme-switch:hover,
+.etb-theme-toggle-btn.etb-theme-switch:focus,
+.etb-theme-toggle-btn.etb-theme-switch:active {
+    background: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
+    border: none !important;
+}
+
+/* Positionnement pour le widget minimal */
+#etb-quick-widget-app .etb-theme-toggle-btn.etb-theme-switch {
+    position: absolute !important;
+    top: 18px !important;
+    right: 18px !important;
+    z-index: 150 !important; /* Doit être supérieur à 100 (barre de recherche) */
+}
+
+/* 2. Le "Rail" de la pilule */
+.etb-switch-track {
+    position: relative !important;
+    width: 44px !important;
+    height: 22px !important;
+    border-radius: 50px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 0 5px !important;
+    box-sizing: border-box !important;
+    transition: background 0.3s ease, border-color 0.3s ease !important;
+    border: 1px solid transparent !important;
+}
+
+/* Les icônes Soleil et Lune à l'intérieur */
+.etb-switch-track svg {
+    width: 11px !important;
+    height: 11px !important;
+    z-index: 1 !important;
+    transition: color 0.3s ease, opacity 0.3s ease !important;
+}
+
+/* 3. La pastille coulissante (Thumb) */
+.etb-switch-thumb {
+    position: absolute !important;
+    top: 2px !important;
+    left: 2px !important;
+    width: 16px !important;
+    height: 16px !important;
+    border-radius: 50% !important;
+    transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), background 0.3s ease !important;
+    z-index: 2 !important;
+}
+
+/* ── ÉTAT DARK MODE (Par défaut : Pastille à droite) ── */
+[data-etb-theme="dark"] .etb-switch-track {
+    background: #0f1420 !important;
+    border-color: #28334b !important;
+}
+[data-etb-theme="dark"] .etb-theme-switch:hover .etb-switch-track {
+    border-color: #fbac18 !important; /* Liseré or au survol */
+}
+[data-etb-theme="dark"] .etb-switch-thumb {
+    transform: translateX(22px) !important; /* Coulisse à droite */
+    background: #fbac18 !important; /* Pastille Or */
+    box-shadow: 0 0 8px rgba(251, 172, 24, 0.4) !important;
+}
+[data-etb-theme="dark"] .etb-icon-sun { color: #64748b !important; }
+[data-etb-theme="dark"] .etb-icon-moon { opacity: 0 !important; } /* Masqué sous la pastille */
+
+/* ── ÉTAT LIGHT MODE (Pastille à gauche) ── */
+[data-etb-theme="light"] .etb-switch-track {
+    background: #e2e8f0 !important;
+    border-color: #cbd5e1 !important;
+}
+[data-etb-theme="light"] .etb-theme-switch:hover .etb-switch-track {
+    border-color: #94a3b8 !important;
+}
+[data-etb-theme="light"] .etb-switch-thumb {
+    transform: translateX(0) !important; /* Coulisse à gauche */
+    background: #ffffff !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15) !important;
+}
+[data-etb-theme="light"] .etb-icon-sun { opacity: 0 !important; } /* Masqué sous la pastille */
+[data-etb-theme="light"] .etb-icon-moon { color: #64748b !important; }
+
 
 /* 6. Adaptation Mobile & Tablette */
 @media (max-width: 900px) {
