@@ -88,6 +88,7 @@
     flex-direction: column !important;
     align-items: center !important;
     justify-content: center !important;
+    backdrop-filter: blur(8px) !important;
 }
 
 
@@ -123,7 +124,7 @@
     --etb-bg-card: #ffffff;
     --etb-bg-card-hover: #f8fafc;
     --etb-bg-input: #f1f5f9;
-    --etb-bg-glass: rgba(255, 255, 255, 0.92);
+    --etb-bg-glass: rgba(255, 255, 255, 1);
     
     --etb-border-main: #e2e8f0;
     --etb-border-input: #cbd5e1;
@@ -1379,8 +1380,8 @@
     margin: 0 auto 16px auto !important;
     padding: 0 !important;
     font-family: 'Calibri', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-    font-size: 23px !important;
-    font-weight: 500 !important;
+    font-size: 28px !important;
+    font-weight: 800 !important;
     letter-spacing: 0.12em !important;
     text-transform: uppercase !important;
     text-align: center !important;
@@ -1396,12 +1397,12 @@
 
     background-image: linear-gradient(
         90deg,
-        #64748b 0%,
-        #ffffff 20%,
-        #fbac18 45%,
-        #fbac18 65%,
-        #ffffff 80%,
-        #64748b 100%
+         #121212 0%,
+          #f3f3f3 25% ,
+           #fbac18 30%, 
+           #fbac18 65%, 
+           #1e1e1e 80%, 
+           #121212 100%
     );
     background-size: 200% auto;
     background-repeat: repeat;
@@ -1453,7 +1454,7 @@
 }
 
 .etb-quick-mode-btn.active {
-    background: var(--etb-accent-gold, #fbac18) !important;
+    background: #fbac18 !important;
     color: #000000 !important;
 }
 
@@ -1735,9 +1736,9 @@
 
 .etb-quick-fleet-heading {
     font-family: 'calibri', sans-serif !important;
-    font-size: 18px !important;
-    font-weight: 500 !important;
-    color: #d36300 !important;
+    font-size: 20px !important;
+    font-weight: 800 !important;
+    color: #343434 !important;
     margin-bottom: 22px !important;
     text-transform: uppercase !important;
     letter-spacing: 0.08em !important;
@@ -2013,12 +2014,22 @@
 }
 
 .etb-amenity-col svg,
-.etb-amenity-icon {
+.etb-amenity-svg {
     display: block !important;
-    width: 15px !important;
-    height: 15px !important;
+    width: 25px !important;
+    height: 25px !important;
+    max-width: 25px !important;
+    max-height: 25px !important;
     margin: 0 auto 3px auto !important;
-    stroke: var(--etb-text-secondary, #64748b) !important;
+    color: var(--etb-text-secondary, #94a3b8) !important;
+    fill: currentColor !important;
+    transition: color 0.2s ease !important;
+}
+
+[data-etb-theme="light"] .etb-amenity-col svg,
+[data-etb-theme="light"] .etb-amenity-svg {
+    color: #475569 !important;
+    fill: currentColor !important;
 }
 
 .etb-amenity-col .dashicons {
@@ -2261,6 +2272,7 @@
 .etb-quick-actions-row {
     display: flex !important;
     align-items: center !important;
+    justify-content: end !important;
     gap: 12px !important;
     flex-wrap: wrap !important;
 }
