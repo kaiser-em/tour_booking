@@ -62,9 +62,9 @@ $formatted_price = ( 'Custom Quote' === $price_val || floatval( $price_val ) <= 
     <!-- Formulaire englobant les 2 colonnes -->
     <form id="etb-checkout-form" onsubmit="return false;">
         
-        <!-- Champs de sécurité invisibles -->
+        <!-- Champs de sécurité invisibles immunisés contre l'Autofill -->
         <div style="position: absolute !important; left: -9999px !important; opacity: 0 !important; width: 0 !important; height: 0 !important; overflow: hidden !important;" aria-hidden="true">
-            <input type="text" name="etb_hp_email" value="" tabindex="-1" autocomplete="off">
+            <input type="text" name="etb_antibot_check" value="" tabindex="-1" autocomplete="new-password" aria-hidden="true">
             <input type="hidden" name="etb_sec_time" value="<?php echo esc_attr( $sec_token['time'] ); ?>">
             <input type="hidden" name="etb_sec_token" value="<?php echo esc_attr( $sec_token['token'] ); ?>">
         </div>
@@ -494,7 +494,14 @@ $formatted_price = ( 'Custom Quote' === $price_val || floatval( $price_val ) <= 
                     <!-- Message d'erreur / Feedback avant envoi -->
                     <div class="etb-chk-feedback" id="etb-chk-feedback" style="display: none;"></div>
 
-                    <!-- Bouton d'action dynamique (Proceed to Payment -> Pay Now) -->
+                    <!-- Option "Pay Later" (affichée uniquement pour les courses à tarif fixe) -->
+                    <div id="etb-chk-pay-later-wrap" style="text-align: center; margin-bottom: 12px; <?php echo ( 'Custom Quote' === $price_val || floatval( $price_val ) <= 0 ) ? 'display: none;' : ''; ?>">
+                        <a href="#" id="etb-chk-pay-later-link" style="font-size: 13px; font-weight: 700; color: var(--etb-text-secondary, #94a3b8); text-decoration: underline; transition: color 0.2s ease;">
+                            Or book now and Pay Later ➔
+                        </a>
+                    </div>
+
+                    <!-- Bouton d'action principal -->
                     <button type="button" class="etb-chk-submit-btn" id="etb-chk-submit-btn">
                         <span id="etb-chk-submit-text">Continue to Payment</span>
                         <span class="dashicons dashicons-arrow-right-alt2"></span>

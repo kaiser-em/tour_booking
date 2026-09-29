@@ -383,13 +383,16 @@ class ETB_LimoExpress {
             return false;
         }
 
-        // Le prix net de la course envoyé à LimoExpress (déduction du pourboire s'il est inclus)
-        $base_ride_price = ! empty( $data['pricing']['base_fare'] ) 
-            ? floatval( $data['pricing']['base_fare'] ) 
-            : floatval( $data['pricing']['grand_total'] ?? 0 );
+        // Résolution propre du prix net de la course pour LimoExpress
+        $tip_amount_val = ! empty( $data['tip_amount'] ) ? floatval( $data['tip_amount'] ) : 0.0;
 
-        if ( ! empty( $data['tip_amount'] ) && $base_ride_price > floatval( $data['tip_amount'] ) ) {
-            $base_ride_price = $base_ride_price - floatval( $data['tip_amount'] );
+        if ( isset( $data['pricing']['base_fare'] ) && '' !== $data['pricing']['base_fare'] ) {
+            // Le tarif de base est déjà net de tout pourboire
+            $base_ride_price = floatval( $data['pricing']['base_fare'] );
+        } else {
+            // Si seul le grand_total est fourni, on isole le transport en déduisant le pourboire
+            $grand_val = floatval( $data['pricing']['grand_total'] ?? 0.0 );
+            $base_ride_price = ( $tip_amount_val > 0 && $grand_val > $tip_amount_val ) ? ( $grand_val - $tip_amount_val ) : $grand_val;
         }
 
         // 9. Construction du Payload conforme au Swagger officiel
@@ -444,9 +447,14 @@ class ETB_LimoExpress {
         $body        = json_decode( $raw_body, true );
 
         if ( $status_code >= 200 && $status_code < 300 ) {
-            $limo_id = $body['data']['number'] ?? $body['data']['internal_number'] ?? $body['data']['id'] ?? 'OK';
+            $limo_id   = $body['data']['number'] ?? $body['data']['internal_number'] ?? $body['data']['id'] ?? 'OK';
+            $limo_uuid = ! empty( $body['data']['id'] ) ? sanitize_text_field( $body['data']['id'] ) : '';
+
             update_post_meta( $booking_id, '_etb_limo_status', 'synced' );
             update_post_meta( $booking_id, '_etb_limo_booking_id', $limo_id );
+            if ( ! empty( $limo_uuid ) ) {
+                update_post_meta( $booking_id, '_etb_limo_uuid', $limo_uuid );
+            }
             delete_post_meta( $booking_id, '_etb_limo_error' );
             return true;
         } else {
@@ -749,5 +757,78 @@ class ETB_LimoExpress {
         }
 
         return $default_fallback_id;
+    }
+
+    /**
+     * Interroge l'API LimoExpress pour récupérer le prix et le statut actuels d'une course
+     * Utilisé par la page de paiement pour détecter en direct le prix fixé par le régulateur
+     *
+     * @param string $limo_booking_id ID ou UUID de la course dans LimoExpress
+     * @return array { 'price' => float, 'paid' => bool, 'confirmed' => bool }
+     */
+    /**
+     * Interroge l'API LimoExpress pour récupérer le prix et le statut actuels d'une course
+     * Trié par ID décroissant pour matcher immédiatement les courses les plus récentes
+     *
+     * @param string $limo_booking_id Numéro (ex: 47fb34f1753e20) ou UUID
+     * @param int    $wp_booking_id   ID du dossier WordPress pour matching de secours
+     * @return array { 'price' => float, 'paid' => bool, 'confirmed' => bool, 'uuid' => string }
+     */
+    public static function get_booking_details( $limo_booking_id, $wp_booking_id = 0 ) {
+        $result = array(
+            'price'     => 0.0,
+            'paid'      => false,
+            'confirmed' => false,
+            'uuid'      => '',
+        );
+
+        $settings = get_option( 'etb_general_settings', array() );
+        $token    = $settings['limo_api_token'] ?? '';
+        if ( empty( $token ) ) {
+            return $result;
+        }
+
+        // Requête sur les 10 dernières réservations triées par ID décroissant
+        $url = 'https://api.limoexpress.me/api/integration/bookings?order_by=id&order=desc&per_page=10';
+
+        $response = wp_remote_get( $url, array(
+            'headers' => array(
+                'Accept'        => 'application/json',
+                'Authorization' => 'Bearer ' . $token,
+            ),
+            'timeout' => 15,
+        ) );
+
+        if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
+            return $result;
+        }
+
+        $body  = json_decode( wp_remote_retrieve_body( $response ), true );
+        $items = $body['data'] ?? array();
+
+        if ( ! empty( $items ) && is_array( $items ) ) {
+            $target_num = trim( (string) $limo_booking_id );
+            $wp_needle  = $wp_booking_id ? ( '#' . $wp_booking_id ) : '';
+
+            foreach ( $items as $item ) {
+                $item_id   = $item['id'] ?? '';
+                $item_num  = $item['number'] ?? '';
+                $item_note = $item['note_for_driver'] ?? $item['note'] ?? '';
+
+                // Matching par number LimoExpress OU par ID ou par tag WP #ID dans la note
+                $is_match = ( ! empty( $target_num ) && ( $item_num === $target_num || $item_id === $target_num ) )
+                         || ( ! empty( $wp_needle ) && false !== strpos( $item_note, $wp_needle ) );
+
+                if ( $is_match ) {
+                    $result['price']     = floatval( $item['price'] ?? 0.0 );
+                    $result['paid']      = ! empty( $item['paid'] );
+                    $result['confirmed'] = ! empty( $item['confirmed'] );
+                    $result['uuid']      = $item_id;
+                    break;
+                }
+            }
+        }
+
+        return $result;
     }
 }

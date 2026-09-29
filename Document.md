@@ -94,12 +94,13 @@ wp-content/plugins/elite-transfer-booking/
 │   ├── css/booking-widget.css          # Design System Dark Mode VIP, Theme Shield, Checkout & Widgets
 │   └── js/booking-widget.js            # Moteur réactif client, Stripe Elements, Handoff & autocomplétion
 │
-└── templates/
-    ├── circuit-view.php                # Split layout complet pour circuits touristiques
-    ├── booking-form.php                # Formulaire classique de réservation
-    ├── transfer-widget.php             # Widget minimal VTC One way / By the hour
-    ├── checkout-view.php               # Tunnel de finalisation VIP Blacklane (2 étapes in-place)
-    └── invoice-print.php               # Facture officielle décomposée prête à l'impression / PDF
+└── ├── templates/
+│   ├── circuit-view.php                # Split layout complet pour circuits touristiques
+│   ├── booking-form.php                # Formulaire classique de réservation
+│   ├── transfer-widget.php             # Widget minimal VTC One way / By the hour
+│   ├── checkout-view.php               # Tunnel de finalisation VIP (Coordonnées, aéroport, Pay Later)
+│   ├── payment-view.php                # Page de paiement autonome sécurisée (Split 50/50 Stripe Hosted)
+│   └── invoice-print.php               # Facture officielle décomposée prête à l'impression / PDF              # Facture officielle décomposée prête à l'impression / PDF
 
 
 ---
@@ -196,19 +197,22 @@ Sur chaque réservation (`tour_booking`) :
 * `_etb_booking_date` / `_etb_booking_time` : Horodatage mission.
 * `_etb_pickup_address` / `_etb_dropoff_info` : Adresses ou durée horaire.
 * `_etb_adults` / `_etb_luggage` : Quantités exactes de passagers et valises.
-* `_etb_base_price` *(float)* : Tarif net de transport.
+* `_etb_base_price` *(float)* : Tarif net de transport (sans double déduction pourboire).
 * `_etb_tip_amount` *(float)* : Montant du pourboire chauffeur.
 * `_etb_tip_percentage` *(int)* : Pourcentage de pourboire alloué (0, 10, 15, 20).
-* `_etb_total_price` *(float)* : Total global incluant le pourboire.
+* `_etb_total_price` *(float)* : Total global incluant le pourboire (synchronisé en direct avec LimoExpress).
+* `_etb_is_quote` *(string)* : `'1'` si demande sur devis, `'0'` si tarif fixe.
+* `_etb_pay_token` *(string)* : Jeton scellé du lien de paiement client (`q_pay_XXXX`).
 * `_etb_flight_number` *(string)* : Numéro de vol / train.
-* `_etb_waiting_board_text` *(string)* : Texte affiché sur la pancarte d'accueil.
+* `_etb_waiting_board_text` *(string)* : Texte affiché sur la pancarte d'accueil chauffeur.
 * `_etb_booker_type` *(string)* : `myself` ou `guest`.
-* `_etb_booker_name` / `_etb_booker_email` : Coordonnées de l'assistant si réservation pour un tiers.
 * `_etb_baby_seat_count` *(int)* : Nombre de sièges bébé (0 à 4).
-* `_etb_cost_center` *(string)* : Référence de facturation / bon de commande client.
+* `_etb_cost_center` *(string)* : Référence de facturation client.
 * `_etb_stripe_payment_intent_id` *(string)* : Identifiant officiel Stripe `pi_3...`.
 * `_etb_limo_status` *(string)* : `synced` ou `failed`.
-* `_etb_limo_booking_id` *(string)* : Numéro de course LimoExpress.
+* `_etb_limo_booking_id` *(string)* : Numéro lisible de course LimoExpress (ex: `95/2026`).
+* `_etb_limo_uuid` *(string)* : Identifiant UUID système LimoExpress (`e8a548e9-...`) utilisé pour les statuts et le paiement.
+* `_etb_limo_paid_synced` *(string)* : `'1'` dès que l'API a confirmé le passage à `paid` et `confirmed`.
 
 ---
 
@@ -223,5 +227,9 @@ Sur chaque réservation (`tour_booking`) :
    * Estimations LimoExpress : Max 30 requêtes / 10 minutes par IP.
 5. **Recalcul Serveur Indestructible** : Le serveur WordPress et LimoExpress valident les montants indépendamment du DOM client.
 
-
+6. **Signature Cryptographique HMAC (Liens de paiement)** :
+   - Verrouillage du montant via signature secrète `ETB_Security::create_payment_signature($booking_id, $amount)`.
+   - Rejet immédiat de toute tentative de modification de prix dans l'URL (`verify_payment_signature`).
+7. **Honeypot Anti-Autofill** :
+   - Champ piège renommé `etb_antibot_check` avec `autocomplete="new-password"` pour éliminer les faux positifs causés par le remplissage automatique des navigateurs Chrome / Safari.
 

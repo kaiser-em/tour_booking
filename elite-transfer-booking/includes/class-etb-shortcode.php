@@ -7,10 +7,10 @@ class ETB_Shortcode {
         add_shortcode( 'tour_booking', array( $this, 'render_booking_form' ) );
         add_shortcode( 'circuit_view', array( $this, 'render_circuit_view' ) );
         add_shortcode( 'etb_transfer', array( $this, 'render_transfer_widget' ) );
-        add_shortcode( 'etb_checkout', array( $this, 'render_checkout_view' ) ); // <-- NOUVEAU SHORTCODE CHECKOUT BLACKLANE
+        add_shortcode( 'etb_checkout', array( $this, 'render_checkout_view' ) );
+        add_shortcode( 'etb_payment', array( $this, 'render_payment_view' ) ); // <-- NOUVEAU SHORTCODE PAIEMENT DÉDIÉ
         add_filter( 'the_content', array( $this, 'auto_append_to_circuit_single' ), 20 );
     }
-
     /**
      * Shortcode [etb_checkout] : Formulaire de réservation détaillée & Checkout VIP Blacklane
      */
@@ -21,6 +21,20 @@ class ETB_Shortcode {
             include $template_file;
         } else {
             echo '<p>Gabarit checkout-view.php introuvable.</p>';
+        }
+        return ob_get_clean();
+    }
+
+    /**
+     * Shortcode [etb_payment] : Page de paiement dédiée et sécurisée pour solde et devis validés
+     */
+    public function render_payment_view( $atts = array() ) {
+        ob_start();
+        $template_file = ETB_PATH . 'templates/payment-view.php';
+        if ( file_exists( $template_file ) ) {
+            include $template_file;
+        } else {
+            echo '<p>Gabarit payment-view.php introuvable.</p>';
         }
         return ob_get_clean();
     }

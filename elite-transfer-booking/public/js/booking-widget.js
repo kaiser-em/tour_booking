@@ -1692,26 +1692,39 @@
                     const pVal      = pickupInput ? pickupInput.value.trim() : '';
                     const isHourly  = (currentMode === 'hourly');
                     const dVal      = isHourly ? `By the hour (${durationSelect ? durationSelect.value : 4} Hours rental)` : (dropoffInput ? dropoffInput.value.trim() : '');
-                    const dtVal     = dateInput ? dateInput.value.trim() : '';
+                    const rawDate   = dateInput ? dateInput.value.trim() : '';
                     const tmVal     = timeInput ? timeInput.value.trim() : '';
                     const waPhone   = (typeof etbAjax !== 'undefined' && etbAjax.company_whatsapp) ? etbAjax.company_whatsapp : '';
                     const adminMail = (typeof etbAjax !== 'undefined' && etbAjax.admin_email) ? etbAjax.admin_email : '';
 
-                    const dropoffSymbol = isHourly ? '> ↪🄷🄾🅄🅁🄻🅈' : '> ➘🄳🄾□';
+                    // Formatage raffiné de la date (ex: 2026-09-26 -> 26 Sep 2026)
+                    const formatPrettyDate = (dStr) => {
+                        if (!dStr) return '';
+                        const parts = dStr.split('-');
+                        if (parts.length !== 3) return dStr;
+                        const monthsEn = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                        const mIdx = parseInt(parts[1], 10) - 1;
+                        return `${parts[2]} ${monthsEn[mIdx] || parts[1]} ${parts[0]}`;
+                    };
+
+                    const prettyDate = formatPrettyDate(rawDate);
+                    const formattedDateTime = (prettyDate && tmVal) ? `${prettyDate} at ${tmVal}` : (prettyDate || tmVal || '—');
+
+                    const dropoffSymbol = isHourly ? '↪🄷🄾🅄🅁🄻🅈' : '➘🄳🄾□';
                     const rateText      = isCarQuote ? 'Custom Quote (Pending dispatch)' : `${carPrice} ${currency}`;
 
-                   
-                    // Génération native de l'émoji main qui salue (Point de code UTF-8 pur)
+                    // Émoji main qui salue 👋
                     const waveEmoji = String.fromCodePoint(0x1F44B);
 
-                    // Mise en forme officielle stylisée demandée
+                    // Mise en forme officielle rigoureuse demandée
                     const formattedMessage = `Hey *EDEN CAB* team ${waveEmoji},\n\n`
                         + `I would like to inquire about booking a transfer with:\n\n`
                         + `*${carName}*\n\n`
-                        + `➚🄿🅄■ ${pVal}\n\n`
+                        + `> ➚🄿🅄■ ${pVal}\n\n`
                         + `${dropoffSymbol} ${dVal}\n\n`
-                        + `D|T: ${dtVal} at ${tmVal}\n\n`
-                        + `•Indicative rate: ${rateText}`;
+                        + `➔ ${formattedDateTime}\n\n`
+                        + `❏ Indicative rate: ${rateText}`;
+
 
                     // 1. Injection WhatsApp via l'API directe (élimine le bug de wa.me sur PC)
                     if (whatsappBtn) {
@@ -1724,9 +1737,9 @@
                     // 2. Injection E-mail (Mailto avec le même résultat stylisé)
                     const emailInquiryBtn = quickRoot.querySelector('#etb-quick-email-btn');
                     if (emailInquiryBtn) {
-                        const emailSubject = encodeURIComponent(`[Inquiry] ${carName} — ${dtVal} at ${tmVal}`);
+                        const emailSubject = encodeURIComponent(`[Inquiry] ${carName} — ${formattedDateTime}`);
                         // Version lisible pour l'e-mail avec les mêmes symboles
-                        const emailBody = encodeURIComponent(formattedMessage.replace(/\*/g, '')); // Retire les astérisques markdown de WhatsApp pour l'e-mail
+                        const emailBody = encodeURIComponent(formattedMessage.replace(/\*/g, ''));
                         emailInquiryBtn.href = `mailto:${adminMail}?subject=${emailSubject}&body=${emailBody}`;
                     }
 
@@ -1992,11 +2005,27 @@
                     return;
                 }
 
-                const pickupVal  = pickupInput ? pickupInput.value.trim() : '';
-                const dropoffVal = (currentMode === 'transfer' && dropoffInput) ? dropoffInput.value.trim() : '';
+                // Lecture directe et robuste du champ pickup dans le widget
+                const pInputEl   = quickRoot.querySelector('#etb-quick-pickup');
+                const dInputEl   = quickRoot.querySelector('#etb-quick-dropoff');
+                
+                const pickupVal  = pInputEl ? pInputEl.value.trim() : '';
+                const dropoffVal = (currentMode === 'transfer' && dInputEl) ? dInputEl.value.trim() : '';
                 const durVal     = (currentMode === 'hourly' && durationSelect) ? durationSelect.value : '4';
                 const dateVal    = dateInput ? dateInput.value.trim() : '';
                 const timeVal    = timeInput ? timeInput.value.trim() : '';
+
+                // Sécurité front-end immédiate avec message clair avant l'appel AJAX
+                if (!pickupVal) {
+                    showError('Please enter a pickup location.');
+                    if (pInputEl) pInputEl.focus();
+                    return;
+                }
+                if (currentMode === 'transfer' && !dropoffVal) {
+                    showError('Please enter a drop-off location.');
+                    if (dInputEl) dInputEl.focus();
+                    return;
+                }
 
                 // État de chargement discret sur le bouton
                 const originalBtnHtml = bookNowBtn.innerHTML;
@@ -2338,6 +2367,49 @@
             if (sumBasePrice) sumBasePrice.textContent = formattedPrice;
             if (sumTotalPrice) sumTotalPrice.textContent = formattedPrice;
 
+            // ADAPTATION SUR-MESURE DE LA COLONNE RÉCAPITULATIF POUR CUSTOM QUOTE
+            const tipSectionEl    = checkoutRoot.querySelector('.etb-chk-tip-section');
+            const baseFareRowEl   = checkoutRoot.querySelector('.etb-chk-price-row:not(.total-row)');
+            const totalLabelEl    = checkoutRoot.querySelector('.etb-chk-price-row.total-row span:first-child');
+            const guaranteesBoxEl = checkoutRoot.querySelector('.etb-chk-guarantees');
+
+            if (isQuoteRide) {
+                // 1. Bouton d'action
+                if (submitText) submitText.textContent = 'Submit Quote Request';
+
+                // 2. Masquage total de la section pourboire
+                if (tipSectionEl) tipSectionEl.style.setProperty('display', 'none', 'important');
+
+                // 3. Masquage de la ligne Base Fare redondante
+                if (baseFareRowEl) baseFareRowEl.style.setProperty('display', 'none', 'important');
+
+                // 4. Libellé propre : "Estimated Rate" au lieu de "Total (All Inclusive)"
+                if (totalLabelEl) totalLabelEl.textContent = 'Estimated Rate';
+
+                // 5. Engagements adaptés au devis
+                if (guaranteesBoxEl) {
+                    guaranteesBoxEl.innerHTML = `
+                        <div class="etb-chk-guarantee-line">
+                            <span class="dashicons dashicons-clock"></span>
+                            <span>Tailored quotation sent within 15 minutes</span>
+                        </div>
+                        <div class="etb-chk-guarantee-line">
+                            <span class="dashicons dashicons-shield"></span>
+                            <span>Licensed professional chauffeur & premium vehicle</span>
+                        </div>
+                        <div class="etb-chk-guarantee-line">
+                            <span class="dashicons dashicons-yes"></span>
+                            <span>No payment required until quotation is approved</span>
+                        </div>
+                    `;
+                }
+            } else {
+                // Course standard à tarif fixe : affichage normal
+                if (tipSectionEl) tipSectionEl.style.display = '';
+                if (baseFareRowEl) baseFareRowEl.style.display = 'flex';
+                if (totalLabelEl) totalLabelEl.textContent = 'Total (All Inclusive)';
+            }
+
             // Détection aéroport contextuelle
             const checkAirportKeywords = (str) => {
                 if (!str) return false;
@@ -2605,267 +2677,412 @@
                 if (step2Panel) step2Panel.style.display = 'none';
                 if (step1Panel) step1Panel.style.display = 'block';
                 currentCheckoutStep = 1;
-                if (submitText) submitText.textContent = 'Continue'; // bouton continue to payement info
+                if (submitText) submitText.textContent = isQuoteRide ? 'Submit Quote Request' : 'Continue to Payment';
                 checkoutRoot.scrollIntoView({ behavior: 'smooth', block: 'start' });
             });
         }
 
-        // 12. Clic sur le Bouton Principal (Proceed to Payment -> Pay Now)
+        // 11bis. Fonction universelle de finalisation et dispatch (Accessible pour Étape 1 & Étape 2)
+        const executeFinalOrderDispatch = (paymentLogsData, isPayLater = false) => {
+            const originalBtnText = isQuoteRide ? 'Submit Quote Request' : 'Continue to Payment';
+            if (submitText) submitText.textContent = isPayLater ? 'Registering...' : 'Dispatching ...';
+
+            const emailVal = checkoutRoot.querySelector('#etb-passenger-email')?.value.trim() || '';
+            const tipVal   = checkoutRoot.querySelector('#etb-chk-tip-amount')?.value || '0';
+
+            const formData = new FormData(formEl);
+            formData.append('action', 'etb_submit_checkout');
+            formData.append('nonce', etbAjax.nonce);
+            if (isPayLater) {
+                formData.set('etb_pay_later', '1');
+            }
+
+            fetch(etbAjax.ajax_url, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(res => {
+                submitBtn.disabled = false;
+                if (submitText) submitText.textContent = originalBtnText;
+
+                if (res.success) {
+                    try { sessionStorage.removeItem('etb_checkout_data'); } catch (e) {}
+
+                    // Vérification infaillible : si Pay Later OU Devis -> AUCUNE redirection d'URL !
+                    const isExplicitPayLater = isPayLater || formData.get('etb_pay_later') === '1';
+
+                    if (!isQuoteRide && !isExplicitPayLater && res.data && res.data.payment_url) {
+                        if (submitText) submitText.textContent = 'Opening Payment...';
+                        window.location.href = res.data.payment_url;
+                        return;
+                    }
+
+                    // SI DEMANDE SUR DEVIS : Affichage du message de confirmation VIP
+                    const homeReturnUrl = (typeof etbAjax !== 'undefined' && etbAjax.home_url) 
+                        ? etbAjax.home_url 
+                        : (window.location.origin + '/');
+
+                    const leftCol = checkoutRoot.querySelector('.etb-checkout-left-col');
+                    if (leftCol) {
+                        const successTitle = isQuoteRide 
+                            ? 'Quote Request Successfully Submitted!' 
+                            : 'Payment Authorized & Reservation Confirmed!';
+                        
+                        const successSubtitle = isQuoteRide
+                            ? 'Your personalized quote request <strong>#' + res.data.booking_id + '</strong> has been sent directly to our dispatch team in LimoExpress.'
+                            : 'Your VIP transfer dossier <strong>#' + res.data.booking_id + '</strong> has been confirmed and dispatched to LimoExpress (Course <strong>#' + res.data.limo_id + '</strong>).';
+
+                        const successDetails = isQuoteRide
+                            ? '<p style="margin: 6px 0;">An acknowledgment has been sent to <strong>' + emailVal + '</strong>.</p>'
+                              + '<p style="margin: 6px 0;">Our dispatcher is calculating your itinerary (route, tolls, chauffeur availability) and will transmit a tailored quotation within <strong>15 minutes</strong>.</p>'
+                            : '<p style="margin: 6px 0;">An official paid confirmation receipt has been sent to <strong>' + emailVal + '</strong>.</p>'
+                              + '<p style="margin: 6px 0;">Your chauffeur will send an SMS notification prior to pickup.</p>';
+
+                        leftCol.innerHTML = '<div class="etb-checkout-card" style="text-align: center; padding: 45px 30px; border-color: #16a34a;">'
+                            + '<div style="display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; background: rgba(34, 197, 94, 0.15); border: 2px solid #22c55e; border-radius: 50%; margin-bottom: 18px; color: #4ade80;">'
+                            + '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>'
+                            + '</div>'
+                            + '<h2 style="color: #4ade80; font-size: 24px; font-weight: 800; margin: 0 0 10px 0;">' + successTitle + '</h2>'
+                            + '<p style="font-size: 15px; margin-bottom: 25px; line-height: 1.5;">' + successSubtitle + '</p>'
+                            + '<div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 18px; margin-bottom: 30px; text-align: left; font-size: 13px; line-height: 1.6;">'
+                            + successDetails
+                            + '</div>'
+                            + '<a href="' + homeReturnUrl + '" class="etb-chk-submit-btn" style="text-decoration: none; display: inline-flex; width: auto; padding: 14px 35px;">Return to Home</a>'
+                            + '</div>';
+                    }
+                } else {
+                    showFeedback(res.data.message || 'Booking creation failed.', 'error');
+                }
+            })
+            .catch(err => {
+                console.error('Final dispatch error:', err);
+                submitBtn.disabled = false;
+                if (submitText) submitText.textContent = originalBtnText;
+                showFeedback('Communication error. Please try again.', 'error');
+            });
+        };
+
+        // 12. Validation commune et gestion de soumission (Continue to Payment & Pay Later)
+        const validatePassengerStep = () => {
+            const fNameVal  = firstNameInput ? firstNameInput.value.trim() : '';
+            const lNameVal  = lastNameInput ? lastNameInput.value.trim() : '';
+            const emailVal  = checkoutRoot.querySelector('#etb-passenger-email')?.value.trim() || '';
+            const phoneVal  = checkoutRoot.querySelector('#etb-passenger-phone')?.value.trim() || '';
+            const vehicleId = vehicleIdInput ? vehicleIdInput.value : '';
+
+            if (!fNameVal || !lNameVal) {
+                showFeedback('Please enter the passenger first and last name.', 'error');
+                return false;
+            }
+            if (!emailVal || !emailVal.includes('@')) {
+                showFeedback('Please enter a valid email address for ride confirmation.', 'error');
+                return false;
+            }
+            if (!phoneVal) {
+                showFeedback('Please enter a mobile phone number for chauffeur SMS updates.', 'error');
+                return false;
+            }
+            if (!vehicleId) {
+                showFeedback('No vehicle selected. Please return and choose a vehicle.', 'error');
+                return false;
+            }
+            return true;
+        };
+
+        // Clic sur le Bouton Principal (Continue to Payment ou Submit Quote Request)
         if (submitBtn) {
             submitBtn.addEventListener('click', function (e) {
                 e.preventDefault();
                 if (feedbackEl) feedbackEl.style.display = 'none';
 
-                // ÉTAPE 1 : Validation des coordonnées passager
-                if (currentCheckoutStep === 1) {
-                    const fNameVal  = firstNameInput ? firstNameInput.value.trim() : '';
-                    const lNameVal  = lastNameInput ? lastNameInput.value.trim() : '';
-                    const emailVal  = checkoutRoot.querySelector('#etb-passenger-email')?.value.trim() || '';
-                    const phoneVal  = checkoutRoot.querySelector('#etb-passenger-phone')?.value.trim() || '';
-                    const vehicleId = vehicleIdInput ? vehicleIdInput.value : '';
+                if (!validatePassengerStep()) return;
 
-                    if (!fNameVal || !lNameVal) {
-                        return showFeedback('Please enter the passenger first and last name.', 'error');
-                    }
-                    if (!emailVal || !emailVal.includes('@')) {
-                        return showFeedback('Please enter a valid email address for ride confirmation.', 'error');
-                    }
-                    if (!phoneVal) {
-                        return showFeedback('Please enter a mobile phone number for chauffeur SMS updates.', 'error');
-                    }
-                    if (!vehicleId) {
-                        return showFeedback('No vehicle selected. Please return and choose a vehicle.', 'error');
-                    }
-
-                    // Bascule visuelle vers le paiement
-                    const currentTotalText = sumTotalPrice ? sumTotalPrice.textContent.trim() : '0 €';
-                    const baseFareText     = sumBasePrice ? sumBasePrice.textContent.trim() : '0 €';
-                    const tipVal           = checkoutRoot.querySelector('#etb-chk-tip-amount')?.value || '0';
-
-                    if (payBaseFareEl)   payBaseFareEl.textContent   = baseFareText;
-                    if (payGrandTotalEl) payGrandTotalEl.textContent = currentTotalText;
-                    if (payTotalDueEl)   payTotalDueEl.textContent   = currentTotalText;
-
-                    if (parseFloat(tipVal) > 0 && payTipRowEl && payTipAmountEl) {
-                        payTipRowEl.classList.remove('is-hidden');
-                        payTipRowEl.style.setProperty('display', 'flex', 'important');
-                        payTipAmountEl.textContent = `+ ${parseFloat(tipVal).toFixed(2)} ${currency}`;
-                    } else if (payTipRowEl) {
-                        payTipRowEl.classList.add('is-hidden');
-                        payTipRowEl.style.setProperty('display', 'none', 'important');
-                    }
-
-                    if (step1Panel) step1Panel.style.display = 'none';
-                    if (step2Panel) step2Panel.style.display = 'block';
-                    currentCheckoutStep = 2;
-
-                    // Auto-remplissage du Nom sur la carte avec le nom du voyageur
-                    const cardHolderInput = checkoutRoot.querySelector('#etb-cardholder-name');
-                    if (cardHolderInput && !cardHolderInput.value) {
-                        cardHolderInput.value = fNameVal + ' ' + lNameVal;
-                    }
-
-                    if (submitText) {
-                        submitText.textContent = 'Confirm & Book Now';
-                    }
-
-                    checkoutRoot.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    return;
+                submitBtn.disabled = true;
+                if (submitText) {
+                    submitText.textContent = isQuoteRide ? 'Submitting Quote Request...' : 'Securing & Redirecting...';
                 }
 
-                // ─────────────────────────────────────────────────────────────
-                // SI ON EST À L'ÉTAPE 2 : Sécurisation Stripe 3D Secure & Dispatch
-                // ─────────────────────────────────────────────────────────────
-                if (currentCheckoutStep === 2) {
-                    const originalText = submitText ? submitText.textContent : 'Pay Now';
-                    submitBtn.disabled = true;
-                    if (submitText) submitText.textContent = 'Securing & Authorizing...';
+                executeFinalOrderDispatch(null, false);
+            });
+        }
 
-                    const fNameVal  = firstNameInput ? firstNameInput.value.trim() : '';
-                    const lNameVal  = lastNameInput ? lastNameInput.value.trim() : '';
-                    const emailVal  = checkoutRoot.querySelector('#etb-passenger-email')?.value.trim() || '';
-                    const phoneVal  = checkoutRoot.querySelector('#etb-passenger-phone')?.value.trim() || '';
-                    const tipVal    = checkoutRoot.querySelector('#etb-chk-tip-amount')?.value || '0';
-                    const finalDue  = baseNumericPrice + parseFloat(tipVal);
+        // Clic sur le lien "Pay Later"
+        const payLaterLink = checkoutRoot.querySelector('#etb-chk-pay-later-link');
+        if (payLaterLink) {
+            payLaterLink.addEventListener('click', function (e) {
+                e.preventDefault();
+                if (feedbackEl) feedbackEl.style.display = 'none';
 
-                    // Fonction interne de finalisation de commande
-                    const executeFinalOrderDispatch = (paymentLogsData) => {
-                        if (submitText) submitText.textContent = 'Dispatching ...';
+                if (!validatePassengerStep()) return;
 
-                        const formData = new FormData(formEl);
-                        formData.append('action', 'etb_submit_checkout');
-                        formData.append('nonce', etbAjax.nonce);
+                if (submitBtn) submitBtn.disabled = true;
+                payLaterLink.style.pointerEvents = 'none';
+                payLaterLink.textContent = 'Registering order...';
 
-                        const activeTipRadio = checkoutRoot.querySelector('input[name="etb_driver_tip"]:checked');
-                        formData.set('etb_tip_amount', tipVal);
-                        formData.set('etb_driver_tip', activeTipRadio ? activeTipRadio.value : '0');
-
-                       // Transmission des métadonnées Stripe pour LimoExpress
-                        if (paymentLogsData) {
-                            formData.append('etb_payment_intent_id', paymentLogsData.id || '');
-                            formData.append('etb_stripe_customer_id', paymentLogsData.customer || '');
-                            formData.append('etb_card_last4', paymentLogsData.last4 || '');
-                            formData.append('etb_card_brand', paymentLogsData.brand || 'card');
-                            formData.append('etb_card_exp', paymentLogsData.exp || '');
-                            formData.append('etb_payment_method', 'card');
-                        }
-
-                        fetch(etbAjax.ajax_url, {
-                            method: 'POST',
-                            body: formData
-                        })
-                        .then(response => response.json())
-                        .then(res => {
-                            submitBtn.disabled = false;
-                            if (submitText) submitText.textContent = originalText;
-
-                            if (res.success) {
-                                try { sessionStorage.removeItem('etb_checkout_data'); } catch (e) {}
-
-                                const homeReturnUrl = (typeof etbAjax !== 'undefined' && etbAjax.home_url) 
-                                    ? etbAjax.home_url 
-                                    : (window.location.origin + '/');
-
-                                const leftCol = checkoutRoot.querySelector('.etb-checkout-left-col');
-                                if (leftCol) {
-                                    leftCol.innerHTML = '<div class="etb-checkout-card" style="text-align: center; padding: 45px 30px; border-color: #16a34a; background: #0b1410;">'
-                                        + '<div style="display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; background: rgba(34, 197, 94, 0.15); border: 2px solid #22c55e; border-radius: 50%; margin-bottom: 18px; color: #4ade80;">'
-                                        + '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>'
-                                        + '</div>'
-                                        + '<h2 style="color: #4ade80; font-size: 24px; font-weight: 800; margin: 0 0 10px 0;">Payment Authorized & Reservation Confirmed!</h2>'
-                                        + '<p style="color: #cbd5e1; font-size: 15px; margin-bottom: 25px; line-height: 1.5;">'
-                                        + 'Your VIP transfer dossier <strong>#' + res.data.booking_id + '</strong> has been confirmed and dispatched to LimoExpress (Course <strong>#' + res.data.limo_id + '</strong>).'
-                                        + '</p>'
-                                        + '<div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 18px; margin-bottom: 30px; text-align: left; font-size: 13px; color: #cbd5e1; line-height: 1.6;">'
-                                        + '<p style="margin: 6px 0;">An official paid confirmation receipt has been sent to <strong>' + emailVal + '</strong>.</p>'
-                                        + '<p style="margin: 6px 0;">Your chauffeur will send an SMS notification prior to pickup.</p>'
-                                        + '</div>'
-                                        + '<a href="' + homeReturnUrl + '" class="etb-chk-submit-btn" style="text-decoration: none; display: inline-flex; width: auto; padding: 14px 35px;">Return to Home</a>'
-                                        + '</div>';
-                                }
-                            } else {
-                                showFeedback(res.data.message || 'Booking creation failed.', 'error');
-                            }
-                        })
-                        .catch(err => {
-                            console.error('Final dispatch error:', err);
-                            submitBtn.disabled = false;
-                            if (submitText) submitText.textContent = originalText;
-                            showFeedback('Communication error. Please try again.', 'error');
-                        });
-                    };
-
-                    // CAS A : STRIPE AVEC EXTRACTION DES VRAIES DONNÉES DE CARTE
-                    if (stripeInstance && stripeCardElement) {
-                        submitBtn.disabled = true;
-                        if (submitText) submitText.textContent = 'Securing & Booking...';
-
-                        // 1. Création du PaymentMethod pour extraire les VRAIS 4 chiffres et l'expiration
-                        stripeInstance.createPaymentMethod({
-                            type: 'card',
-                            card: stripeCardElement,
-                            billing_details: {
-                                name: fNameVal + ' ' + lNameVal,
-                                email: emailVal,
-                                phone: phoneVal
-                            }
-                        }).then(function (pmResult) {
-                            if (pmResult.error) {
-                                submitBtn.disabled = false;
-                                if (submitText) submitText.textContent = 'Confirm & Book Now';
-                                return showFeedback(pmResult.error.message, 'error');
-                            }
-
-                            const pm = pmResult.paymentMethod;
-                            // Données réelles certifiées par Stripe (ex: '0000', '10/28', 'visa')
-                            const realLast4 = pm.card ? pm.card.last4 : '0000';
-                            const realBrand = pm.card ? pm.card.brand : detectedBrand;
-                            const realExp   = (pm.card && pm.card.exp_month && pm.card.exp_year) 
-                                ? (String(pm.card.exp_month).padStart(2, '0') + '/' + String(pm.card.exp_year).slice(-2))
-                                : '10/28';
-
-                            // 2. Création de l'intention de paiement côté serveur
-                            const intentFormData = new FormData();
-                            intentFormData.append('action', 'etb_create_payment_intent');
-                            intentFormData.append('nonce', etbAjax.nonce);
-                            intentFormData.append('amount', finalDue);
-                            intentFormData.append('currency', 'eur');
-                            intentFormData.append('name', fNameVal + ' ' + lNameVal);
-                            intentFormData.append('email', emailVal);
-                            intentFormData.append('phone', phoneVal);
-                            intentFormData.append('vehicle_name', sumVehicleName ? sumVehicleName.textContent : 'VIP Vehicle');
-                            intentFormData.append('route', (sumPickup ? sumPickup.textContent : '') + ' -> ' + (sumDropoff ? sumDropoff.textContent : ''));
-
-                            fetch(etbAjax.ajax_url, {
-                                method: 'POST',
-                                body: intentFormData
-                            })
-                            .then(r => r.json())
-                            .then(intentRes => {
-                                if (!intentRes.success) {
-                                    submitBtn.disabled = false;
-                                    if (submitText) submitText.textContent = 'Confirm & Book Now';
-                                    return showFeedback(intentRes.data.message || 'Payment initialization failed.', 'error');
-                                }
-
-                           
-                                // Récupération du nom sur la carte et du pays sélectionné
-                                const cardHolderVal = checkoutRoot.querySelector('#etb-cardholder-name')?.value.trim() || (fNameVal + ' ' + lNameVal);
-                                const selectedCountryVal = checkoutRoot.querySelector('#etb-card-country')?.value || 'FR';
-
-                                // 3. Confirmation de l'empreinte bancaire et validation 3D Secure avec le pays officiel
-                                stripeInstance.confirmCardPayment(intentRes.data.client_secret, {
-                                    payment_method: {
-                                        card: stripeCardElement,
-                                        billing_details: {
-                                            name: cardHolderVal,
-                                            email: emailVal,
-                                            phone: phoneVal,
-                                            address: {
-                                                country: selectedCountryVal
-                                            }
-                                        }
-                                    }
-                                })
-                                .then(function (stripeResult) {
-                                    if (stripeResult.error) {
-                                        submitBtn.disabled = false;
-                                        if (submitText) submitText.textContent = 'Confirm & Book Now';
-                                        return showFeedback(stripeResult.error.message, 'error');
-                                    }
-
-                                    const pi = stripeResult.paymentIntent;
-                                    
-                                    // Transmission des VRAIES données de carte à LimoExpress
-                                    const paymentLogs = {
-                                        id: pi.id,
-                                        customer: intentRes.data.customer_id,
-                                        last4: realLast4, // '0000' réel
-                                        brand: realBrand, // 'visa' réel
-                                        exp: realExp      // '10/28' réel
-                                    };
-
-                                    executeFinalOrderDispatch(paymentLogs);
-                                });
-                            })
-                            .catch(err => {
-                                console.error('Payment intent error:', err);
-                                submitBtn.disabled = false;
-                                if (submitText) submitText.textContent = 'Confirm & Book Now';
-                                showFeedback('Payment service communication error.', 'error');
-                            });
-                        });
-                        return;
-                    }
-
-                    // CAS B : FALLBACK SI STRIPE N'EST PAS CONFIGURÉ
-                    executeFinalOrderDispatch(null);
-                }
-
+                executeFinalOrderDispatch(null, true);
             });
         }
 
         const showFeedback = function (msg, type) {
+            if (!feedbackEl) return;
+            feedbackEl.textContent = msg;
+            feedbackEl.className = 'etb-chk-feedback is-' + type;
+            feedbackEl.style.display = 'block';
+            feedbackEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        };
+
+
+    };
+    // ==========================================================================
+    // MOTEUR DE LA PAGE DE PAIEMENT AUTONOME ([etb_payment]) — STRIPE ELEMENTS
+    // ==========================================================================
+    const initStandalonePaymentPage = function () {
+        const payRoot = document.querySelector('#etb-payment-page-app');
+        if (!payRoot) return;
+
+        const payForm       = payRoot.querySelector('#etb-standalone-payment-form');
+        const payBtn        = payRoot.querySelector('#etb-standalone-pay-btn');
+        const payText       = payRoot.querySelector('#etb-standalone-pay-text');
+        const feedbackEl    = payRoot.querySelector('#etb-standalone-pay-feedback');
+        const cardholderEl  = payRoot.querySelector('#etb-pay-cardholder');
+        const countryEl     = payRoot.querySelector('#etb-pay-card-country');
+
+        // Custom Select Pays sur la page de paiement
+        const countrySelect = payRoot.querySelector('#etb-pay-country-select');
+        if (countrySelect) {
+            const trigger = countrySelect.querySelector('.etb-custom-select-trigger');
+            const label   = countrySelect.querySelector('#etb-pay-country-label');
+            const options = countrySelect.querySelectorAll('.etb-custom-option');
+
+            trigger.addEventListener('click', function (e) {
+                e.stopPropagation();
+                countrySelect.classList.toggle('is-open');
+            });
+
+            options.forEach(opt => {
+                opt.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    options.forEach(o => o.classList.remove('selected'));
+                    this.classList.add('selected');
+                    const val = this.dataset.val;
+                    if (label) label.textContent = this.textContent.trim();
+                    if (countryEl) countryEl.value = val;
+                    countrySelect.classList.remove('is-open');
+                });
+            });
+
+            document.addEventListener('click', function (e) {
+                if (!countrySelect.contains(e.target)) countrySelect.classList.remove('is-open');
+            });
+        }
+
+        // Vérification de Stripe
+        if (typeof Stripe === 'undefined' || typeof etbAjax === 'undefined' || etbAjax.stripe_enabled !== '1' || !etbAjax.stripe_pk) {
+            if (feedbackEl) {
+                feedbackEl.textContent = 'Payment gateway is currently in test mode or unconfigured.';
+                feedbackEl.className = 'etb-chk-feedback is-error';
+                feedbackEl.style.display = 'block';
+            }
+            return;
+        }
+
+        const stripe = Stripe(etbAjax.stripe_pk);
+        const elements = stripe.elements();
+
+        // Style adaptatif Dark / Light
+        const getElementStyle = () => {
+            const isLight = document.documentElement.getAttribute('data-etb-theme') === 'light' 
+                         || localStorage.getItem('etb_theme_mode') === 'light';
+            return {
+                base: {
+                    color: isLight ? '#1e293b' : '#ffffff',
+                    fontFamily: "'Inter', -apple-system, sans-serif",
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    letterSpacing: '0.03em',
+                    '::placeholder': { color: isLight ? '#94a3b8' : 'rgba(148, 163, 184, 0.6)' }
+                },
+                invalid: {
+                    color: '#f87171',
+                    iconColor: '#f87171'
+                }
+            };
+        };
+
+        // Montage des 3 éléments individuels de Stripe avec détecteur de marque à gauche (Photo 2)
+        const cardNumber = elements.create('cardNumber', { 
+            style: getElementStyle(), 
+            showIcon: true,
+            iconStyle: 'solid'
+        });
+        const cardExpiry = elements.create('cardExpiry', { style: getElementStyle() });
+        const cardCvc    = elements.create('cardCvc', { style: getElementStyle() });
+
+        
+        if (document.querySelector('#etb-card-number-mount')) cardNumber.mount('#etb-card-number-mount');
+        if (document.querySelector('#etb-card-expiry-mount')) cardExpiry.mount('#etb-card-expiry-mount');
+        if (document.querySelector('#etb-card-cvc-mount')) cardCvc.mount('#etb-card-cvc-mount');
+
+        // Écouteur pour adapter les styles Stripe si on change de thème
+        document.addEventListener('etb_theme_changed', function (e) {
+            const updated = getElementStyle();
+            cardNumber.update({ style: updated });
+            cardExpiry.update({ style: updated });
+            cardCvc.update({ style: updated });
+        });
+
+        // Gestion des erreurs en direct
+        [cardNumber, cardExpiry, cardCvc].forEach(element => {
+            element.on('change', function (event) {
+                if (event.error) {
+                    showPayFeedback(event.error.message, 'error');
+                } else if (feedbackEl) {
+                    feedbackEl.style.display = 'none';
+                }
+            });
+        });
+
+        // Clic sur le bouton de paiement Payer
+        if (payBtn) {
+            payBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                if (feedbackEl) feedbackEl.style.display = 'none';
+
+                const cardholderVal = cardholderEl ? cardholderEl.value.trim() : '';
+                const emailVal      = payRoot.querySelector('#etb-pay-email')?.value.trim() || '';
+                const bookingIdVal  = payRoot.querySelector('#etb-pay-booking-id')?.value || '0';
+                const amountVal     = parseFloat(payRoot.querySelector('#etb-pay-amount')?.value || 0);
+
+                if (!emailVal || !emailVal.includes('@')) {
+                    return showPayFeedback('Please enter a valid email address for receipt.', 'error');
+                }
+                if (!cardholderVal) {
+                    return showPayFeedback('Please enter the name on the card.', 'error');
+                }
+                if (amountVal <= 0) {
+                    return showPayFeedback('Invalid settlement amount.', 'error');
+                }
+
+                const originalBtnText = payText ? payText.textContent : 'Pay';
+                payBtn.disabled = true;
+                if (payText) payText.textContent = 'Securing & Authorizing...';
+
+                // 1. Création du PaymentMethod pour extraire les vrais 4 chiffres et l'expiration
+                stripe.createPaymentMethod({
+                    type: 'card',
+                    card: cardNumber,
+                    billing_details: {
+                        name: cardholderVal,
+                        email: emailVal
+                    }
+                }).then(function (pmRes) {
+                    if (pmRes.error) {
+                        payBtn.disabled = false;
+                        if (payText) payText.textContent = originalBtnText;
+                        return showPayFeedback(pmRes.error.message, 'error');
+                    }
+
+                    const pm = pmRes.paymentMethod;
+                    const realLast4 = pm.card ? pm.card.last4 : '4242';
+                    const realBrand = pm.card ? pm.card.brand : 'card';
+                    const realExp   = (pm.card && pm.card.exp_month && pm.card.exp_year) 
+                        ? (String(pm.card.exp_month).padStart(2, '0') + '/' + String(pm.card.exp_year).slice(-2)) 
+                        : '12/28';
+
+                    // 2. Création de l'intention Stripe côté serveur
+                    const intentData = new FormData();
+                    intentData.append('action', 'etb_create_payment_intent');
+                    intentData.append('nonce', etbAjax.nonce);
+                    intentData.append('amount', amountVal);
+                    intentData.append('currency', 'eur');
+                    intentData.append('name', cardholderVal);
+                    intentData.append('email', emailVal);
+                    intentData.append('route', 'Settlement Dossier #' + bookingIdVal);
+
+                    fetch(etbAjax.ajax_url, { method: 'POST', body: intentData })
+                    .then(r => r.json())
+                    .then(intentRes => {
+                        if (!intentRes.success) {
+                            payBtn.disabled = false;
+                            if (payText) payText.textContent = originalBtnText;
+                            return showPayFeedback(intentRes.data.message || 'Payment initialization failed.', 'error');
+                        }
+
+                        // 3. Validation bancaire 3D Secure
+                        const selectedCountry = countryEl ? countryEl.value : 'FR';
+                        stripe.confirmCardPayment(intentRes.data.client_secret, {
+                            payment_method: {
+                                card: cardNumber,
+                                billing_details: {
+                                    name: cardholderVal,
+                                    email: emailVal,
+                                    address: { country: selectedCountry }
+                                }
+                            }
+                        }).then(function (stripeResult) {
+                            if (stripeResult.error) {
+                                payBtn.disabled = false;
+                                if (payText) payText.textContent = originalBtnText;
+                                return showPayFeedback(stripeResult.error.message, 'error');
+                            }
+
+                            // 4. Transmission finale à WordPress et LimoExpress pour passer en PAID
+                            if (payText) payText.textContent = 'Updating Dispatch...';
+
+                            const updateData = new FormData();
+                            updateData.append('action', 'etb_settle_quote_payment');
+                            updateData.append('nonce', etbAjax.nonce);
+                            updateData.append('booking_id', bookingIdVal);
+                            updateData.append('amount', amountVal);
+                            updateData.append('payment_intent_id', stripeResult.paymentIntent.id);
+                            updateData.append('card_last4', realLast4);
+                            updateData.append('card_brand', realBrand);
+                            updateData.append('card_exp', realExp);
+
+                            fetch(etbAjax.ajax_url, { method: 'POST', body: updateData })
+                            .then(u => u.json())
+                            .then(settleRes => {
+                                payBtn.disabled = false;
+                                if (payText) payText.textContent = originalBtnText;
+
+                                if (settleRes.success) {
+                                    // Affichage du reçu de succès
+                                    const layoutEl = payRoot.querySelector('.etb-checkout-layout');
+                                    if (layoutEl) {
+                                        layoutEl.innerHTML = '<div class="etb-checkout-card" style="text-align: center; padding: 45px 30px; border-color: #16a34a; max-width: 600px; margin: 0 auto;">'
+                                            + '<div style="display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; background: rgba(34, 197, 94, 0.15); border: 2px solid #22c55e; border-radius: 50%; margin-bottom: 18px; color: #4ade80;">'
+                                            + '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>'
+                                            + '</div>'
+                                            + '<h2 style="color: #4ade80; font-size: 24px; font-weight: 800; margin: 0 0 10px 0;">Payment Successful!</h2>'
+                                            + '<p style="font-size: 15px; margin-bottom: 25px; line-height: 1.5;">'
+                                            + 'Your payment of <strong>' + amountVal.toFixed(2) + ' €</strong> for Dossier <strong>#' + bookingIdVal + '</strong> has been processed successfully.'
+                                            + '</p>'
+                                            + '<p style="font-size: 13px; color: #94a3b8; margin-bottom: 25px;">The mission status is now confirmed and marked as PAID in dispatch.</p>'
+                                            + '<a href="' + (etbAjax.home_url || '/') + '" class="etb-chk-submit-btn" style="text-decoration: none; display: inline-flex; width: auto; padding: 14px 35px;">Return to Home</a>'
+                                            + '</div>';
+                                    }
+                                } else {
+                                    showPayFeedback(settleRes.data.message || 'Payment registered but dispatch update failed.', 'error');
+                                }
+                            })
+                            .catch(err => {
+                                console.error('Settle error:', err);
+                                showPayFeedback('Communication error with dispatch.', 'error');
+                            });
+                        });
+                    })
+                    .catch(err => {
+                        console.error('Intent error:', err);
+                        payBtn.disabled = false;
+                        if (payText) payText.textContent = originalBtnText;
+                        showPayFeedback('Communication error. Please try again.', 'error');
+                    });
+                });
+            });
+        }
+
+        const showPayFeedback = (msg, type) => {
             if (!feedbackEl) return;
             feedbackEl.textContent = msg;
             feedbackEl.className = 'etb-chk-feedback is-' + type;
@@ -2903,7 +3120,6 @@
         };
 
         // 2. Application de l'attribut au DOM (sur <html> et sur chaque conteneur ETB)
-        // 2. Application de l'attribut au DOM (sur <html> et sur chaque conteneur ETB)
         const applyTheme = (themeName) => {
             // Applique au conteneur racine <html> pour que les popups globales comme .pac-container en profitent
             document.documentElement.setAttribute('data-etb-theme', themeName);
@@ -2927,7 +3143,9 @@
                 });
             }
 
-            console.log("🌟 Thème appliqué :", themeName);
+            document.dispatchEvent(new CustomEvent('etb_theme_changed', { detail: { theme: themeName } }));
+                console.log("🌟 Thème appliqué :", themeName);
+ 
         };
 
         // 3. Lancement immédiat
@@ -2969,12 +3187,13 @@
     
    // Lancement universel au chargement de la page
     const startApp = function () {
-        initThemeDetector(); // Active la détection et la bascule Dark / Light
-        init();              // Initialise les circuits
-        initQuickWidget();   // Initialise le widget minimal [etb_transfer]
-        initCheckoutApp();   // Initialise le Checkout [etb_checkout]
+        initThemeDetector();          // Active la détection et la bascule Dark / Light
+        init();                       // Initialise les circuits
+        initQuickWidget();            // Initialise le widget minimal [etb_transfer]
+        initCheckoutApp();            // Initialise le Checkout [etb_checkout]
+        initStandalonePaymentPage();  // Initialise la page de paiement dédiée [etb_payment]
     };
-    
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', startApp);
     } else {

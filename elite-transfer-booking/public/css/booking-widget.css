@@ -906,48 +906,65 @@
     font-weight: 600 !important;
 }
 
-/* Contrôles quantité Passagers */
-.etb-qty-control {
-    display: flex !important;
+/* Contrôles quantité Passagers & Options (Sidebar Circuit [tour_booking]) */
+.co-circuit-wrapper .etb-qty-control,
+.etb-booking-widget .etb-qty-control {
+    display: inline-flex !important;
     align-items: center !important;
-    background: #f9b785  !important;
-    padding: 3px !important;
-    border-radius: var(--etb-radius-pill) !important;
+    justify-content: space-between !important;
+    background: #fed7aa !important; /* Orange doux pêche */
+    padding: 2px 4px !important;
+    border-radius: 50px !important;
+    height: 32px !important;
+    min-width: 90px !important;
+    box-sizing: border-box !important;
 }
 
-.etb-qty-btn {
-    appearance: none !important;
-    -webkit-appearance: none !important;
-    width: 28px !important;
-    height: 28px !important;
-    border-radius: var(--etb-radius-pill) !important;
+.co-circuit-wrapper .etb-qty-control .etb-qty-btn,
+.etb-booking-widget .etb-qty-control .etb-qty-btn {
+    width: 26px !important;
+    height: 26px !important;
+    min-width: 26px !important;
+    border-radius: 50% !important;
     border: none !important;
-    background: transparent !important;
-    color: var(--etb-primary) !important;
-    font-weight: bold !important;
+    background: transparent; !important;
+    color: #0a0a0a !important; /* Orange vif foncé pour boutons nets */
+    font-weight: 900 !important;
+    font-size: 16px !important;
+    line-height: 1 !important;
     cursor: pointer !important;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
-    display: flex !important;
+    display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    transition: all 0.2s !important;
+    padding: 0 0 2px 0 !important;
+    transition: all 0.15s ease !important;
 }
 
-.etb-qty-btn:hover {
-    background: var(--etb-accent) !important;
-    color: var(--etb-white) !important;
+.co-circuit-wrapper .etb-qty-control .etb-qty-btn:hover,
+.etb-booking-widget .etb-qty-control .etb-qty-btn:hover {
+    background: #ea580c !important;
+    color: #ffffff !important;
 }
 
-.etb-qty-control input {
-    width: 28px !important;
+/* LE CHIFFRE (Forcé en noir/anthracite net, visible à 100%) */
+.co-circuit-wrapper .etb-qty-control input,
+.etb-booking-widget .etb-qty-control input {
+    width: 32px !important;
+    min-width: 32px !important;
+    height: 26px !important;
     text-align: center !important;
     border: none !important;
     background: transparent !important;
-    font-weight: 700 !important;
-    font-size: 14px !important;
-    color: var(--etb-primary) !important;
+    font-weight: 900 !important;
+    font-size: 15px !important;
+    color: #0f172a !important; /* Noir anthracite net */
+    opacity: 1 !important;
+    display: inline-block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    line-height: 26px !important;
+    box-shadow: none !important;
 }
-
 /* Champs de formulaire */
 .etb-field {
     margin-bottom: 14px !important;
@@ -1985,8 +2002,7 @@
     display: none !important; /* Sécurité maximale : invisible si vide */
 }
 
-
-/* 4. Rangée des 6 Équipements VIP : alignement strict sur 1 seule ligne */
+/* 4. Rangée des 6 Équipements VIP : alignement strict & hauteur harmonieuse */
 .etb-quick-amenities {
     display: flex !important;
     flex-direction: row !important;
@@ -1994,7 +2010,7 @@
     justify-content: space-between !important;
     align-items: center !important;
     gap: 2px !important;
-    padding: 10px 0 !important;
+    padding: 10px 0 10px 0 !important; /* Respiration douce haut / bas */
     margin-bottom: 16px !important;
     border-top: 1px solid var(--etb-border-light, rgba(255, 255, 255, 0.08)) !important;
     border-bottom: 1px solid var(--etb-border-light, rgba(255, 255, 255, 0.08)) !important;
@@ -2006,13 +2022,14 @@
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
-    justify-content: center !important;
+    justify-content: flex-end !important; /* Aligne la base des icônes avant le texte */
     flex: 1 1 0 !important;
     min-width: 0 !important;
-    padding: 2px !important;
+    padding: 0 1px !important;
     text-align: center !important;
 }
 
+/* Boîtier virtuel de 20px de haut pour centrer toutes les géométries SVG */
 .etb-amenity-col svg,
 .etb-amenity-svg {
     display: block !important;
@@ -2020,10 +2037,29 @@
     height: 25px !important;
     max-width: 25px !important;
     max-height: 25px !important;
-    margin: 0 auto 3px auto !important;
+    margin: 0 auto 5px auto !important;
     color: var(--etb-text-secondary, #94a3b8) !important;
     fill: currentColor !important;
+    object-fit: contain !important;
     transition: color 0.2s ease !important;
+}
+
+[data-etb-theme="light"] .etb-amenity-col svg,
+[data-etb-theme="light"] .etb-amenity-svg {
+    color: #475569 !important;
+    fill: currentColor !important;
+}
+
+.etb-amenity-col small {
+    font-size: 9px !important;
+    font-weight: 600 !important;
+    color: var(--etb-text-secondary, #94a3b8) !important;
+    letter-spacing: -0.01em !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: block !important;
+    line-height: 1 !important;
 }
 
 [data-etb-theme="light"] .etb-amenity-col svg,
@@ -2684,7 +2720,7 @@
     transform: translateY(-50%) !important;
     width: 20px !important;
     height: 20px !important;
-    background:  rgba(255, 255, 255, 0.16) !important;
+    background:  transparent !important;
     color: rgba(255, 255, 255, 0.75) !important;
     border: none !important;
     border-radius: 50% !important;
@@ -2706,21 +2742,29 @@
     transform: translateY(-50%) !important;
     width: 20px !important;
     height: 20px !important;
-    background: var( --etb-border, rgba(255, 255, 255, 0.16)) !important;
+    /*background: var( --etb-border, rgba(255, 255, 255, 0.16)) !important;*/
     color: var(--etb-text-secondary, rgba(255, 255, 255, 0.75)) !important;
     border: none !important;
     border-radius: 50% !important;
     align-items: center !important;
     justify-content: center !important;
     cursor: pointer !important;
-    padding: 0 !important;
+    padding: 0!important;
     transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1) !important;
     z-index: 5 !important;
 }
 
+[data-etb-theme="light"] button.etb-quick-clear-btn{
+    color: #858484 !important;
+   /* border: 1px solid #00000042 !important;*/
+}
+
+
 .etb-quick-clear-btn svg {
     display: block !important;
     pointer-events: none !important;
+    height: 15px !important;
+    width: 15px !important;
 }
 
 .etb-quick-clear-btn:hover {
@@ -4366,6 +4410,171 @@
 [data-etb-theme="light"] .etb-icon-sun { opacity: 0 !important; } /* Masqué sous la pastille */
 [data-etb-theme="light"] .etb-icon-moon { color: #64748b !important; }
 
+/* ==========================================================================
+   BOÎTIER STRIPE OFFICIEL : DÉCOUPE EN 2 RANGÉES (NUMÉRO / MM-AA / CVC)
+   ========================================================================== */
+.etb-stripe-split-card-box {
+    background: #fbfcfd !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 10px !important;
+    overflow: hidden !important;
+    transition: all 0.2s ease !important;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+}
+
+[data-etb-theme="dark"] .etb-stripe-split-card-box {
+    background: #151b29 !important;
+    border-color: #28334b !important;
+}
+
+.etb-stripe-split-card-box:focus-within {
+    border-color: var(--etb-accent-gold, #fbac18) !important;
+    box-shadow: 0 0 0 3px rgba(251, 172, 24, 0.15) !important;
+}
+
+/* Rangée 1 : Numéro de carte avec logo intégré à gauche */
+.etb-stripe-row-top {
+    display: flex !important;
+    align-items: center !important;
+    padding: 8px 12px !important;
+    min-height: 44px !important;
+}
+
+.etb-stripe-row-top .etb-stripe-inner-mount {
+    width: 100% !important;
+}
+
+.etb-stripe-inner-mount {
+    flex: 1 !important;
+}
+
+/* Les petits logos de cartes colorés officiels */
+.etb-stripe-official-badges {
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    user-select: none !important;
+}
+
+.etb-badge-card {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 9px !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.02em !important;
+    padding: 2px 5px !important;
+    border-radius: 3px !important;
+    height: 18px !important;
+    border: 1px solid rgba(0,0,0,0.08) !important;
+}
+
+.etb-badge-visa {
+    background: #1a1f71 !important;
+    color: #ffffff !important;
+    font-style: italic !important;
+}
+
+.etb-badge-mc {
+    background: #0a0a0a !important;
+    position: relative !important;
+    width: 28px !important;
+}
+
+.etb-badge-mc .mc-red {
+    width: 10px !important;
+    height: 10px !important;
+    background: #eb001b !important;
+    border-radius: 50% !important;
+    display: inline-block !important;
+    margin-right: -4px !important;
+}
+
+.etb-badge-mc .mc-yellow {
+    width: 10px !important;
+    height: 10px !important;
+    background: #f79e1b !important;
+    border-radius: 50% !important;
+    display: inline-block !important;
+    opacity: 0.9 !important;
+}
+
+.etb-badge-amex {
+    background: #007bc1 !important;
+    color: #ffffff !important;
+}
+
+.etb-badge-discover {
+    background: #ff6000 !important;
+    color: #ffffff !important;
+    font-size: 8px !important;
+}
+
+/* Ligne médiane de séparation */
+.etb-stripe-card-divider {
+    height: 1px !important;
+    background: #e2e8f0 !important;
+    width: 100% !important;
+}
+
+[data-etb-theme="dark"] .etb-stripe-card-divider {
+    background: #28334b !important;
+}
+
+/* Rangée 2 : MM/AA et CVC */
+.etb-stripe-row-bottom {
+    display: flex !important;
+    align-items: center !important;
+    min-height: 42px !important;
+}
+
+.etb-mount-expiry {
+    flex: 1 !important;
+    padding: 10px 14px !important;
+}
+
+.etb-stripe-vertical-divider {
+    width: 1px !important;
+    height: 42px !important;
+    background: #e2e8f0 !important;
+}
+
+[data-etb-theme="dark"] .etb-stripe-vertical-divider {
+    background: #28334b !important;
+}
+
+.etb-stripe-cvc-wrap {
+    flex: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    padding: 10px 14px !important;
+    position: relative !important;
+}
+
+.etb-mount-cvc {
+    flex: 1 !important;
+}
+
+.etb-cvc-icon {
+    color: #94a3b8 !important;
+    flex-shrink: 0 !important;
+    margin-left: 6px !important;
+}
+
+/* Texte de disclaimer (sans case à cocher) */
+.etb-payment-disclaimer-text p {
+    font-size: 12px !important;
+    line-height: 1.55 !important;
+}
+
+
+
+
+
+
+/* ==========================================================================
+   7. RESPONSIVE MOBILE & TABLETTE
+   ========================================================================== */
 
 /* 6. Adaptation Mobile & Tablette */
 @media (max-width: 900px) {
@@ -4470,9 +4679,6 @@
 
 
 
-/* ==========================================================================
-   7. RESPONSIVE MOBILE & TABLETTE
-   ========================================================================== */
 
 /* 1. TABLETTE & ÉCRANS MOYENS (<= 992px) */
 
@@ -4594,6 +4800,31 @@
     .etb-quick-actions-row {
         justify-content: flex-end;
     }
+
+    /* ── CORRECTION RESPONSIVE : TITRE FARE CALCULATOR & SWITCHER THÈME ── */
+    #etb-quick-widget-app {
+        padding: 14px 10px !important;
+    }
+
+    #etb-quick-widget-app .etb-quick-title-wrapper {
+        width: 100% !important;
+        padding: 0 45px 0 10px !important; /* Espace réservé à droite pour la pilule */
+        box-sizing: border-box !important;
+        position: relative !important;
+    }
+
+    #etb-quick-widget-app .etb-quick-title-thinking {
+        font-size: 18px !important; /* Taille adaptée pour mobile sans débordement */
+        letter-spacing: 0.08em !important;
+        margin: 0 auto 14px auto !important;
+        white-space: nowrap !important;
+    }
+
+    #etb-quick-widget-app .etb-theme-toggle-btn.etb-theme-switch {
+        top: 14px !important;
+        right: 12px !important;
+    }
+
 
 }
 

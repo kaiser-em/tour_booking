@@ -68,9 +68,15 @@ class ETB_Security {
      * Vérifie si le champ Honeypot est vide (non piégé)
      */
     public static function verify_honeypot( $field_name = 'etb_hp_email' ) {
-        return empty( $_POST[ $field_name ] );
+        // Tolérance : vérifie le champ principal ou le champ secondaire anti-autofill
+        if ( ! empty( $_POST['etb_hp_email'] ) ) {
+            return false;
+        }
+        if ( ! empty( $_POST['etb_antibot_check'] ) ) {
+            return false;
+        }
+        return true;
     }
-
     /**
      * Génère un jeton d'horodatage signé pour valider le temps de remplissage
      */
@@ -119,4 +125,71 @@ class ETB_Security {
 
         return true;
     }
+
+    /**
+     * Calcule la signature cryptographique HMAC pour sceller un montant et une réservation
+     *
+     * @param int   $booking_id ID de la réservation WordPress
+     * @param float $amount     Montant fixé par le régulateur
+     * @return string Empreinte SHA256 inviolable
+     */
+    public static function create_payment_signature( $booking_id, $amount ) {
+        $clean_id     = absint( $booking_id );
+        $clean_amount = number_format( (float) $amount, 2, '.', '' );
+        $salt         = wp_salt( 'nonce' );
+        
+        return hash_hmac( 'sha256', $clean_id . '|' . $clean_amount, $salt );
+    }
+
+    /**
+     * Vérifie si la signature fournie dans l'URL correspond au montant et au dossier
+     *
+     * @param int    $booking_id ID de la réservation WordPress
+     * @param float  $amount     Montant reçu dans l'URL
+     * @param string $signature  Signature reçue dans l'URL
+     * @return bool True si valide, False si lien falsifié
+     */
+    public static function verify_payment_signature( $booking_id, $amount, $signature ) {
+        if ( empty( $booking_id ) || empty( $amount ) || empty( $signature ) ) {
+            return false;
+        }
+
+        $expected_sig = self::create_payment_signature( $booking_id, $amount );
+        return hash_equals( $expected_sig, (string) $signature );
+    }
+
+    /**
+     * Génère l'URL complète et sécurisée vers la page de paiement
+     *
+     * @param int   $booking_id ID de la réservation WordPress
+     * @param float $amount     Montant fixé par le régulateur (facultatif si devis initial)
+     * @return string URL prête à être envoyée par WhatsApp ou e-mail
+     */
+    public static function get_secure_payment_url( $booking_id, $amount = 0.0 ) {
+        $gen_settings = get_option( 'etb_general_settings', array() );
+        
+        // Recherche de la page contenant le shortcode [etb_payment]
+        $payment_page_url = ! empty( $gen_settings['payment_page_url'] ) 
+            ? esc_url_raw( $gen_settings['payment_page_url'] ) 
+            : home_url( '/payment/' );
+
+        $clean_amount = floatval( $amount );
+        
+        if ( $clean_amount > 0 ) {
+            $sig = self::create_payment_signature( $booking_id, $clean_amount );
+            return add_query_arg( array(
+                'booking_id' => absint( $booking_id ),
+                'amount'     => number_format( $clean_amount, 2, '.', '' ),
+                'sig'        => $sig,
+            ), $payment_page_url );
+        }
+
+        // Si montant non encore arrêté, lien d'attente sécurisé
+        $sig = self::create_payment_signature( $booking_id, 0.0 );
+        return add_query_arg( array(
+            'booking_id' => absint( $booking_id ),
+            'sig'        => $sig,
+        ), $payment_page_url );
+    }
+
 }

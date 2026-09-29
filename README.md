@@ -62,20 +62,26 @@ Placez le shortcode **`[etb_transfer]`** sur votre page d'accueil ou page de ré
 Dès qu'une réservation est validée sur votre site :
 1. Ouvrez votre compte **LimoExpress** (`app.limoexpress.me`).
 2. Dans la liste de vos réservations, la course apparaît instantanément :
-   * **Client & Passagers** : Fiche client créée avec son numéro de portable international.
-   * **Paiement carte** : Dans la section *Historique des paiements*, la ligne de carte `Visa •••• 0000` est enregistrée avec le montant payé et la date d'expiration.
-   * **Pourboire** : Si le client a ajouté un pourboire, il apparaît sous **`Gratuity amount`** dans le tableau *Extra fees* (séparé du transport pour éviter la TVA).
-   * **Vol & Pancarte** : Le numéro de vol ✈️ et le nom de la pancarte chauffeur sont renseignés.
-   * **Lien Stripe direct** : Dans la **Note Répartiteur** de la course, un lien direct vers votre transaction Stripe est affiché pour débiter ou ajuster la course en 1 clic !
-
+   * **Client & Passagers** : Fiche client créée automatiquement avec son numéro international (WhatsApp direct).
+   * **Gestion des Devis (Custom Quotes)** :
+     - La course arrive avec un montant à `0 €` et la note d'alerte rouge `🚨 DEVIS SUR MESURE`.
+     - Saisissez votre prix dans LimoExpress (ex: `2 400 €`) et enregistrez.
+     - Copiez le lien sécurisé présent dans la note répartiteur et envoyez-le au client par WhatsApp ou e-mail.
+     - Dès que le client paie sur ce lien, LimoExpress coche automatiquement la course en **`Confirmed`** et **`Paid`** !
+   * **Réservations "Pay Later"** :
+     - Si le client a choisi de payer plus tard, le lien de règlement direct reste disponible dans la note répartiteur au cas où le client égare son e-mail.
+   * **Paiement carte immédiat** : Dans la section *Historique des paiements*, la ligne de carte `Visa •••• 4242` est consignée avec le montant payé et la date d'expiration.
+   * **Pourboire** : Le pourboire apparaît sous **`Gratuity amount`** dans le tableau *Extra fees* (séparé du transport pour éviter la TVA).
+   * **Vol & Pancarte** : Le numéro de vol ✈️ et le texte d'accueil chauffeur sont renseignés.
+   * **Lien Stripe direct** : Dans la **Note Répartiteur**, un lien direct vers votre transaction Stripe permet d'ajuster ou capturer la course en 1 clic !
+   
 ---
-
-## 🔌 Guide des Shortcodes Officiels
 
 | Shortcode | Description | Emplacement recommandé |
 | :--- | :--- | :--- |
 | **`[etb_transfer]`** | Widget VTC d'accueil (Trajet simple / À l'heure 3-24h) avec cartes luxury. | Page d'accueil, landing page. |
-| **`[etb_checkout]`** | Tunnel de réservation Blacklane 2 étapes (passager, vol, pourboire, Stripe). | Page dédiée `/checkout/`. |
+| **`[etb_checkout]`** | Tunnel de réservation 2 étapes (passager, vol, pourboire, option Pay Later). | Page dédiée `/checkout/`. |
+| **`[etb_payment]`** | Page de règlement autonome sécurisée (Split 50/50 Stripe Hosted style) pour solde et devis validés. | Page dédiée `/payment/`. |
 | **`[circuit_view id="XX"]`** | Vue Split Layout pour excursions touristiques privées avec timeline. | Fiches circuits touristiques. |
 | **`[tour_booking]`** | Formulaire de réservation classique. | Barres latérales. |
 
