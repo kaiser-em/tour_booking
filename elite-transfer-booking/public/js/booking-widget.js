@@ -1710,7 +1710,7 @@
                     const prettyDate = formatPrettyDate(rawDate);
                     const formattedDateTime = (prettyDate && tmVal) ? `${prettyDate} at ${tmVal}` : (prettyDate || tmVal || '—');
 
-                    const dropoffSymbol = isHourly ? '↪🄷🄾🅄🅁🄻🅈' : '➘🄳🄾□';
+                    const dropoffSymbol = isHourly ? '↻🄷🄾🅄🅁🄻🅈' : '➘🄳🄾□';
                     const rateText      = isCarQuote ? 'Custom Quote (Pending dispatch)' : `${carPrice} ${currency}`;
 
                     // Émoji main qui salue 👋
@@ -1720,8 +1720,8 @@
                     const formattedMessage = `Hey *EDEN CAB* team ${waveEmoji},\n\n`
                         + `I would like to inquire about booking a transfer with:\n\n`
                         + `*${carName}*\n\n`
-                        + `> ➚🄿🅄■ ${pVal}\n\n`
-                        + `${dropoffSymbol} ${dVal}\n\n`
+                        + `➚🄿🅄■ ${pVal}\n\n`
+                        + `> ${dropoffSymbol} ${dVal}\n\n`
                         + `➔ ${formattedDateTime}\n\n`
                         + `❏ Indicative rate: ${rateText}`;
 
@@ -2373,13 +2373,19 @@
             const totalLabelEl    = checkoutRoot.querySelector('.etb-chk-price-row.total-row span:first-child');
             const guaranteesBoxEl = checkoutRoot.querySelector('.etb-chk-guarantees');
 
-            if (isQuoteRide) {
-                // 1. Bouton d'action
-                if (submitText) submitText.textContent = 'Submit Quote Request';
+            const isUrgentInput = checkoutRoot.querySelector('#etb-chk-is-urgent');
+            const isUrgentRide  = (isUrgentInput && isUrgentInput.value === '1');
 
-                // 2. Masquage total de la section pourboire
-                if (tipSectionEl) tipSectionEl.style.setProperty('display', 'none', 'important');
+                if (isQuoteRide) {
+                    // 1. Bouton d'action Devis
+                    if (submitText) submitText.textContent = 'Submit Quote Request';
 
+                    // 2. Masquage total de la section pourboire
+                    if (tipSectionEl) tipSectionEl.style.setProperty('display', 'none', 'important');
+                } else if (isUrgentRide) {
+                    // Bouton d'action Course Urgente (< 24h)
+                    if (submitText) submitText.textContent = 'Request Urgent Booking';
+                
                 // 3. Masquage de la ligne Base Fare redondante
                 if (baseFareRowEl) baseFareRowEl.style.setProperty('display', 'none', 'important');
 
@@ -2453,6 +2459,10 @@
                 } else {
                     airportCard.style.display = 'none';
                     if (waitTimeText) waitTimeText.textContent = '15 min complimentary wait time included';
+                    if (signField) {
+                        const signInput = signField.querySelector('input');
+                        if (signInput) signInput.value = '';
+                    }
                 }
             }
 
@@ -2507,13 +2517,16 @@
             });
         }
 
-        // 6. Auto-remplissage de la pancarte
+        // 6. Auto-remplissage de la pancarte (Uniquement si visible)
         const updateGreetingSign = () => {
             const fName = firstNameInput ? firstNameInput.value.trim() : '';
             const lName = lastNameInput ? lastNameInput.value.trim() : '';
             if (pickupSignInput && !pickupSignInput.dataset.manualEdit) {
-                if (fName || lName) {
+                const isSignVisible = airportCard && airportCard.style.display !== 'none' && checkoutRoot.querySelector('#etb-chk-sign-field')?.style.display !== 'none';
+                if (isSignVisible && (fName || lName)) {
                     pickupSignInput.value = `Mr./Ms. ${lName || fName}`;
+                } else {
+                    pickupSignInput.value = ''; // On garantit qu'il reste vide si caché
                 }
             }
         };
@@ -2703,67 +2716,114 @@
             })
             .then(response => response.json())
             .then(res => {
-                submitBtn.disabled = false;
-                if (submitText) submitText.textContent = originalBtnText;
-
                 if (res.success) {
                     try { sessionStorage.removeItem('etb_checkout_data'); } catch (e) {}
 
-                    // Vérification infaillible : si Pay Later OU Devis -> AUCUNE redirection d'URL !
+                    // SI PAIEMENT IMMÉDIAT : Redirection vers la page de paiement
                     const isExplicitPayLater = isPayLater || formData.get('etb_pay_later') === '1';
+                    const isUrgentBooking    = formData.get('etb_is_urgent') === '1';
 
-                    if (!isQuoteRide && !isExplicitPayLater && res.data && res.data.payment_url) {
+                    if (!isQuoteRide && !isExplicitPayLater && !isUrgentBooking && res.data && res.data.payment_url) {
                         if (submitText) submitText.textContent = 'Opening Payment...';
                         window.location.href = res.data.payment_url;
                         return;
                     }
 
-                    // SI DEMANDE SUR DEVIS : Affichage du message de confirmation VIP
+                    // Déverrouillage si écran de confirmation sur place
+                    setCheckoutButtonsLocked(false);
+
+                    // Affichage de l'écran de confirmation
                     const homeReturnUrl = (typeof etbAjax !== 'undefined' && etbAjax.home_url) 
                         ? etbAjax.home_url 
                         : (window.location.origin + '/');
 
                     const leftCol = checkoutRoot.querySelector('.etb-checkout-left-col');
                     if (leftCol) {
-                        const successTitle = isQuoteRide 
-                            ? 'Quote Request Successfully Submitted!' 
-                            : 'Payment Authorized & Reservation Confirmed!';
-                        
-                        const successSubtitle = isQuoteRide
-                            ? 'Your personalized quote request <strong>#' + res.data.booking_id + '</strong> has been sent directly to our dispatch team in LimoExpress.'
-                            : 'Your VIP transfer dossier <strong>#' + res.data.booking_id + '</strong> has been confirmed and dispatched to LimoExpress (Course <strong>#' + res.data.limo_id + '</strong>).';
+                        let successTitle    = 'Reservation Registered (Payment Pending)';
+                        let successSubtitle = 'Your reservation <strong>#' + res.data.booking_id + '</strong> has been registered.';
+                        let successDetails  = '<p style="margin: 6px 0;">An email with your secure payment link has been sent to <strong>' + emailVal + '</strong>.</p>'
+                            + '<p style="margin: 6px 0;">You can complete your payment anytime before pickup to confirm your chauffeur.</p>';
 
-                        const successDetails = isQuoteRide
-                            ? '<p style="margin: 6px 0;">An acknowledgment has been sent to <strong>' + emailVal + '</strong>.</p>'
-                              + '<p style="margin: 6px 0;">Our dispatcher is calculating your itinerary (route, tolls, chauffeur availability) and will transmit a tailored quotation within <strong>15 minutes</strong>.</p>'
-                            : '<p style="margin: 6px 0;">An official paid confirmation receipt has been sent to <strong>' + emailVal + '</strong>.</p>'
-                              + '<p style="margin: 6px 0;">Your chauffeur will send an SMS notification prior to pickup.</p>';
+                        if (isQuoteRide) {
+                            successTitle    = 'Quote Request Successfully Submitted!';
+                            successSubtitle = 'Your quote request <strong>#' + res.data.booking_id + '</strong> has been sent to our dispatch team.';
+                            successDetails  = '<p style="margin: 6px 0;">An acknowledgment has been sent to <strong>' + emailVal + '</strong>.</p>'
+                                + '<p style="margin: 6px 0;">Our dispatcher will send a tailored quotation within <strong>15 minutes</strong>.</p>';
+                        } else if (isUrgentBooking) {
+                            successTitle    = 'Urgent Booking Received!';
+                            successSubtitle = 'Your short-notice reservation <strong>#' + res.data.booking_id + '</strong> is being verified by dispatch.';
+                            successDetails  = '<p style="margin: 6px 0;">Our team is immediately verifying chauffeur allocation for your pickup time.</p>'
+                                + '<p style="margin: 6px 0;">You will receive final confirmation and your payment link within <strong>15 minutes</strong>.</p>';
+                        }
 
-                        leftCol.innerHTML = '<div class="etb-checkout-card" style="text-align: center; padding: 45px 30px; border-color: #16a34a;">'
-                            + '<div style="display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; background: rgba(34, 197, 94, 0.15); border: 2px solid #22c55e; border-radius: 50%; margin-bottom: 18px; color: #4ade80;">'
-                            + '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>'
+                        // Masquage propre de la colonne droite et centrage
+                        const rightCol = checkoutRoot.querySelector('.etb-checkout-right-col');
+                        if (rightCol) rightCol.style.setProperty('display', 'none', 'important');
+
+                        const layoutGrid = checkoutRoot.querySelector('.etb-checkout-layout');
+                        if (layoutGrid) {
+                            layoutGrid.style.setProperty('grid-template-columns', '1fr', 'important');
+                            layoutGrid.style.setProperty('max-width', '680px', 'important');
+                            layoutGrid.style.setProperty('margin', '0 auto', 'important');
+                        }
+
+                        leftCol.innerHTML = '<div class="etb-checkout-card" style="text-align: center; padding: 45px 35px; border-color: #16a34a; box-shadow: 0 10px 40px rgba(0,0,0,0.1);">'
+                            + '<div style="display: inline-flex; align-items: center; justify-content: center; width: 68px; height: 68px; background: rgba(34, 197, 94, 0.15); border: 2px solid #22c55e; border-radius: 50%; margin-bottom: 20px; color: #4ade80;">'
+                            + '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>'
                             + '</div>'
-                            + '<h2 style="color: #4ade80; font-size: 24px; font-weight: 800; margin: 0 0 10px 0;">' + successTitle + '</h2>'
-                            + '<p style="font-size: 15px; margin-bottom: 25px; line-height: 1.5;">' + successSubtitle + '</p>'
-                            + '<div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 18px; margin-bottom: 30px; text-align: left; font-size: 13px; line-height: 1.6;">'
+                            + '<h2 style="color: #4ade80; font-size: 24px; font-weight: 800; margin: 0 0 12px 0;">' + successTitle + '</h2>'
+                            + '<p style="font-size: 15px; margin-bottom: 25px; line-height: 1.55;">' + successSubtitle + '</p>'
+                            + '<div style="background: rgba(255,255,255,0.04); border: 1px solid var(--etb-border-light, rgba(255,255,255,0.1)); border-radius: 12px; padding: 18px 22px; margin-bottom: 30px; text-align: left; font-size: 13.5px; line-height: 1.6;">'
                             + successDetails
                             + '</div>'
-                            + '<a href="' + homeReturnUrl + '" class="etb-chk-submit-btn" style="text-decoration: none; display: inline-flex; width: auto; padding: 14px 35px;">Return to Home</a>'
+                            + '<div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">'
+                            + (res.data.payment_url && isPayLater ? '<a href="' + res.data.payment_url + '" class="etb-chk-submit-btn" style="text-decoration: none; display: inline-flex; width: auto; padding: 14px 28px;">Proceed to Payment Now ➔</a>' : '')
+                            + '<a href="' + homeReturnUrl + '" class="etb-chk-submit-btn" style="text-decoration: none; display: inline-flex; width: auto; padding: 14px 28px; background: #334155;">Return to Home</a>'
+                            + '</div>'
                             + '</div>';
+
+                        checkoutRoot.scrollIntoView({ behavior: 'smooth', block: 'start' });
                     }
                 } else {
+                    setCheckoutButtonsLocked(false);
                     showFeedback(res.data.message || 'Booking creation failed.', 'error');
                 }
             })
             .catch(err => {
                 console.error('Final dispatch error:', err);
-                submitBtn.disabled = false;
-                if (submitText) submitText.textContent = originalBtnText;
+                setCheckoutButtonsLocked(false);
                 showFeedback('Communication error. Please try again.', 'error');
             });
         };
 
-        // 12. Validation commune et gestion de soumission (Continue to Payment & Pay Later)
+        // 12. Validation commune et gestion de soumission anti-doublon (Mutex Lock)
+        let isSubmittingCheckout = false;
+
+        const setCheckoutButtonsLocked = (locked, isPayLaterClick = false) => {
+            isSubmittingCheckout = locked;
+
+            if (submitBtn) {
+                submitBtn.disabled = locked;
+                if (locked && !isPayLaterClick) {
+                    if (submitText) submitText.textContent = isQuoteRide ? 'Submitting Quote Request...' : 'Securing & Redirecting...';
+                } else if (!locked) {
+                    if (submitText) submitText.textContent = isQuoteRide ? 'Submit Quote Request' : 'Continue to Payment';
+                }
+            }
+
+            if (payLaterLink) {
+                if (locked) {
+                    payLaterLink.style.pointerEvents = 'none';
+                    payLaterLink.style.opacity = '0.4';
+                    if (isPayLaterClick) payLaterLink.textContent = 'Registering order...';
+                } else {
+                    payLaterLink.style.pointerEvents = 'auto';
+                    payLaterLink.style.opacity = '1';
+                    payLaterLink.textContent = 'Or book now and Pay Later ➔';
+                }
+            }
+        };
+
         const validatePassengerStep = () => {
             const fNameVal  = firstNameInput ? firstNameInput.value.trim() : '';
             const lNameVal  = lastNameInput ? lastNameInput.value.trim() : '';
@@ -2794,14 +2854,14 @@
         if (submitBtn) {
             submitBtn.addEventListener('click', function (e) {
                 e.preventDefault();
+                e.stopPropagation();
                 if (feedbackEl) feedbackEl.style.display = 'none';
 
+                if (isSubmittingCheckout) return;
                 if (!validatePassengerStep()) return;
 
-                submitBtn.disabled = true;
-                if (submitText) {
-                    submitText.textContent = isQuoteRide ? 'Submitting Quote Request...' : 'Securing & Redirecting...';
-                }
+                // Verrouillage immédiat et total de tous les boutons et liens
+                setCheckoutButtonsLocked(true, false);
 
                 executeFinalOrderDispatch(null, false);
             });
@@ -2812,17 +2872,20 @@
         if (payLaterLink) {
             payLaterLink.addEventListener('click', function (e) {
                 e.preventDefault();
+                e.stopPropagation();
                 if (feedbackEl) feedbackEl.style.display = 'none';
 
+                if (isSubmittingCheckout) return;
                 if (!validatePassengerStep()) return;
 
-                if (submitBtn) submitBtn.disabled = true;
-                payLaterLink.style.pointerEvents = 'none';
-                payLaterLink.textContent = 'Registering order...';
+                // Verrouillage immédiat et total de tous les boutons et liens
+                setCheckoutButtonsLocked(true, true);
 
                 executeFinalOrderDispatch(null, true);
             });
         }
+
+        
 
         const showFeedback = function (msg, type) {
             if (!feedbackEl) return;
@@ -3047,22 +3110,29 @@
                                 if (payText) payText.textContent = originalBtnText;
 
                                 if (settleRes.success) {
-                                    // Affichage du reçu de succès
+                                    // Centrage parfait du reçu de paiement
                                     const layoutEl = payRoot.querySelector('.etb-checkout-layout');
                                     if (layoutEl) {
-                                        layoutEl.innerHTML = '<div class="etb-checkout-card" style="text-align: center; padding: 45px 30px; border-color: #16a34a; max-width: 600px; margin: 0 auto;">'
-                                            + '<div style="display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; background: rgba(34, 197, 94, 0.15); border: 2px solid #22c55e; border-radius: 50%; margin-bottom: 18px; color: #4ade80;">'
-                                            + '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>'
+                                        layoutEl.style.setProperty('display', 'block', 'important');
+                                        layoutEl.innerHTML = '<div class="etb-checkout-card" style="text-align: center; padding: 50px 35px; border-color: #16a34a; max-width: 650px; margin: 0 auto; box-shadow: 0 10px 40px rgba(0,0,0,0.1);">'
+                                            + '<div style="display: inline-flex; align-items: center; justify-content: center; width: 68px; height: 68px; background: rgba(34, 197, 94, 0.15); border: 2px solid #22c55e; border-radius: 50%; margin-bottom: 20px; color: #4ade80;">'
+                                            + '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>'
                                             + '</div>'
-                                            + '<h2 style="color: #4ade80; font-size: 24px; font-weight: 800; margin: 0 0 10px 0;">Payment Successful!</h2>'
-                                            + '<p style="font-size: 15px; margin-bottom: 25px; line-height: 1.5;">'
-                                            + 'Your payment of <strong>' + amountVal.toFixed(2) + ' €</strong> for Dossier <strong>#' + bookingIdVal + '</strong> has been processed successfully.'
+                                            + '<h2 style="color: #4ade80; font-size: 24px; font-weight: 800; margin: 0 0 10px 0;">Payment Authorized Successfully!</h2>'
+                                            + '<p style="font-size: 15px; margin-bottom: 25px; line-height: 1.55;">'
+                                            + 'Your payment of <strong>' + amountVal.toFixed(2) + ' €</strong> for Dossier <strong>#' + bookingIdVal + '</strong> has been processed.'
                                             + '</p>'
-                                            + '<p style="font-size: 13px; color: #94a3b8; margin-bottom: 25px;">The mission status is now confirmed and marked as PAID in dispatch.</p>'
+                                            + '<div style="background: rgba(255,255,255,0.04); border: 1px solid var(--etb-border-light, rgba(255,255,255,0.1)); border-radius: 12px; padding: 18px 22px; margin-bottom: 30px; text-align: left; font-size: 13.5px; line-height: 1.6;">'
+                                            + '<p style="margin: 6px 0;">An official paid confirmation receipt has been sent to your email.</p>'
+                                            .replace('your email', '<strong>' + emailVal + '</strong>')
+                                            + '<p style="margin: 6px 0;">Your chauffeur will send an SMS update prior to pickup.</p>'
+                                            + '</div>'
                                             + '<a href="' + (etbAjax.home_url || '/') + '" class="etb-chk-submit-btn" style="text-decoration: none; display: inline-flex; width: auto; padding: 14px 35px;">Return to Home</a>'
                                             + '</div>';
+
+                                        payRoot.scrollIntoView({ behavior: 'smooth', block: 'start' });
                                     }
-                                } else {
+                                }else {
                                     showPayFeedback(settleRes.data.message || 'Payment registered but dispatch update failed.', 'error');
                                 }
                             })

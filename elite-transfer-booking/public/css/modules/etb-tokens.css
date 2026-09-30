@@ -1,0 +1,188 @@
+/* ==========================================================================
+   ETB DESIGN SYSTEM — TOKENS GLOBAUX & THÈMES (DARK / LIGHT)
+   ========================================================================== */
+
+/* ==========================================================================
+   ELITE TRANSFER BOOKING (UNIFIED) - DESIGN SYSTEM & THEME SHIELD
+   ========================================================================== */
+
+/* 1. DESIGN TOKENS (VARIABLES CSS CENTRALISÉES) */
+:root,
+.co-circuit-wrapper,
+.etb-booking-widget {
+    /* Couleurs Principales */
+
+    --etb-primary: #2e3447;              /* Vert foncé noble / Titres principaux */
+    --etb-primary-dark: #282d3b;         /* Noir ardoise / Titres des cartes */
+    --etb-accent: #E65A15;               /* Orange vif / Boutons, prix, sélections */
+    --etb-accent-hover: #D1541F;         /* Orange foncé au survol */
+    --etb-accent-glow: rgba(230, 90, 21, 0.18); /* Halo lumineux de sélection */
+    --etb-accent-light: rgba(230, 90, 21, 0.04);
+
+
+    --etb-qw-accent: #f7a100;                      /* Bleu royal éclatant Eden Cab */
+    --etb-qw-accent-hover: #eb8c17;                /* Bleu foncé au clic */
+    --etb-qw-accent-glow: rgba(0, 114, 229, 0.4);  /* Halo lumineux */
+    
+    /* Couleurs Neutres & Surfaces */
+    --etb-bg-light: #F8F9FA;             /* Fond doux pour badges et conteneurs */
+    --etb-white: #FFFFFF;                /* Fond des cartes, inputs, boutons */
+    --etb-border: #BBBBBB;               /* Bordures subtiles */
+    --etb-border-hover: #CBD5E1;         /* Bordures au survol */
+    --etb-border-input: #D1D5DB;         /* Bordures des champs de formulaire */
+    
+    /* Textes & Typographie */
+    --etb-font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --etb-text-main: #172326;            /* Texte corps principal */
+    --etb-text-muted: #5F6B6B;           /* Textes secondaires, sous-titres */
+    --etb-text-specs: #64748B;           /* Caractéristiques passagers/bagages */
+    
+    /* Alertes & États */
+    --etb-success: #16A34A;              /* Vert confirmation, inclus */
+    --etb-danger: #B3261E;               /* Rouge erreur */
+    --etb-danger-bg: rgba(179, 38, 30, 0.08);
+    --etb-danger-border: rgba(179, 38, 30, 0.3);
+    
+    /* Rayons de courbure */
+    --etb-radius-sm: 8px;
+    --etb-radius-md: 14px;
+    --etb-radius-lg: 20px;
+    --etb-radius-pill: 50px;
+    
+    /* Ombres */
+    --etb-shadow-sm: 0 4px 15px rgba(0, 0, 0, 0.04);
+    --etb-shadow-md: 0 10px 25px rgb(124 124 124 / 41%);
+    --etb-shadow-lg: 0 10px 30px rgba(5, 32, 33, 0.05);
+}
+
+/* ==========================================================================
+   QUICK WIDGET VARIABLES
+   ========================================================================== */
+
+.etb-quick-widget {
+    /* --- VARIABLES CENTRALISÉES DU WIDGET (MODIFIABLES EN 1 SEUL ENDROIT) --- */
+    --etb-qw-bg-bar: rgba(11, 15, 25, 0.88);       /* Fond barre flottante nuit */
+    --etb-qw-bg-capsule: rgba(10, 14, 22, 0.85);   /* Fond capsule mode */
+    --etb-qw-bg-card: #111622;                     /* Fond des cartes de véhicules */
+    --etb-qw-bg-card-selected: #141b2b;            /* Fond carte sélectionnée */
+    --etb-qw-bg-dropdown: #0f1420;                 /* Fond menu suggestions adresses */
+    --etb-qw-bg-hover: #1a2336;                    /* Survol et surbrillance clavier */
+    
+  
+    
+    --etb-qw-border: #232a3b;                      /* Bordures principales */
+    --etb-qw-border-subtle: rgba(255, 255, 255, 0.16); /* Bordures translucides */
+    --etb-qw-border-input: rgba(255, 255, 255, 0.25);  /* Soulignement des champs */
+    
+    --etb-qw-text-white: #ffffff;                  /* Titres et textes clairs */
+    --etb-qw-text-muted: #94a3b8;                  /* Textes secondaires argentés */
+    --etb-qw-text-dark: #0f172a;                   /* Textes sur fond clair */
+
+    position: relative !important;
+    z-index: 9999 !important; /* Priorité absolue sur tous les blocs suivants de la page */
+    width: 100% !important;
+    max-width: 1150px !important;
+    margin: 35px auto !important;
+    padding: 16px !important;
+    border: 1px solid var(--etb-border-main, #232a3b) !important;
+    border-radius: 20px !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    backdrop-filter: blur(8px) !important;
+}
+
+
+/* ==========================================================================
+   VARIABLES GLOBALES & THEME TOKENS (DARK / LIGHT MODE)
+   ========================================================================== */
+
+/* ── THÈME SOMBRE VIP (PAR DÉFAUT) ── */
+[data-etb-theme="dark"] {
+    --etb-bg-app: transparent;
+    --etb-bg-card: #0f1420;
+    --etb-bg-card-hover: #141b2b;
+    --etb-bg-input: #151b29;
+    --etb-bg-glass: rgba(11, 15, 25, 0.88);
+    
+    --etb-border-main: #232a3b;
+    --etb-border-input: #28334b;
+    --etb-border-light: rgba(255, 255, 255, 0.08);
+    
+    --etb-text-primary: #ffffff;
+    --etb-text-secondary: #94a3b8;
+    --etb-text-muted: #64748b;
+    
+    --etb-accent-gold: #fbac18;
+    --etb-accent-gold-hover: #e39402;
+    
+    --etb-shadow-base: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+/* ── THÈME CLAIR ÉLÉGANT (LIGHT MODE VIP) ── */
+[data-etb-theme="light"] {
+    --etb-bg-app: transparent;
+    --etb-bg-card: #ffffff;
+    --etb-bg-card-hover: #f8fafc;
+    --etb-bg-input: #f1f5f9;
+    --etb-bg-glass: rgba(255, 255, 255, 1);
+    
+    --etb-border-main: #e2e8f0;
+    --etb-border-input: #cbd5e1;
+    --etb-border-light: rgba(0, 0, 0, 0.08);
+    
+    --etb-text-primary: #0f172a; /* Texte noir ardoise */
+    --etb-text-secondary: #475569;
+    --etb-text-muted: #94a3b8;
+    
+    --etb-accent-gold: #e65a15; /* Orange légèrement plus soutenu pour contraste sur fond blanc */
+    --etb-accent-gold-hover: #c2410c;
+    
+    --etb-shadow-base: 0 10px 30px rgba(0, 0, 0, 0.06);
+}
+
+/* Application des tokens sur les éléments racines */
+#etb-quick-widget-app,
+#etb-checkout-app,
+.etb-checkout-wrapper {
+    color: var(--etb-text-primary) !important;
+}
+
+/* Remplacement massif des couleurs en dur par les variables sur le widget d'accueil */
+.etb-quick-glass-bar {
+    background: var(--etb-bg-glass) !important;
+    border-color: var(--etb-border-main) !important;
+}
+
+.etb-quick-car-item {
+    background: var(--etb-bg-card) !important;
+    border-color: var(--etb-border-main) !important;
+    box-shadow: var(--etb-shadow-base) !important;
+}
+
+.etb-quick-car-title,
+.etb-quick-amount {
+    color: var(--etb-text-primary) !important;
+}
+
+.etb-quick-specs,
+.etb-quick-currency {
+    color: var(--etb-text-secondary) !important;
+}
+
+.etb-quick-col input {
+    color: var(--etb-text-primary) !important;
+    border-bottom-color: var(--etb-border-input) !important;
+}
+
+.etb-quick-submit-btn,
+.etb-quick-book-trip-btn,
+.etb-chk-submit-btn {
+    background: var(--etb-accent-gold) !important;
+    color: #ffffff !important;
+}
+
+

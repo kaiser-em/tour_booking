@@ -1,0 +1,166 @@
+/* ==========================================================================
+   ETB MODULE — PAGE DE PAIEMENT AUTONOME [etb_payment] (STRIPE HOSTED STYLE)
+   ========================================================================== */
+
+   BOÎTIER STRIPE OFFICIEL : DÉCOUPE EN 2 RANGÉES (NUMÉRO / MM-AA / CVC)
+   ========================================================================== */
+.etb-stripe-split-card-box {
+    background: #fbfcfd !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 10px !important;
+    overflow: hidden !important;
+    transition: all 0.2s ease !important;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+}
+
+[data-etb-theme="dark"] .etb-stripe-split-card-box {
+    background: #151b29 !important;
+    border-color: #28334b !important;
+}
+
+.etb-stripe-split-card-box:focus-within {
+    border-color: var(--etb-accent-gold, #fbac18) !important;
+    box-shadow: 0 0 0 3px rgba(251, 172, 24, 0.15) !important;
+}
+
+/* Rangée 1 : Numéro de carte avec logo intégré à gauche */
+.etb-stripe-row-top {
+    display: flex !important;
+    align-items: center !important;
+    padding: 8px 12px !important;
+    min-height: 44px !important;
+}
+
+.etb-stripe-row-top .etb-stripe-inner-mount {
+    width: 100% !important;
+}
+
+.etb-stripe-inner-mount {
+    flex: 1 !important;
+}
+
+/* Les petits logos de cartes colorés officiels */
+.etb-stripe-official-badges {
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    user-select: none !important;
+}
+
+.etb-badge-card {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 9px !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.02em !important;
+    padding: 2px 5px !important;
+    border-radius: 3px !important;
+    height: 18px !important;
+    border: 1px solid rgba(0,0,0,0.08) !important;
+}
+
+.etb-badge-visa {
+    background: #1a1f71 !important;
+    color: #ffffff !important;
+    font-style: italic !important;
+}
+
+.etb-badge-mc {
+    background: #0a0a0a !important;
+    position: relative !important;
+    width: 28px !important;
+}
+
+.etb-badge-mc .mc-red {
+    width: 10px !important;
+    height: 10px !important;
+    background: #eb001b !important;
+    border-radius: 50% !important;
+    display: inline-block !important;
+    margin-right: -4px !important;
+}
+
+.etb-badge-mc .mc-yellow {
+    width: 10px !important;
+    height: 10px !important;
+    background: #f79e1b !important;
+    border-radius: 50% !important;
+    display: inline-block !important;
+    opacity: 0.9 !important;
+}
+
+.etb-badge-amex {
+    background: #007bc1 !important;
+    color: #ffffff !important;
+}
+
+.etb-badge-discover {
+    background: #ff6000 !important;
+    color: #ffffff !important;
+    font-size: 8px !important;
+}
+
+/* Ligne médiane de séparation */
+.etb-stripe-card-divider {
+    height: 1px !important;
+    background: #e2e8f0 !important;
+    width: 100% !important;
+}
+
+[data-etb-theme="dark"] .etb-stripe-card-divider {
+    background: #28334b !important;
+}
+
+/* Rangée 2 : MM/AA et CVC */
+.etb-stripe-row-bottom {
+    display: flex !important;
+    align-items: center !important;
+    min-height: 42px !important;
+}
+
+.etb-mount-expiry {
+    flex: 1 !important;
+    padding: 10px 14px !important;
+}
+
+.etb-stripe-vertical-divider {
+    width: 1px !important;
+    height: 42px !important;
+    background: #e2e8f0 !important;
+}
+
+[data-etb-theme="dark"] .etb-stripe-vertical-divider {
+    background: #28334b !important;
+}
+
+.etb-stripe-cvc-wrap {
+    flex: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    padding: 10px 14px !important;
+    position: relative !important;
+}
+
+.etb-mount-cvc {
+    flex: 1 !important;
+}
+
+.etb-cvc-icon {
+    color: #94a3b8 !important;
+    flex-shrink: 0 !important;
+    margin-left: 6px !important;
+}
+
+/* Texte de disclaimer (sans case à cocher) */
+.etb-payment-disclaimer-text p {
+    font-size: 12px !important;
+    line-height: 1.55 !important;
+}
+
+
+
+
+
+
+/* ==========================================================================

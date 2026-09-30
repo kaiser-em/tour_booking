@@ -31,6 +31,27 @@ $price_val     = $has_quote ? ( $quote_data['price'] ?? 0 ) : 0;
 $formatted_price = ( 'Custom Quote' === $price_val || floatval( $price_val ) <= 0 )
     ? 'Custom Quote'
     : ( number_format_i18n( floatval( $price_val ), 0 ) . ' ' . $currency_symbol );
+
+// Détection d'une réservation urgente (< délai minimum configuré, par défaut 24h)
+$min_delay_hours   = isset( $gen_settings['min_delay'] ) ? absint( $gen_settings['min_delay'] ) : 24;
+$is_urgent_booking = false;
+
+if ( ! empty( $date_val ) ) {
+    $time_raw = ! empty( $time_val ) ? trim( $time_val ) : '09:00';
+    // Parser naturel supportant "2026-09-29 10:05 PM" ou "2026-09-29 14:30"
+    $pickup_timestamp = strtotime( $date_val . ' ' . $time_raw );
+    
+    // Fallback si le format est standard HH:MM
+    if ( ! $pickup_timestamp ) {
+        $pickup_timestamp = strtotime( $date_val . ' ' . substr( $time_raw, 0, 5 ) . ':00' );
+    }
+
+    $now_timestamp = current_time( 'timestamp' );
+
+    if ( $pickup_timestamp && ( $pickup_timestamp - $now_timestamp ) < ( $min_delay_hours * HOUR_IN_SECONDS ) ) {
+        $is_urgent_booking = true;
+    }
+}
 ?>
 
 <div class="etb-checkout-wrapper" id="etb-checkout-app">
@@ -79,6 +100,7 @@ $formatted_price = ( 'Custom Quote' === $price_val || floatval( $price_val ) <= 
         <input type="hidden" name="etb_time" id="etb-chk-time" value="<?php echo esc_attr( $time_val ); ?>">
         <input type="hidden" name="etb_vehicle_id" id="etb-chk-vehicle-id" value="<?php echo esc_attr( $vehicle_id ); ?>">
         <input type="hidden" name="etb_calculated_price" id="etb-chk-price" value="<?php echo esc_attr( $price_val ); ?>">
+        <input type="hidden" name="etb_is_urgent" id="etb-chk-is-urgent" value="<?php echo $is_urgent_booking ? '1' : '0'; ?>">
 
         <!-- ============================================================== -->
         <!-- LE CONTENEUR 2 COLONNES (CSS GRID)                             -->
@@ -494,8 +516,16 @@ $formatted_price = ( 'Custom Quote' === $price_val || floatval( $price_val ) <= 
                     <!-- Message d'erreur / Feedback avant envoi -->
                     <div class="etb-chk-feedback" id="etb-chk-feedback" style="display: none;"></div>
 
-                    <!-- Option "Pay Later" (affichée uniquement pour les courses à tarif fixe) -->
-                    <div id="etb-chk-pay-later-wrap" style="text-align: center; margin-bottom: 12px; <?php echo ( 'Custom Quote' === $price_val || floatval( $price_val ) <= 0 ) ? 'display: none;' : ''; ?>">
+                    <!-- Bandeau de réservation urgente (< 24h) -->
+                    <?php if ( $is_urgent_booking ) : ?>
+                        <div style="background: rgba(251, 172, 24, 0.1); border: 1px solid rgba(251, 172, 24, 0.35); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; font-size: 12px; color: var(--etb-text-primary, #ffffff); line-height: 1.45;">
+                            <strong style="color: #fbac18; display: block; margin-bottom: 2px;">⏱️ Short-Notice Pickup (&lt; 24h)</strong>
+                            For bookings scheduled within 24 hours, our dispatch team will confirm chauffeur availability before any payment is collected. You will receive a response within 15 minutes.
+                        </div>
+                    <?php endif; ?>
+
+                    <!-- Option "Pay Later" (masquée si devis ou réservation urgente) -->
+                    <div id="etb-chk-pay-later-wrap" style="text-align: center; margin-bottom: 12px; <?php echo ( $is_urgent_booking || 'Custom Quote' === $price_val || floatval( $price_val ) <= 0 ) ? 'display: none;' : ''; ?>">
                         <a href="#" id="etb-chk-pay-later-link" style="font-size: 13px; font-weight: 700; color: var(--etb-text-secondary, #94a3b8); text-decoration: underline; transition: color 0.2s ease;">
                             Or book now and Pay Later ➔
                         </a>
@@ -503,7 +533,7 @@ $formatted_price = ( 'Custom Quote' === $price_val || floatval( $price_val ) <= 
 
                     <!-- Bouton d'action principal -->
                     <button type="button" class="etb-chk-submit-btn" id="etb-chk-submit-btn">
-                        <span id="etb-chk-submit-text">Continue to Payment</span>
+                        <span id="etb-chk-submit-text"><?php echo $is_urgent_booking ? 'Request Urgent Booking' : 'Continue to Payment'; ?></span>
                         <span class="dashicons dashicons-arrow-right-alt2"></span>
                     </button>
 

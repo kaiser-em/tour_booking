@@ -29,7 +29,15 @@ class Elite_Transfer_Booking {
 
     public function enqueue_public_assets() {
         wp_enqueue_style( 'dashicons' );
-        wp_enqueue_style( 'etb-booking-style', ETB_URL . 'public/css/booking-widget.css', array( 'dashicons' ), ETB_VERSION );
+
+        // 1. Module socle : Tokens globaux & Détection Dark/Light (Indispensable)
+        wp_enqueue_style( 'etb-tokens', ETB_URL . 'public/css/modules/etb-tokens.css', array( 'dashicons' ), ETB_VERSION );
+
+        // 2. Modules thématiques isolés (avec dépendance stricte sur les tokens)
+        wp_enqueue_style( 'etb-transfer-widget', ETB_URL . 'public/css/modules/etb-transfer-widget.css', array( 'etb-tokens' ), ETB_VERSION );
+        wp_enqueue_style( 'etb-circuits', ETB_URL . 'public/css/modules/etb-circuits.css', array( 'etb-tokens' ), ETB_VERSION );
+        wp_enqueue_style( 'etb-checkout', ETB_URL . 'public/css/modules/etb-checkout.css', array( 'etb-tokens' ), ETB_VERSION );
+        wp_enqueue_style( 'etb-payment', ETB_URL . 'public/css/modules/etb-payment.css', array( 'etb-tokens' ), ETB_VERSION );
         
         $gen_settings    = get_option( 'etb_general_settings', array() );
         $currency_symbol = ! empty( $gen_settings['currency'] ) ? sanitize_text_field( $gen_settings['currency'] ) : '€';

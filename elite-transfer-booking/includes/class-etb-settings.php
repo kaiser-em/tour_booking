@@ -6,6 +6,13 @@ class ETB_Settings {
     public function __construct() {
         add_action( 'admin_menu', array( $this, 'add_settings_menu' ) );
         add_action( 'admin_init', array( $this, 'register_etb_settings' ) );
+        add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_media_uploader' ) ); // <-- AJOUT DE CETTE LIGNE
+    }
+
+    public function enqueue_media_uploader( $hook ) {
+        if ( isset( $_GET['page'] ) && 'etb-settings' === $_GET['page'] ) {
+            wp_enqueue_media();
+        }
     }
 
     public function add_settings_menu() {
@@ -54,6 +61,14 @@ class ETB_Settings {
         $new_input['google_maps_api_key'] = ! empty( $input['google_maps_api_key'] ) ? sanitize_text_field( trim( $input['google_maps_api_key'] ) ) : '';
         $new_input['mapbox_token']         = ! empty( $input['mapbox_token'] ) ? sanitize_text_field( trim( $input['mapbox_token'] ) ) : '';
         $new_input['checkout_page_url']    = ! empty( $input['checkout_page_url'] ) ? esc_url_raw( trim( $input['checkout_page_url'] ) ) : '';
+        $new_input['payment_page_url']     = ! empty( $input['payment_page_url'] ) ? esc_url_raw( trim( $input['payment_page_url'] ) ) : '';
+
+        // Coordonnées & Mentions Légales de l'Entreprise (Zéro Hardcode)
+        $new_input['company_legal_name']    = ! empty( $input['company_legal_name'] ) ? sanitize_text_field( trim( $input['company_legal_name'] ) ) : '"EDEN CAB" Ltd';
+        $new_input['company_subtitle']      = ! empty( $input['company_subtitle'] ) ? sanitize_text_field( trim( $input['company_subtitle'] ) ) : 'superior drive';
+        $new_input['company_address_line1'] = ! empty( $input['company_address_line1'] ) ? sanitize_text_field( trim( $input['company_address_line1'] ) ) : '250 avenue de Grasse';
+        $new_input['company_address_line2'] = ! empty( $input['company_address_line2'] ) ? sanitize_text_field( trim( $input['company_address_line2'] ) ) : 'Cannes 06400, France';
+        $new_input['company_logo_url']      = ! empty( $input['company_logo_url'] ) ? esc_url_raw( trim( $input['company_logo_url'] ) ) : '';
 
         // Configuration de la passerelle de paiement Stripe
         $new_input['stripe_enabled']         = isset( $input['stripe_enabled'] ) ? '1' : '0';
@@ -196,6 +211,109 @@ class ETB_Settings {
                                 <p class="description">URL de la page WordPress contenant le shortcode <code>[etb_checkout]</code> où le client finalise sa commande.</p>
                             </td>
                         </tr>
+                        <tr>
+                            <th scope="row">Page de paiement dédiée (Payment)</th>
+                            <td>
+                                <input type="url" name="etb_general_settings[payment_page_url]" value="<?php echo esc_url( $options['payment_page_url'] ?? home_url( '/payment/' ) ); ?>" class="regular-text" placeholder="https://monsite.com/payment/">
+                                <p class="description">URL de la page WordPress contenant le shortcode <code>[etb_payment]</code> où le client effectue son règlement.</p>
+                            </td>
+                        </tr>
+
+                        <!-- SECTION IDENTITÉ ET MENTIONS LÉGALES DE L'ENTREPRISE -->
+                        <tr>
+                            <th scope="row" colspan="2">
+                                <hr style="margin: 20px 0; border: 0; border-top: 1px solid #dcdcde;">
+                                <h3>🏢 Identité de l'Entreprise & Mentions Légales</h3>
+                                <p class="description">Ces informations apparaissent sur le Checkout, la page de paiement et les factures officielles.</p>
+                            </th>
+                        </tr>
+                        <tr>
+                            <th scope="row">Logo de l'entreprise</th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 8px;">
+                                    <?php 
+                                    $logo_val = $options['company_logo_url'] ?? ''; 
+                                    ?>
+                                    <div id="etb_logo_preview" style="width: 120px; height: 50px; border: 1px dashed #cbd5e1; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: #f8fafc; overflow: hidden;">
+                                        <?php if ( ! empty( $logo_val ) ) : ?>
+                                            <img src="<?php echo esc_url( $logo_val ); ?>" style="max-height: 44px; max-width: 110px; object-fit: contain;">
+                                        <?php else : ?>
+                                            <span style="font-size: 11px; color: #94a3b8;">Aucun logo</span>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div>
+                                        <input type="hidden" name="etb_general_settings[company_logo_url]" id="etb_company_logo_url" value="<?php echo esc_url( $logo_val ); ?>">
+                                        <button type="button" class="button" id="etb_upload_logo_btn">📁 Choisir / Téléverser un logo</button>
+                                        <button type="button" class="button" id="etb_remove_logo_btn" style="<?php echo empty( $logo_val ) ? 'display:none;' : ''; ?> color: #b91c1c;">✕ Retirer</button>
+                                    </div>
+                                </div>
+                                <p class="description">Format recommandé : PNG transparent ou SVG (hauteur idéale 50px).</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Nom légal de l'entreprise</th>
+                            <td>
+                                <input type="text" name="etb_general_settings[company_legal_name]" value="<?php echo esc_attr( $options['company_legal_name'] ?? '"EDEN CAB" Ltd' ); ?>" class="regular-text" placeholder='"EDEN CAB" Ltd'>
+                                <p class="description">Apparaît dans le mandat de prélèvement et les reçus légaux.</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Slogan / Sous-titre commercial</th>
+                            <td>
+                                <input type="text" name="etb_general_settings[company_subtitle]" value="<?php echo esc_attr( $options['company_subtitle'] ?? 'superior drive' ); ?>" class="regular-text" placeholder="superior drive">
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Adresse (Ligne 1)</th>
+                            <td>
+                                <input type="text" name="etb_general_settings[company_address_line1]" value="<?php echo esc_attr( $options['company_address_line1'] ?? '250 avenue de Grasse' ); ?>" class="regular-text" placeholder="250 avenue de Grasse">
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Ville, Code Postal & Pays (Ligne 2)</th>
+                            <td>
+                                <input type="text" name="etb_general_settings[company_address_line2]" value="<?php echo esc_attr( $options['company_address_line2'] ?? 'Cannes 06400, France' ); ?>" class="regular-text" placeholder="Cannes 06400, France">
+                            </td>
+                        </tr>
+
+                        <!-- SCRIPT JAVASCRIPT DE L'UPLOAD DE LOGO -->
+                        <script>
+                        document.addEventListener('DOMContentLoaded', function() {
+                            var uploadBtn = document.getElementById('etb_upload_logo_btn');
+                            var removeBtn = document.getElementById('etb_remove_logo_btn');
+                            var inputField = document.getElementById('etb_company_logo_url');
+                            var previewDiv = document.getElementById('etb_logo_preview');
+
+                            if (uploadBtn) {
+                                uploadBtn.addEventListener('click', function(e) {
+                                    e.preventDefault();
+                                    var customUploader = wp.media({
+                                        title: 'Sélectionner le logo EDEN CAB',
+                                        button: { text: 'Utiliser ce logo' },
+                                        multiple: false
+                                    });
+
+                                    customUploader.on('select', function() {
+                                        var attachment = customUploader.state().get('selection').first().toJSON();
+                                        inputField.value = attachment.url;
+                                        previewDiv.innerHTML = '<img src="' + attachment.url + '" style="max-height: 44px; max-width: 110px; object-fit: contain;">';
+                                        if (removeBtn) removeBtn.style.display = 'inline-block';
+                                    });
+
+                                    customUploader.open();
+                                });
+                            }
+
+                            if (removeBtn) {
+                                removeBtn.addEventListener('click', function(e) {
+                                    e.preventDefault();
+                                    inputField.value = '';
+                                    previewDiv.innerHTML = '<span style="font-size: 11px; color: #94a3b8;">Aucun logo</span>';
+                                    removeBtn.style.display = 'none';
+                                });
+                            }
+                        });
+                        </script>
                         <tr>
                             <th scope="row" colspan="2">
                                 <hr style="margin: 20px 0; border: 0; border-top: 1px solid #dcdcde;">

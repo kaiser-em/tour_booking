@@ -1,0 +1,1238 @@
+/* ==========================================================================
+   ETB MODULE — CIRCUITS TOURISTIQUES & TOUR BOOKING SIDEBAR
+   ========================================================================== */
+
+/* ==========================================================================
+   2. BOUCLIER ANTI-THÈME (SCOPED CSS RESET & ISOLATION)
+   ========================================================================== */
+
+.co-circuit-wrapper,
+.etb-booking-widget {
+    font-family: var(--etb-font-family) !important;
+    color: var(--etb-text-main) !important;
+    line-height: 1.5 !important;
+    box-sizing: border-box !important;
+    -webkit-font-smoothing: antialiased !important;
+}
+
+/* Forcer le box-sizing sur tous les éléments enfants */
+.co-circuit-wrapper *,
+.etb-booking-widget * {
+    box-sizing: border-box !important;
+    font-family: inherit !important;
+}
+
+/* Protection de la police Dashicons contre les resets de thème */
+.co-circuit-wrapper .dashicons,
+.etb-booking-widget .dashicons {
+    font-family: dashicons !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    vertical-align: middle !important;
+    line-height: 1 !important;
+    letter-spacing: normal !important;
+}
+
+/* Neutralisation des styles de listes des thèmes */
+.co-circuit-wrapper ul,
+.etb-booking-widget ul {
+    list-style: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Neutralisation des boutons et inputs */
+.co-circuit-wrapper button,
+.etb-booking-widget button {
+    box-shadow: none !important;
+    text-shadow: none !important;
+}
+
+/* ==========================================================================
+   3. CONTENEUR GLOBAL & LAYOUT PRINCIPAL (SPLIT 2 COLONNES)
+   ========================================================================== */
+
+.co-circuit-wrapper {
+    width: 100% !important;
+    max-width: 1200px !important;
+    margin: 30px auto !important;
+}
+
+.co-main-layout {
+    display: grid !important;
+    grid-template-columns: 1.4fr 1fr !important;
+    gap: 40px !important;
+    align-items: start !important;
+}
+
+.co-left-details {
+    width: 100% !important;
+}
+
+.co-right-sidebar {
+    width: 100% !important;
+}
+
+.co-sticky-box {
+    position: sticky !important;
+    top: 30px !important;
+}
+
+/* ==========================================================================
+   4. SECTION HAUTE : GRILLE DES VÉHICULES (ANIMATION FLUIDE & ÉLASTIQUE)
+   ========================================================================= */
+
+.co-top-vehicles-section {
+    width: 100% !important;
+    margin-bottom: 40px !important;
+    clear: both !important;
+}
+
+.co-section-title {
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    color: var(--etb-primary) !important;
+    margin: 0 0 20px 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+}
+
+.co-section-title .dashicons {
+    color: var(--etb-accent) !important;
+    font-size: 22px !important;
+    width: 22px !important;
+    height: 22px !important;
+}
+
+
+/* Grille responsive fluide */
+.co-vehicles-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+    gap: 12px !important;
+    width: 100% !important;
+    position: relative !important;
+   
+}
+
+/* 1. Carte Véhicule (Cadre fixe 255px avec transition douce) */
+.co-vehicles-grid .etb-vehicle-card {
+    background: var(--etb-white) !important;
+    border: 2px solid var(--etb-border) !important;
+    border-radius: var(--etb-radius-md) !important;
+    height: 255px !important;
+    min-height: 255px !important;
+    max-height: 255px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 10px 10px !important;
+    color: var(--etb-text-main) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    gap: 4px !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    cursor: pointer !important;
+    position: relative !important;
+    box-shadow: var(--etb-shadow-sm) !important;
+    transition: border-color 0.28s cubic-bezier(0.25, 1, 0.5, 1), 
+                box-shadow 0.28s cubic-bezier(0.25, 1, 0.5, 1), 
+                transform 0.2s ease !important;
+}
+
+.co-vehicles-grid .etb-vehicle-card:hover {
+    transform: translateY(-4px) !important;
+    box-shadow: var(--etb-shadow-md) !important;
+    border-color: var(--etb-border-hover) !important;
+}
+
+/* 2. État carte sélectionnée */
+.co-vehicles-grid .etb-vehicle-card.etb-selected {
+    border: 2px solid var(--etb-accent) !important;
+    box-shadow: var(--etb-shadow-md), 0 0 0 1px var(--etb-accent) !important;
+}
+
+/* 3. Coche orange : Animation avec rebond élastique subtil */
+.co-vehicles-grid .etb-selection-check {
+    position: absolute !important;
+    top: 12px !important;
+    right: 12px !important;
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: var(--etb-radius-pill) !important;
+    background: var(--etb-accent) !important;
+    color: var(--etb-white) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    opacity: 0 !important;
+    transform: scale(0) rotate(-45deg) !important;
+    transition: transform 0.3s cubic-bezier(0.34, 1.4, 0.64, 1), 
+                opacity 0.2s ease !important;
+    z-index: 10 !important;
+    cursor: pointer !important;
+}
+
+.co-vehicles-grid .etb-selection-check .dashicons {
+    font-size: 16px !important;
+    width: 16px !important;
+    height: 16px !important;
+    color: var(--etb-white) !important;
+    line-height: 1 !important;
+}
+
+.co-vehicles-grid .etb-vehicle-card.etb-selected .etb-selection-check {
+    opacity: 1 !important;
+    transform: scale(1) rotate(0deg) !important;
+}
+
+/* 4. Image du véhicule & Animation au survol (Hover GIF) */
+.co-vehicles-grid .etb-vehicle-image-wrapper {
+    position: relative !important;
+    width: 100% !important;
+    height: 135px !important;
+    max-height: 135px !important;
+    margin: 0 auto 8px auto !important;
+    border-radius: var(--etb-radius-sm);
+    overflow: hidden !important;
+}
+
+.co-vehicles-grid .etb-vehicle-image-wrapper .etb-vehicle-image {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important;
+    margin: 0 !important;
+    display: block !important;
+    transition: opacity 0.35s ease, transform 0.3s ease !important;
+}
+
+.co-vehicles-grid .etb-vehicle-image-wrapper .etb-img-static {
+    opacity: 1 !important;
+    z-index: 1 !important;
+}
+
+.co-vehicles-grid .etb-vehicle-image-wrapper .etb-img-hover {
+    opacity: 0 !important;
+    z-index: 2 !important;
+    pointer-events: none !important;
+}
+
+/* 1. Sur Ordinateur (Desktop) : Animation UNIQUEMENT au survol de la souris ou si sélectionnée */
+.co-vehicles-grid .etb-vehicle-card:hover .etb-vehicle-image-wrapper .etb-img-hover,
+.co-vehicles-grid .etb-vehicle-card.etb-selected .etb-vehicle-image-wrapper .etb-img-hover {
+    opacity: 1 !important;
+}
+
+.co-vehicles-grid .etb-vehicle-card:hover .etb-vehicle-image-wrapper .etb-img-static,
+.co-vehicles-grid .etb-vehicle-card.etb-selected .etb-vehicle-image-wrapper .etb-img-static {
+    opacity: 0 !important;
+}
+
+
+
+
+
+/* 5. Titre et Prix */
+.co-vehicles-grid .etb-vehicle-card h3.etb-vehicle-name {
+    font-size: 15px !important;
+    font-weight: 800 !important;
+    margin: 0 0 2px 0 !important;
+    line-height: 1.2 !important;
+    color: var(--etb-primary-dark) !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+.co-vehicles-grid .etb-vehicle-price {
+    font-size: 14px !important;
+    font-weight: 800 !important;
+    color: var(--etb-accent) !important;
+    margin: 0 0 6px 0 !important;
+    line-height: 1.2 !important;
+}
+
+/* 6. Caractéristiques (Passagers / Bagages) */
+.co-vehicles-grid .etb-vehicle-specs {
+    border-top: none !important;
+    padding-top: 0 !important;
+    margin-bottom: 0 !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    color: var(--etb-text-specs) !important;
+    display: flex !important;
+    justify-content: space-between !important;
+}
+
+/* 7. Ligne de quantité : Transition continue sans délai */
+.co-vehicles-grid .etb-vehicle-qty {
+    border-top: none !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    font-size: 10px !important;
+    max-height: 0 !important;
+    opacity: 0 !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    transform: translateY(8px) scale(0.9) !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
+    transition: max-height 0.3s cubic-bezier(0.25, 1, 0.5, 1), 
+                opacity 0.22s ease, 
+                transform 0.3s cubic-bezier(0.25, 1, 0.5, 1),
+                margin-top 0.3s cubic-bezier(0.25, 1, 0.5, 1) !important;
+}
+
+.co-vehicles-grid .etb-vehicle-qty span:first-child {
+    display: none !important;
+}
+
+/* Déploiement fluide à la sélection */
+.co-vehicles-grid .etb-vehicle-card.etb-selected .etb-vehicle-qty {
+    max-height: 38px !important;
+    opacity: 1 !important;
+    margin-top: 6px !important;
+    transform: translateY(0) scale(1) !important;
+    pointer-events: auto !important;
+}
+
+/* 8. Pilule de quantité orange avec boutons et chiffre blancs */
+.co-vehicles-grid .etb-qty-control.mini {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 2px 6px !important;
+    background: var(--etb-accent) !important;
+    border: none !important;
+    border-radius: var(--etb-radius-pill) !important;
+    height: 28px !important;
+    width: 78px !important;
+    box-sizing: border-box !important;
+    box-shadow: 0 2px 8px rgba(230, 90, 21, 0.25) !important;
+}
+
+.co-vehicles-grid .etb-qty-control.mini .etb-qty-btn {
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px !important;
+    background: transparent !important;
+    color: var(--etb-white) !important;
+    border: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 14px !important;
+    font-weight: bold !important;
+    cursor: pointer !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.co-vehicles-grid .etb-qty-control.mini input {
+    width: 24px !important;
+    height: 20px !important;
+    text-align: center !important;
+    font-size: 13px !important;
+    font-weight: 800 !important;
+    color: var(--etb-white) !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: inline-block !important;
+    line-height: 20px !important;
+}
+
+
+.etb-vehicle-card .etb-qty-btn:focus ,
+.etb-qty-control .etb-qty-btn:focus {
+  outline: none;
+  box-shadow: none;
+}
+.etb-vehicle-card .etb-qty-btn:active ,
+.etb-qty-control .etb-qty-btn:active {
+  outline: none;
+  box-shadow: none;
+}
+/* ==========================================================================
+   5. COLONNE GAUCHE : DÉTAILS DU CIRCUIT (ONGLETS, BADGES, TIMELINE)
+   ========================================================================== */
+
+.co-departure-nav {
+    display: flex !important;
+    align-items: center !important;
+    gap: 15px !important;
+    margin-bottom: 25px !important;
+    flex-wrap: wrap !important;
+}
+
+.co-nav-label {
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    color: var(--etb-muted) !important;
+}
+
+.co-nav-buttons {
+    display: flex !important;
+    gap: 10px !important;
+    flex-wrap: wrap !important;
+}
+
+.co-pub-tab-btn {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    background: var(--etb-white) !important;
+    border: 1.5px solid var(--etb-border-input) !important;
+    border-radius: var(--etb-radius-sm) !important;
+    padding: 10px 18px !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    color: var(--etb-primary) !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    transition: all 0.2s ease-in-out !important;
+}
+
+.co-pub-tab-btn:hover {
+    border-color: var(--etb-accent) !important;
+    color: var(--etb-accent) !important;
+}
+
+.co-pub-tab-btn.active {
+    background: var(--etb-primary) !important;
+    color: var(--etb-white) !important;
+    border-color: var(--etb-primary) !important;
+    box-shadow: 0 4px 12px rgba(5, 32, 33, 0.15) !important;
+}
+
+.co-pub-tab-btn.active .dashicons {
+    color: var(--etb-accent) !important;
+}
+
+.co-option-pane {
+    display: none !important;
+}
+
+.co-option-pane.active {
+    display: block !important;
+    animation: coFadeIn 0.3s ease-in-out !important;
+}
+
+@keyframes coFadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Badges Highlights */
+.co-highlights-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 12px !important;
+    margin-bottom: 30px !important;
+}
+
+.co-highlight-card {
+    background: var(--etb-bg-light) !important;
+    border: 1px solid var(--etb-border) !important;
+    border-radius: var(--etb-radius-sm) !important;
+    padding: 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: var(--etb-primary) !important;
+}
+
+.co-highlight-card .dashicons {
+    color: var(--etb-accent) !important;
+    font-size: 18px !important;
+    width: 18px !important;
+    height: 18px !important;
+}
+
+/* Timeline (Programme) */
+.co-timeline-block {
+    margin-bottom: 40px !important;
+}
+
+.co-block-title {
+    font-size: 22px !important;
+    font-weight: 800 !important;
+    color: var(--etb-primary) !important;
+    margin: 0 0 20px 0 !important;
+}
+
+.co-timeline-track {
+    position: relative !important;
+    padding-left: 20px !important;
+}
+
+.co-timeline-track::before {
+    content: '' !important;
+    position: absolute !important;
+    left: 6px !important;
+    top: 10px !important;
+    bottom: 10px !important;
+    width: 2px !important;
+    border-left: 2px dashed #cbd5e1 !important;
+}
+
+.co-timeline-step {
+    position: relative !important;
+    margin-bottom: 25px !important;
+    padding-left: 25px !important;
+}
+
+.co-timeline-step:last-child {
+    margin-bottom: 0 !important;
+}
+
+.co-timeline-bullet {
+    position: absolute !important;
+    left: -19px !important;
+    top: 3px !important;
+    width: 12px !important;
+    height: 12px !important;
+    border-radius: var(--etb-radius-pill) !important;
+    background: var(--etb-accent) !important;
+    border: 2px solid var(--etb-white) !important;
+    box-shadow: 0 0 0 2px var(--etb-accent) !important;
+}
+
+.co-timeline-time {
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    color: var(--etb-accent) !important;
+    margin-bottom: 3px !important;
+}
+
+.co-timeline-content h4 {
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    color: var(--etb-primary) !important;
+    margin: 0 0 5px 0 !important;
+}
+
+.co-timeline-content p {
+    font-size: 14px !important;
+    color: var(--etb-text-muted) !important;
+    margin: 0 !important;
+    line-height: 1.5 !important;
+}
+
+/* Inclus / Non Inclus */
+.co-inclusions-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 20px !important;
+    margin-bottom: 30px !important;
+}
+
+.co-inc-card {
+    border-radius: var(--etb-radius-md) !important;
+    padding: 20px !important;
+    background: var(--etb-white) !important;
+    border: 1px solid var(--etb-border) !important;
+}
+
+.co-inc-card h4 {
+    margin: 0 0 15px 0 !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    color: var(--etb-primary) !important;
+}
+
+.co-inc-card ul {
+    list-style: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.co-inc-card li {
+    font-size: 14px !important;
+    margin-bottom: 10px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    color: #334155 !important;
+}
+
+.co-icon-check {
+    color: var(--etb-success) !important;
+    font-weight: bold !important;
+}
+
+.co-icon-cross {
+    color: var(--etb-danger) !important;
+    font-weight: bold !important;
+}
+
+/* ==========================================================================
+   6. COLONNE DROITE : WIDGET FORMULAIRE DE RÉSERVATION (SIDEBAR)
+   ========================================================================== */
+
+.etb-booking-widget {
+    border: 1px solid var(--etb-border) !important;
+    width: 100% !important;
+    min-width: 400px !important;
+    background: var(--etb-white) !important;
+    padding: 24px 16px !important;
+    border-radius: var(--etb-radius-lg) !important;
+    box-shadow: var(--etb-shadow-lg) !important;
+    margin: 0 !important;
+}
+
+.etb-section {
+    padding-bottom:20px !important ;
+    margin-bottom: 24px !important;
+    /*border-bottom: 2px #8080804f solid !important ;*/
+    position: relative !important;
+    display: block !important;
+    width: 100% !important;
+}
+
+.etb-section-title {
+    font-size: 13px !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.08em !important;
+    color: var(--etb-primary) !important;
+    margin: 0 0 14px 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+
+.etb-section-title .dashicons {
+    color: var(--etb-primary) !important;
+    font-size: 18px !important;
+    width: 18px !important;
+    height: 18px !important;
+}
+
+/* En-tête de prix latéral "À PARTIR DE" (Animé) */
+.etb-sidebar-price-card {
+    max-height: 0 !important;
+    opacity: 0 !important;
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    border-bottom: 1px solid transparent !important;
+    transform: translateY(-8px) !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
+    transition: max-height 0.35s cubic-bezier(0.25, 1, 0.5, 1),
+                opacity 0.28s ease,
+                transform 0.35s cubic-bezier(0.25, 1, 0.5, 1),
+                margin-bottom 0.35s cubic-bezier(0.25, 1, 0.5, 1),
+                padding-bottom 0.35s cubic-bezier(0.25, 1, 0.5, 1),
+                border-color 0.35s ease !important;
+}
+
+.etb-sidebar-price-card.etb-visible {
+    max-height: 130px !important;
+    opacity: 1 !important;
+    margin-bottom: 24px !important;
+    padding-bottom: 18px !important;
+    border-bottom-color: var(--etb-border) !important;
+    transform: translateY(0) !important;
+    pointer-events: auto !important;
+}
+
+.etb-sidebar-label {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.08em !important;
+    color: var(--etb-muted) !important;
+    display: block !important;
+}
+
+.etb-sidebar-amount-row {
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 6px !important;
+    margin: 4px 0 !important;
+}
+
+.etb-sidebar-currency {
+    font-size: 28px !important;
+    font-weight: 900 !important;
+    color: var(--etb-accent) !important;
+}
+
+.etb-sidebar-val {
+    font-size: 44px !important;
+    font-weight: 900 !important;
+    color: var(--etb-accent) !important;
+    letter-spacing: -1px !important;
+    line-height: 1 !important;
+}
+
+.etb-sidebar-pax-notice {
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: var(--etb-text-main) !important;
+    margin: 6px 0 0 0 !important;
+}
+
+.etb-sidebar-pax-notice strong {
+    font-weight: 700 !important;
+    color: var(--etb-primary) !important;
+}
+
+/* Grille Passagers */
+.etb-pax-grid,
+.etb-grid-2 {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+    width: 100% !important;
+}
+
+.etb-pax-card {
+    background: var(--etb-white) !important;
+    border: 1.2px solid var(--etb-border) !important;
+    padding: 10px 14px !important;
+    border-radius: var(--etb-radius-md) !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    width: 100% !important;
+}
+
+.etb-pax-info strong {
+    display: block !important;
+    font-size: 14px !important;
+    color: var(--etb-primary) !important;
+    font-weight: 800 !important;
+}
+
+.etb-pax-info span {
+    font-size: 12px !important;
+    color: var(--etb-muted) !important;
+    font-weight: 600 !important;
+}
+
+/* Contrôles quantité Passagers & Options (Sidebar Circuit [tour_booking]) */
+.co-circuit-wrapper .etb-qty-control,
+.etb-booking-widget .etb-qty-control {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    background: #fed7aa !important; /* Orange doux pêche */
+    padding: 2px 4px !important;
+    border-radius: 50px !important;
+    height: 32px !important;
+    min-width: 90px !important;
+    box-sizing: border-box !important;
+}
+
+.co-circuit-wrapper .etb-qty-control .etb-qty-btn,
+.etb-booking-widget .etb-qty-control .etb-qty-btn {
+    width: 26px !important;
+    height: 26px !important;
+    min-width: 26px !important;
+    border-radius: 50% !important;
+    border: none !important;
+    background: transparent; !important;
+    color: #0a0a0a !important; /* Orange vif foncé pour boutons nets */
+    font-weight: 900 !important;
+    font-size: 16px !important;
+    line-height: 1 !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 0 2px 0 !important;
+    transition: all 0.15s ease !important;
+}
+
+.co-circuit-wrapper .etb-qty-control .etb-qty-btn:hover,
+.etb-booking-widget .etb-qty-control .etb-qty-btn:hover {
+    background: #ea580c !important;
+    color: #ffffff !important;
+}
+
+/* LE CHIFFRE (Forcé en noir/anthracite net, visible à 100%) */
+.co-circuit-wrapper .etb-qty-control input,
+.etb-booking-widget .etb-qty-control input {
+    width: 32px !important;
+    min-width: 32px !important;
+    height: 26px !important;
+    text-align: center !important;
+    border: none !important;
+    background: transparent !important;
+    font-weight: 900 !important;
+    font-size: 15px !important;
+    color: #0f172a !important; /* Noir anthracite net */
+    opacity: 1 !important;
+    display: inline-block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    line-height: 26px !important;
+    box-shadow: none !important;
+}
+/* Champs de formulaire */
+.etb-field {
+    margin-bottom: 14px !important;
+}
+
+.etb-field-full {
+    grid-column: 1 / -1 !important;
+}
+
+.etb-field label {
+    display: block !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    margin-bottom: 6px !important;
+    color: var(--etb-primary) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+}
+
+.etb-field-icon-wrapper {
+    position: relative !important;
+    width: 100% !important;
+}
+
+.etb-field-icon-wrapper .dashicons {
+    position: absolute !important;
+    left: 14px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    color: var(--etb-muted) !important;
+    font-size: 18px !important;
+    width: 18px !important;
+    height: 18px !important;
+    pointer-events: none !important;
+}
+
+
+.etb-field input,
+.etb-field textarea {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    width: 100% !important;
+    padding: 12px 14px !important;
+    border-radius: var(--etb-radius-sm) !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    border: 1px solid var(--etb-border-input) !important;
+    background: var(--etb-white) !important;
+    color: var(--etb-primary) !important;
+    transition: border-color 0.2s !important;
+}
+.etb-field input{
+     max-height: 43px !important;
+}
+
+.etb-field .etb-field-icon-wrapper input {
+    padding-left: 42px !important;
+    max-height: 43px !important;
+}
+
+.etb-field input:focus,
+.etb-field textarea:focus {
+    outline: none !important;
+    border-color: var(--etb-accent) !important;
+    box-shadow: 0 0 0 3px var(--etb-accent-glow) !important;
+}
+
+#etb-time-field , 
+#etb-date-field{
+    padding-left: 10px !important;
+}
+
+
+/* Drop-off personnalisé */
+.etb-dropoff-toggle-wrapper {
+    margin-top: 15px !important;
+    margin-bottom: 8px !important;
+}
+
+#etb-dropoff-label.etb-toggle-dropoff-label {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    gap: 10px !important;
+    padding-left: 20px;
+}
+
+.etb-toggle-dropoff-label input.hidden-input[type="checkbox"] {
+    display: none !important;
+}
+
+#etb-dropoff-info{
+    min-height: 30px !important;
+}
+.etb-custom-box {
+    width: 22px !important;
+    height: 22px !important;
+    min-width: 22px !important;
+    border: 2px solid var(--etb-border) !important;
+    border-radius: 6px !important;
+    background: var(--etb-white) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: all 0.2s ease-in-out !important;
+}
+
+.etb-custom-box .dashicons {
+    font-size: 16px !important;
+    width: 16px !important;
+    height: 16px !important;
+    color: var(--etb-white) !important;
+    opacity: 0 !important;
+    transform: scale(0.5) !important;
+    transition: all 0.15s ease-in-out !important;
+}
+
+.etb-dropoff-label-text {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    color: var(--etb-primary) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+}
+
+.etb-toggle-dropoff-label input[type="checkbox"]:checked + .etb-custom-box {
+    background: var(--etb-accent) !important;
+    border-color: var(--etb-accent) !important;
+}
+
+.etb-toggle-dropoff-label input[type="checkbox"]:checked + .etb-custom-box .dashicons {
+    opacity: 1 !important;
+    transform: scale(1) !important;
+}
+
+#etb-dropoff-container {
+    margin-top: 12px !important;
+    border-left: 3px solid var(--etb-accent) !important;
+    padding-left: 14px !important;
+}
+
+/* Options supplémentaires (Extras) */
+.etb-pax-card.etb-extra-item {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    gap: 10px !important;
+    min-height: 84px !important;
+    cursor: pointer !important;
+    transition: all 0.2s !important;
+}
+
+.etb-extra-item.etb-selected {
+    border-color: var(--etb-accent) !important;
+    background-color: var(--etb-accent-light) !important;
+}
+
+.etb-option-row-top {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+}
+
+.etb-option-row-top strong {
+    font-size: 14px !important;
+    color: var(--etb-primary) !important;
+    font-weight: 800 !important;
+}
+
+.etb-option-row-bottom {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+}
+
+.etb-icon-badge {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    border-radius: var(--etb-radius-sm) !important;
+    background: transparent !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.etb-icon-badge .dashicons {
+    font-size: 16px !important;
+    width: 16px !important;
+    height: 16px !important;
+    color: var(--etb-primary) !important;
+}
+
+.etb-price-tag {
+    font-weight: 700 !important;
+    font-size: 12px !important;
+}
+
+.etb-selected .etb-price-tag {
+    color: var(--etb-accent) !important;
+}
+
+.etb-toggle-check {
+    width: 22px !important;
+    height: 22px !important;
+    border-radius: var(--etb-radius-pill) !important;
+    border: 2px solid var(--etb-border) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: transparent !important;
+    transition: all 0.2s !important;
+}
+
+.etb-selected .etb-toggle-check {
+    background: var(--etb-accent) !important;
+    border-color: var(--etb-accent) !important;
+    color: var(--etb-white) !important;
+}
+
+/* Code promo */
+.etb-promo-wrapper {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+
+#etb-promo-input {
+    flex: 1 !important;
+    height: 44px !important;
+    padding: 0 14px 0 38px !important;
+    text-transform: uppercase !important;
+    font-weight: 600 !important;
+}
+
+#etb-apply-promo-btn {
+    height: 44px !important;
+    padding: 0 18px !important;
+    background: var(--etb-primary) !important;
+    color: var(--etb-white) !important;
+    border: none !important;
+    border-radius: var(--etb-radius-sm) !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    white-space: nowrap !important;
+}
+
+#etb-apply-promo-btn:hover {
+    background: var(--etb-accent) !important;
+}
+
+/* État de chargement du bouton */
+#etb-apply-promo-btn:disabled,
+#etb-apply-promo-btn.etb-loading {
+    opacity: 0.7 !important;
+    cursor: wait !important;
+    background: var(--etb-primary) !important;
+}
+
+/* Message de feedback stylisé (Succès & Erreur) */
+.etb-field-feedback {
+    margin-top: 8px !important;
+    padding: 8px 12px !important;
+    border-radius: var(--etb-radius-sm) !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    line-height: 1.3 !important;
+    display: block !important;
+}
+
+.etb-field-feedback.etb-success {
+    background: #f0fdf4 !important;
+    color: #166534 !important;
+    border: 1px solid #bbf7d0 !important;
+}
+
+.etb-field-feedback.etb-error {
+    background: var(--etb-danger-bg) !important;
+    color: var(--etb-danger) !important;
+    border: 1px solid var(--etb-danger-border) !important;
+}
+
+/* Alertes & Erreurs */
+.etb-error-message {
+    color: var(--etb-danger) !important;
+    background: var(--etb-danger-bg) !important;
+    border: 1px solid var(--etb-danger-border) !important;
+    border-radius: var(--etb-radius-sm) !important;
+    padding: 10px 14px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    margin-top: 10px !important;
+}
+
+/* Récapitulatif Sombre */
+.etb-summary-card {
+    background: var(--etb-primary) !important;
+    color: var(--etb-white) !important;
+    padding: 24px !important;
+    border-radius: var(--etb-radius-md) !important;
+    margin-top: 15px !important;
+}
+
+.etb-summary-card #etb-summary-title{
+    color: var(--etb-white) !important;
+}
+
+.etb-summary-details {
+    border-bottom: 1px dashed rgba(255,255,255,0.2) !important;
+    padding-bottom: 16px !important;
+    margin-bottom: 16px !important;
+}
+
+.etb-summary-row {
+    display: flex !important;
+    justify-content: space-between !important;
+    margin-bottom: 8px !important;
+    font-size: 13px !important;
+    opacity: 0.9 !important;
+}
+
+
+.etb-summary-row strong {
+    color: var(--etb-accent) !important;
+}
+
+#promo-line.etb-promo-row strong{
+    color: var(--etb-success) !important;
+}
+.etb-summary-total {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+}
+
+.etb-summary-total span:first-child {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    opacity: 0.7 !important;
+}
+
+.etb-total-amount, #etb-total-val{
+    font-size: 38px !important;
+    font-weight: 900 !important;
+    color: var(--etb-accent) !important;
+    letter-spacing: -1px !important;
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 5px !important;
+    opacity: 1 !important;
+}
+
+.etb-submit-button {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    width: 100% !important;
+    background: var(--etb-accent) !important;
+    color: var(--etb-white) !important;
+    border: none !important;
+    padding: 16px !important;
+    border-radius: var(--etb-radius-md) !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+    margin-top: 18px !important;
+    cursor: pointer !important;
+    transition: all 0.3s !important;
+}
+
+.etb-submit-button:hover {
+    background: var(--etb-accent-hover) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 5px 15px rgba(230, 90, 21, 0.3) !important;
+}
+
+.etb-submit-button:disabled,
+.etb-submit-button.etb-disabled {
+    background: #B0B8B7 !important;
+    cursor: not-allowed !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+/* Suppression flèches input number */
+.co-circuit-wrapper input[type="number"]::-webkit-outer-spin-button,
+.co-circuit-wrapper input[type="number"]::-webkit-inner-spin-button,
+.etb-checkout-wrapper input[type="number"]::-webkit-outer-spin-button,
+.etb-checkout-wrapper input[type="number"]::-webkit-inner-spin-button,
+.etb-booking-widget input[type="number"]::-webkit-outer-spin-button,
+.etb-booking-widget input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none !important;
+    margin: 0 !important;
+}
+.co-circuit-wrapper input[type="number"],
+.etb-booking-widget input[type="number"], 
+.etb-checkout-wrapper input[type="number"]{
+    -moz-appearance: textfield !important;
+    appearance: textfield !important;
+}
+
+
+
+/* ── RESPONSIVE CIRCUITS ── */
+@media (max-width: 992px) {
+    .co-circuit-wrapper {
+        padding: 0 12px !important;
+         padding: 0 4px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 10px auto !important;
+    }
+    .co-main-layout {
+        grid-template-columns: 1fr !important;
+        gap: 30px !important;
+    }
+    .co-highlights-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    .co-inclusions-grid {
+        grid-template-columns: 1fr !important;
+    }
+    /* Animation au défilement mobile/tablette */
+    .co-vehicles-grid .etb-vehicle-card.etb-in-viewport .etb-vehicle-image-wrapper .etb-img-hover {
+        opacity: 1 !important;
+    }
+    .co-vehicles-grid .etb-vehicle-card.etb-in-viewport .etb-vehicle-image-wrapper .etb-img-static {
+        opacity: 0 !important;
+    }
+}
+
+/* 2. TABLETTE EN PORTRAIT (641px à 768px) */
+@media (min-width: 641px) and (max-width: 768px) {
+    .co-vehicles-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 14px !important;
+    }
+    .co-vehicles-grid .etb-vehicle-card {
+        height: auto !important;
+        min-height: 240px !important;
+        padding: 12px !important;
+    }
+}

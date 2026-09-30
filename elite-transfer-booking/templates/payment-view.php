@@ -3,7 +3,14 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 $gen_settings    = get_option( 'etb_general_settings', array() );
 $currency_symbol = ! empty( $gen_settings['currency'] ) ? sanitize_text_field( $gen_settings['currency'] ) : '€';
-$company_name    = get_bloginfo( 'name' );
+
+// Lecture dynamique des paramètres d'entreprise (Zéro Hardcode)
+$legal_name   = ! empty( $gen_settings['company_legal_name'] ) ? sanitize_text_field( $gen_settings['company_legal_name'] ) : '"EDEN CAB" Ltd';
+$sub_brand    = ! empty( $gen_settings['company_subtitle'] ) ? sanitize_text_field( $gen_settings['company_subtitle'] ) : 'superior drive';
+$addr_line1   = ! empty( $gen_settings['company_address_line1'] ) ? sanitize_text_field( $gen_settings['company_address_line1'] ) : '250 avenue de Grasse';
+$addr_line2   = ! empty( $gen_settings['company_address_line2'] ) ? sanitize_text_field( $gen_settings['company_address_line2'] ) : 'Cannes 06400, France';
+$uploaded_logo= ! empty( $gen_settings['company_logo_url'] ) ? esc_url( $gen_settings['company_logo_url'] ) : '';
+$company_name = get_bloginfo( 'name' );
 
 // 1. Détection du dossier via Quote/Payment Token ou paramètres signés
 $ref_token  = ! empty( $_GET['ref'] ) ? sanitize_key( $_GET['ref'] ) : '';
@@ -21,6 +28,9 @@ if ( ! $booking_id && ! empty( $_GET['booking_id'] ) ) {
     $booking_id = absint( $_GET['booking_id'] );
 }
 
+
+
+
 $has_valid_booking = ( $booking_id > 0 && 'tour_booking' === get_post_type( $booking_id ) );
 
 if ( isset( $_GET['debug'] ) && current_user_can( 'manage_options' ) ) {
@@ -35,56 +45,7 @@ if ( isset( $_GET['debug'] ) && current_user_can( 'manage_options' ) ) {
     echo '</div>';
 }
 
-if ( isset( $_GET['debug'] ) && current_user_can( 'manage_options' ) ) {
-    $gen_settings = get_option( 'etb_general_settings', array() );
-    $token        = $gen_settings['limo_api_token'] ?? '';
-    $limo_id      = get_post_meta( $booking_id, '_etb_limo_booking_id', true );
 
-    echo '<div style="background:#111;color:#ff0;padding:20px;font-family:monospace;font-size:12px;z-index:99999;position:relative;">';
-    echo '=== TEST CIBLÉ DE RECHERCHE LIMOEXPRESS ===<br>';
-    echo 'Recherche avec order_by=id et order=desc pour voir les courses les plus récentes :<br>';
-
-    if ( ! empty( $token ) ) {
-        // Recherche des 5 dernières courses triées par ID décroissant
-        $test_url = 'https://api.limoexpress.me/api/integration/bookings?order_by=id&order=desc&per_page=5';
-
-        $res = wp_remote_get( $test_url, array(
-            'headers' => array(
-                'Accept'        => 'application/json',
-                'Authorization' => 'Bearer ' . $token,
-            ),
-            'timeout' => 15,
-        ) );
-
-        if ( ! is_wp_error( $res ) ) {
-            $raw  = wp_remote_retrieve_body( $res );
-            $json = json_decode( $raw, true );
-            echo 'Nombre de courses reçues : ' . count( $json['data'] ?? [] ) . '<br><br>';
-            
-            if ( ! empty( $json['data'] ) ) {
-                foreach ( $json['data'] as $b ) {
-                    $b_id       = $b['id'] ?? '';
-                    $b_num      = $b['number'] ?? '';
-                    $b_int      = $b['internal_number'] ?? '';
-                    $b_price    = $b['price'] ?? 0;
-                    $b_note     = substr( strip_tags( $b['note_for_driver'] ?? '' ), 0, 50 );
-                    
-                    $is_match = ( $b_num === $limo_id || false !== strpos( $b_note, '#' . $booking_id ) );
-                    
-                    $color = $is_match ? '#0f0;font-weight:bold;font-size:14px;' : '#ccc';
-                    echo "<div style='color:{$color};border-bottom:1px dashed #444;padding:6px 0;'>";
-                    echo "Match : " . ( $is_match ? 'OUI ! CIBLE TROUVÉE !' : 'Non' ) . "<br>";
-                    echo "UUID (id) : {$b_id}<br>";
-                    echo "number : {$b_num} | internal_number : {$b_int}<br>";
-                    echo "PRIX ACTUEL DANS LIMO : <strong>{$b_price} €</strong><br>";
-                    echo "Note driver : {$b_note}...<br>";
-                    echo "</div>";
-                }
-            }
-        }
-    }
-    echo '</div>';
-}
 
 // 2. Contrôle de sécurité cryptographique anti-falsification
 $url_amount      = isset( $_GET['amount'] ) ? floatval( $_GET['amount'] ) : 0.0;
@@ -256,18 +217,21 @@ $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_s
                 <div class="etb-chk-sticky-card">
                     
                     <?php
-                    // Récupération dynamique du logo personnalisé WordPress s'il existe
-                    $custom_logo_id  = get_theme_mod( 'custom_logo' );
-                    $custom_logo_url = $custom_logo_id ? wp_get_attachment_image_url( $custom_logo_id, 'medium' ) : '';
+                    // Priorité 1 : Logo uploadé dans Tour Booking > Réglages
+                    // Priorité 2 : Logo personnalisé du thème WP
+                    $display_logo_url = $uploaded_logo;
+                    if ( empty( $display_logo_url ) ) {
+                        $custom_logo_id   = get_theme_mod( 'custom_logo' );
+                        $display_logo_url = $custom_logo_id ? wp_get_attachment_image_url( $custom_logo_id, 'medium' ) : '';
+                    }
                     ?>
 
-                    <!-- En-tête officiel EDEN CAB (Logo, Titre, Slogan & Adresse) -->
+                    <!-- En-tête officiel (Logo, Titre, Slogan & Adresse) -->
                     <div class="etb-payment-company-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--etb-border-light, rgba(255,255,255,0.08)); padding-bottom: 18px; margin-bottom: 22px;">
                         
                         <div style="display: flex; align-items: center; gap: 14px;">
-                            <!-- Emplacement Logo (Image personnalisée WP ou Sceau Vectoriel Doré) -->
-                            <?php if ( ! empty( $custom_logo_url ) ) : ?>
-                                <img src="<?php echo esc_url( $custom_logo_url ); ?>" alt="EDEN CAB" style="max-height: 48px; width: auto; object-fit: contain;">
+                            <?php if ( ! empty( $display_logo_url ) ) : ?>
+                                <img src="<?php echo esc_url( $display_logo_url ); ?>" alt="EDEN CAB" style="max-height: 48px; max-width: 130px; object-fit: contain;">
                             <?php else : ?>
                                 <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(251, 172, 24, 0.12); border: 1.5px solid #fbac18; display: flex; align-items: center; justify-content: center; color: #fbac18; flex-shrink: 0;">
                                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -278,17 +242,17 @@ $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_s
                                 </div>
                             <?php endif; ?>
 
-                            <!-- Nom & Slogan -->
+                            <!-- Nom de marque & Slogan -->
                             <div class="etb-payment-logo-wrap" style="display: flex; flex-direction: column;">
                                 <span class="etb-payment-brand-title" style="font-size: 20px; font-weight: 900; letter-spacing: 0.08em; color: var(--etb-text-primary, #ffffff); line-height: 1.1;">EDEN CAB</span>
-                                <span class="etb-payment-brand-sub" style="font-size: 11px; color: #fbac18; text-transform: uppercase; letter-spacing: 0.14em; font-weight: 800; margin-top: 3px;">superior drive</span>
+                                <span class="etb-payment-brand-sub" style="font-size: 11px; color: #fbac18; text-transform: uppercase; letter-spacing: 0.14em; font-weight: 800; margin-top: 3px;"><?php echo esc_html( $sub_brand ); ?></span>
                             </div>
                         </div>
 
-                        <!-- Adresse physique de l'entreprise -->
+                        <!-- Adresse physique de l'entreprise (Point 2) -->
                         <div class="etb-payment-company-address" style="text-align: right;">
-                            <p style="margin: 0; font-size: 12px; color: var(--etb-text-secondary, #94a3b8); font-weight: 500; line-height: 1.4;">250 avenue de Grasse</p>
-                            <p style="margin: 0; font-size: 12px; color: var(--etb-text-secondary, #94a3b8); font-weight: 500; line-height: 1.4;">Cannes, 06400 France</p>
+                            <p style="margin: 0; font-size: 12px; color: var(--etb-text-secondary, #94a3b8); font-weight: 500; line-height: 1.4;"><?php echo esc_html( $addr_line1 ); ?></p>
+                            <p style="margin: 0; font-size: 12px; color: var(--etb-text-secondary, #94a3b8); font-weight: 500; line-height: 1.4;"><?php echo esc_html( $addr_line2 ); ?></p>
                         </div>
                     </div>
 
@@ -353,11 +317,11 @@ $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_s
                         <?php endif; ?>
                     </div>
 
-                    <!-- Note informative : Paiements futurs (SANS case à cocher - Photo 3) -->
+                    <!-- Note informative : Paiements futurs (Point 1) -->
                     <div style="margin-top: 20px; padding: 14px 16px; background: var(--etb-bg-input, rgba(255,255,255,0.03)); border: 1px solid var(--etb-border-light, rgba(255,255,255,0.08)); border-radius: 10px;">
                         <strong style="display: block; font-size: 13px; color: var(--etb-text-primary, #0f172a); margin-bottom: 4px;">Setup payments for future usage</strong>
                         <p style="font-size: 11.5px; color: var(--etb-text-secondary, #64748b); line-height: 1.5; margin: 0;">
-                            Allows EDEN CAB - superior drive to collect payments without your presence. Useful if you're a regular customer.
+                            Allows <?php echo esc_html( $legal_name ); ?> to collect payments without your presence. Useful if you're a regular customer.
                         </p>
                     </div>
 
@@ -464,10 +428,10 @@ $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_s
                             </div>
                         </div>
 
-                        <!-- Mandat légal en anglais (SANS case à cocher) -->
+                        <!-- Mandat légal en anglais avec nom légal dynamique (Point 3) -->
                         <div class="etb-payment-disclaimer-text" style="margin-top: 18px; margin-bottom: 22px;">
                             <p style="font-size: 11.5px; color: var(--etb-text-secondary, #64748b); line-height: 1.5; margin: 0;">
-                                By providing your payment card information, you authorize <strong>EDEN CAB SASU</strong> to charge your card for future payments in accordance with its terms and conditions.
+                                By providing your payment card information, you authorize <strong><?php echo esc_html( $legal_name ); ?></strong> to charge your card for future payments in accordance with its terms and conditions.
                             </p>
                         </div>
 

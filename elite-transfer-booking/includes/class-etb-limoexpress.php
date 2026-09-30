@@ -21,10 +21,11 @@ class ETB_LimoExpress {
      */
     public static function sanitize_settings( $new_input, $raw_input ) {
         if ( isset( $new_input['active_dispatcher'] ) && 'limoexpress' === $new_input['active_dispatcher'] ) {
-            $new_input['limo_api_token']         = ! empty( $raw_input['limo_api_token'] ) ? sanitize_text_field( trim( $raw_input['limo_api_token'] ) ) : '';
-            $new_input['limo_client_id']         = ! empty( $raw_input['limo_client_id'] ) ? sanitize_text_field( trim( $raw_input['limo_client_id'] ) ) : '';
-            $new_input['limo_booking_type_id']   = ! empty( $raw_input['limo_booking_type_id'] ) ? sanitize_text_field( trim( $raw_input['limo_booking_type_id'] ) ) : '';
-            $new_input['limo_booking_status_id'] = ! empty( $raw_input['limo_booking_status_id'] ) ? sanitize_text_field( trim( $raw_input['limo_booking_status_id'] ) ) : '';
+            $new_input['limo_api_token']          = ! empty( $raw_input['limo_api_token'] ) ? sanitize_text_field( trim( $raw_input['limo_api_token'] ) ) : '';
+            $new_input['limo_client_id']          = ! empty( $raw_input['limo_client_id'] ) ? sanitize_text_field( trim( $raw_input['limo_client_id'] ) ) : '';
+            $new_input['limo_booking_type_id']    = ! empty( $raw_input['limo_booking_type_id'] ) ? sanitize_text_field( trim( $raw_input['limo_booking_type_id'] ) ) : '';
+            $new_input['limo_hourly_type_id']      = ! empty( $raw_input['limo_hourly_type_id'] ) ? sanitize_text_field( trim( $raw_input['limo_hourly_type_id'] ) ) : '';
+            $new_input['limo_booking_status_id']  = ! empty( $raw_input['limo_booking_status_id'] ) ? sanitize_text_field( trim( $raw_input['limo_booking_status_id'] ) ) : '';
 
             // Purge automatique des caches
             delete_transient( 'etb_limo_clients_cache' );
@@ -81,14 +82,16 @@ class ETB_LimoExpress {
             </td>
         </tr>
 
-        <?php 
+      
+       <?php 
         $limo_types        = self::get_booking_types();
         $current_type_id   = $options['limo_booking_type_id'] ?? '';
+        $hourly_type_id    = $options['limo_hourly_type_id'] ?? '';
         $limo_statuses     = self::get_booking_statuses();
         $current_status_id = $options['limo_booking_status_id'] ?? '';
         ?>
         <tr class="etb-dispatcher-row limoexpress-row">
-            <th scope="row">Type de réservation LimoExpress</th>
+            <th scope="row">Type de réservation LimoExpress (Transfert standard)</th>
             <td>
                 <?php if ( ! empty( $limo_types ) ) : ?>
                     <select name="etb_general_settings[limo_booking_type_id]" class="regular-text">
@@ -101,6 +104,25 @@ class ETB_LimoExpress {
                 <?php else : ?>
                     <input type="text" name="etb_general_settings[limo_booking_type_id]" value="<?php echo esc_attr( $current_type_id ); ?>" class="regular-text">
                 <?php endif; ?>
+                <p class="description">Utilisé pour les trajets simples Point A ➔ Point B (ex: One-way transfer).</p>
+            </td>
+        </tr>
+        <tr class="etb-dispatcher-row limoexpress-row">
+            <th scope="row">Type de réservation LimoExpress (Mise à disposition / À l'heure)</th>
+            <td>
+                <?php if ( ! empty( $limo_types ) ) : ?>
+                    <select name="etb_general_settings[limo_hourly_type_id]" class="regular-text">
+                        <option value="">-- Détection Automatique (Hourly) --</option>
+                        <?php foreach ( $limo_types as $type ) : ?>
+                            <option value="<?php echo esc_attr( $type['id'] ); ?>" <?php selected( $hourly_type_id, $type['id'] ); ?>>
+                                ⏱️ <?php echo esc_html( $type['name'] ); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                <?php else : ?>
+                    <input type="text" name="etb_general_settings[limo_hourly_type_id]" value="<?php echo esc_attr( $hourly_type_id ); ?>" class="regular-text">
+                <?php endif; ?>
+                <p class="description">Utilisé pour les réservations en mode By the hour (ex: Hourly rent).</p>
             </td>
         </tr>
         <tr class="etb-dispatcher-row limoexpress-row">
@@ -285,49 +307,44 @@ class ETB_LimoExpress {
         $pickup_address   = ! empty( $data['pickup_address'] ) ? $data['pickup_address'] : 'Non spécifié';
         $dropoff_info     = ! empty( $data['dropoff_info'] ) ? $data['dropoff_info'] : $pickup_address;
         $total_passengers = intval( $data['adults'] ) + intval( $data['children'] );
-        $client_note      = ! empty( $data['note'] ) ? trim( $data['note'] ) : 'Aucune';
+        
+        $client_note      = ! empty( $data['client_note'] ) ? trim( $data['client_note'] ) : 'Aucune';
+        $dispatcher_alert = ! empty( $data['dispatcher_alert'] ) ? trim( $data['dispatcher_alert'] ) . "\n" : '';
 
         $flight_info = ! empty( $data['flight_number'] ) ? "✈️ VOL : " . trim( $data['flight_number'] ) . "\n" : "";
         $ref_info    = ! empty( $data['cost_center'] ) ? "🏢 RÉF : " . trim( $data['cost_center'] ) . "\n" : "";
         $seats_info  = ( $baby_seat_count > 0 ) ? "👶 SIÈGES BÉBÉ REQUIS : " . $baby_seat_count . "\n" : "";
+        $sign_info   = ! empty( $data['waiting_board_text'] ) ? "🪧 PANCARTE : " . trim( $data['waiting_board_text'] ) . "\n" : "";
+        $promo_info  = ! empty( $promo_text ) ? $promo_text . "\n" : "";
 
-        $note_for_driver = sprintf(
-            "📋 DOSSIER WP #%d\n" .
-            "%s%s%s" .
-            "⭐ Extras : %s\n" .
-            "📝 Note client : %s",
-            $booking_id,
-            $flight_info,
-            $ref_info,
-            $seats_info,
-            $extras_summary ?: 'Aucun',
-            $client_note
-        );
-
-        
-
-        $dispatcher_note = $stripe_block . sprintf(
-            "══════ DÉTAILS RÉSERVATION #%d ══════\n" .
-            "📍 Prestation : %s\n" .
+        // BLOC OPÉRATIONNEL COMMUN (Tout le terrain, zéro finance)
+        $operational_details = sprintf(
+            "📋 DOSSIER #%d\n" .
+            "📍 Départ : %s\n" .
+            "🏁 Arrivée : %s\n" .
             "🚘 Véhicule(s) : %s\n" .
-            "👥 Passagers : %d Adulte(s), %d Enfant(s) (Total : %d)\n" .
-            "🧳 Bagages : %d\n" .
-            "⭐ Extras : %s" .
-            "%s\n" .
-            "💬 Demande spéciale : %s",
+            "👥 Passagers : %d (🧳 Bagages : %d)\n" .
+            "%s%s%s%s" .
+            "⭐ Extras : %s\n" .
+            "📝 Note client : %s\n",
             $booking_id,
-            $prestation_label,
+            $pickup_address,
+            $dropoff_info,
             $vehicles_summary ?: 'Non spécifié',
-            $data['adults'] ?? 1,
-            $data['children'] ?? 0,
             $total_passengers,
             intval( $data['luggage'] ),
+            $seats_info,
+            $flight_info,
+            $sign_info,
+            $ref_info,
             $extras_summary ?: 'Aucun',
-            $promo_text,
             $client_note
         );
 
-        // Bloc Stripe officiel injecté dans LimoExpress
+        // NOTE CHAUFFEUR : Uniquement l'opérationnel
+        $note_for_driver = $operational_details;
+
+        // Bloc Stripe officiel (déclaré et construit AVANT son utilisation)
         $stripe_block = '';
         if ( ! empty( $data['payment_intent_id'] ) ) {
             $stripe_mode = ( ! empty( $settings['stripe_mode'] ) && 'live' === $settings['stripe_mode'] ) ? 'live' : 'test';
@@ -336,13 +353,82 @@ class ETB_LimoExpress {
                 : 'https://dashboard.stripe.com/test/payments/' . $data['payment_intent_id'];
 
             $stripe_block = sprintf(
-                "══ PAIEMENT STRIPE (EMPREINTE) ══\n" .
+                "═PAIEMENT STRIPE (EMPREINTE)═\n" .
                 "💳 ID Transaction : %s\n" .
                 "🔗 LIEN DIRECT STRIPE :\n%s\n" .
                 "\n\n",
                 $data['payment_intent_id'],
                 $stripe_url
             );
+        }
+
+        // NOTE RÉPARTITEUR : Alerte + Stripe + Opérationnel complet + Code Promo
+        $dispatcher_note = $dispatcher_alert . $stripe_block . "═DÉTAILS RÉSERVATION═\n" . $operational_details . "\n" . $promo_info;
+
+        // Résolution dynamique du Type de réservation selon le mode (Hourly vs Transfer)
+        $is_hourly_trip  = ( isset( $data['trip_mode'] ) && 'hourly' === $data['trip_mode'] ) 
+                        || ( isset( $data['pricing']['duration_hours'] ) && floatval( $data['pricing']['duration_hours'] ) > 1.0 && empty( $data['option_id'] ) );
+
+        $booking_type_id = '';
+        $available_types = self::get_booking_types();
+
+        if ( $is_hourly_trip ) {
+            // 1. Priorité au réglage manuel dans Tour Booking > Réglages
+            if ( ! empty( $settings['limo_hourly_type_id'] ) ) {
+                $booking_type_id = trim( $settings['limo_hourly_type_id'] );
+            }
+            
+            // 2. Détection automatique : recherche du type "Hourly rent" ou "Hourly"
+            if ( empty( $booking_type_id ) && ! empty( $available_types ) ) {
+                foreach ( $available_types as $bt ) {
+                    $bt_name = strtolower( $bt['name'] ?? '' );
+                    if ( false !== strpos( $bt_name, 'hourly' ) || false !== strpos( $bt_name, 'rent' ) || false !== strpos( $bt_name, 'heure' ) ) {
+                        $booking_type_id = $bt['id'];
+                        break;
+                    }
+                }
+            }
+        } else {
+            // Mode Transfert standard : recherche de "One-way transfer" ou type par défaut
+            if ( ! empty( $settings['limo_booking_type_id'] ) ) {
+                $booking_type_id = trim( $settings['limo_booking_type_id'] );
+            }
+
+            if ( empty( $booking_type_id ) && ! empty( $available_types ) ) {
+                foreach ( $available_types as $bt ) {
+                    $bt_name = strtolower( $bt['name'] ?? '' );
+                    if ( false !== strpos( $bt_name, 'transfer' ) || false !== strpos( $bt_name, 'one-way' ) ) {
+                        $booking_type_id = $bt['id'];
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Repli de sécurité universel si non trouvé
+        if ( empty( $booking_type_id ) && ! empty( $available_types[0]['id'] ) ) {
+            $booking_type_id = $available_types[0]['id'];
+        }
+
+        // Résolution dynamique du Statut initial (Zéro-Hardcode)
+        $booking_status_id = ! empty( $settings['limo_booking_status_id'] ) ? trim( $settings['limo_booking_status_id'] ) : '';
+        if ( empty( $booking_status_id ) ) {
+            $available_statuses = self::get_booking_statuses();
+            foreach ( $available_statuses as $st ) {
+                if ( stripos( $st['name'], 'pend' ) !== false || stripos( $st['name'], 'attent' ) !== false ) {
+                    $booking_status_id = $st['id'];
+                    break;
+                }
+            }
+            if ( empty( $booking_status_id ) && ! empty( $available_statuses[0]['id'] ) ) {
+                $booking_status_id = $available_statuses[0]['id'];
+            }
+        }
+
+        if ( empty( $booking_type_id ) || empty( $booking_status_id ) ) {
+            update_post_meta( $booking_id, '_etb_limo_status', 'failed' );
+            update_post_meta( $booking_id, '_etb_limo_error', 'Impossible de déterminer le type ou statut de réservation LimoExpress.' );
+            return false;
         }
 
         // 8. Passagers : client principal uniquement
@@ -355,11 +441,49 @@ class ETB_LimoExpress {
             ),
         );
 
-        // Résolution dynamique du Type de réservation (Zéro-Hardcode)
-        $booking_type_id = ! empty( $settings['limo_booking_type_id'] ) ? trim( $settings['limo_booking_type_id'] ) : '';
-        if ( empty( $booking_type_id ) ) {
-            $available_types = self::get_booking_types();
-            $booking_type_id = ! empty( $available_types[0]['id'] ) ? $available_types[0]['id'] : '';
+        // Résolution dynamique du Type de réservation selon le mode (Hourly vs Transfer)
+        $is_hourly_trip  = ( isset( $data['trip_mode'] ) && 'hourly' === $data['trip_mode'] ) 
+                        || ( isset( $data['pricing']['duration_hours'] ) && floatval( $data['pricing']['duration_hours'] ) > 1.0 && empty( $data['option_id'] ) );
+
+        $booking_type_id = '';
+        $available_types = self::get_booking_types();
+
+        if ( $is_hourly_trip ) {
+            // 1. Priorité au réglage manuel dans Tour Booking > Réglages
+            if ( ! empty( $settings['limo_hourly_type_id'] ) ) {
+                $booking_type_id = trim( $settings['limo_hourly_type_id'] );
+            }
+            
+            // 2. Détection automatique : recherche du type "Hourly rent" ou "Hourly"
+            if ( empty( $booking_type_id ) && ! empty( $available_types ) ) {
+                foreach ( $available_types as $bt ) {
+                    $bt_name = strtolower( $bt['name'] ?? '' );
+                    if ( false !== strpos( $bt_name, 'hourly' ) || false !== strpos( $bt_name, 'rent' ) || false !== strpos( $bt_name, 'heure' ) ) {
+                        $booking_type_id = $bt['id'];
+                        break;
+                    }
+                }
+            }
+        } else {
+            // Mode Transfert standard : recherche de "One-way transfer" ou type par défaut
+            if ( ! empty( $settings['limo_booking_type_id'] ) ) {
+                $booking_type_id = trim( $settings['limo_booking_type_id'] );
+            }
+
+            if ( empty( $booking_type_id ) && ! empty( $available_types ) ) {
+                foreach ( $available_types as $bt ) {
+                    $bt_name = strtolower( $bt['name'] ?? '' );
+                    if ( false !== strpos( $bt_name, 'transfer' ) || false !== strpos( $bt_name, 'one-way' ) ) {
+                        $booking_type_id = $bt['id'];
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Repli de sécurité universel si non trouvé
+        if ( empty( $booking_type_id ) && ! empty( $available_types[0]['id'] ) ) {
+            $booking_type_id = $available_types[0]['id'];
         }
 
         // Résolution dynamique du Statut initial (Zéro-Hardcode)
@@ -405,7 +529,7 @@ class ETB_LimoExpress {
             'expected_drop_off_time' => $dropoff_time,
             'duration'               => $duration_formatted,
             'from_location'          => array( 'name' => $pickup_address ),
-            'to_location'            => array( 'name' => $dropoff_info ),
+            'to_location'            => $is_hourly_trip ? array( 'name' => 'As Directed (À disposition)' ) : array( 'name' => $dropoff_info ),
             'price'                  => (int) round( $base_ride_price ),
             'price_type'             => 'NET',
             'passenger_count'        => (int) $total_passengers,
@@ -415,7 +539,7 @@ class ETB_LimoExpress {
             'note'                   => $dispatcher_note,
             'note_for_driver'        => substr( $note_for_driver, 0, 500 ),
             'flight_number'          => ! empty( $data['flight_number'] ) ? substr( trim( $data['flight_number'] ), 0, 50 ) : '',
-            'waiting_board_text'     => substr( ! empty( $data['waiting_board_text'] ) ? $data['waiting_board_text'] : $data['name'], 0, 50 ),
+            'waiting_board_text'     => ! empty( $data['waiting_board_text'] ) ? substr( trim( $data['waiting_board_text'] ), 0, 50 ) : '',
             'passengers'             => $passengers_array,
             'checkpoints'            => $checkpoints,
             'extra_fees'             => $extra_fees,
@@ -824,6 +948,7 @@ class ETB_LimoExpress {
                     $result['paid']      = ! empty( $item['paid'] );
                     $result['confirmed'] = ! empty( $item['confirmed'] );
                     $result['uuid']      = $item_id;
+                    $result['limo_note'] = $item['note'] ?? ''; // <-- NOUVEAU: Récupération de la note LimoExpress
                     break;
                 }
             }
