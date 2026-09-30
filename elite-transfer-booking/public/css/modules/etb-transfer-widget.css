@@ -658,6 +658,7 @@
     text-align: center !important;
 }
 
+
 /* Boîtier virtuel de 20px de haut pour centrer toutes les géométries SVG */
 .etb-amenity-col svg,
 .etb-amenity-svg {
@@ -671,6 +672,14 @@
     fill: currentColor !important;
     object-fit: contain !important;
     transition: color 0.2s ease !important;
+}
+
+.etb-amenity-col.track svg,
+.etb-amenity-col.candy svg{
+    width: 30px !important;
+    height: 30px !important;
+    max-width: 30px !important;
+    max-height: 30px !important;
 }
 
 [data-etb-theme="light"] .etb-amenity-col svg,

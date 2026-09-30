@@ -2,6 +2,7 @@
    ETB MODULE — PAGE DE PAIEMENT AUTONOME [etb_payment] (STRIPE HOSTED STYLE)
    ========================================================================== */
 
+/* ==========================================================================
    BOÎTIER STRIPE OFFICIEL : DÉCOUPE EN 2 RANGÉES (NUMÉRO / MM-AA / CVC)
    ========================================================================== */
 .etb-stripe-split-card-box {

@@ -53,6 +53,18 @@ class ETB_Settings {
             $new_input['admin_email'] = isset( $existing['admin_email'] ) ? $existing['admin_email'] : get_option( 'admin_email' );
         }
 
+        // Nom de l'expéditeur officiel (From Name)
+        $new_input['sender_name'] = ! empty( $input['sender_name'] ) 
+            ? sanitize_text_field( trim( $input['sender_name'] ) ) 
+            : get_bloginfo( 'name' );
+
+        // E-mail d'expédition officiel (From Email)
+        if ( ! empty( $input['sender_email'] ) && is_email( $input['sender_email'] ) ) {
+            $new_input['sender_email'] = sanitize_email( trim( $input['sender_email'] ) );
+        } else {
+            $new_input['sender_email'] = isset( $existing['sender_email'] ) ? $existing['sender_email'] : $new_input['admin_email'];
+        }
+
         // Numéro WhatsApp de l'entreprise
         $new_input['company_whatsapp'] = ! empty( $input['company_whatsapp'] ) ? sanitize_text_field( trim( $input['company_whatsapp'] ) ) : '';
 
@@ -148,6 +160,21 @@ class ETB_Settings {
                             <th scope="row">Email de notification admin</th>
                             <td><input type="email" name="etb_general_settings[admin_email]" value="<?php echo esc_attr( $options['admin_email'] ?? get_option('admin_email') ); ?>" class="regular-text"></td>
                         </tr>
+                        <tr>
+                            <th scope="row">Nom de l'expéditeur (From Name)</th>
+                            <td>
+                                <input type="text" name="etb_general_settings[sender_name]" value="<?php echo esc_attr( $options['sender_name'] ?? get_bloginfo('name') ); ?>" class="regular-text" placeholder="EDEN CAB Reservations">
+                                <p class="description">Le nom qui apparaît comme expéditeur dans la boîte de réception du client (ex: <code>EDEN CAB Reservations</code>).</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Email d'expédition officiel (From Email)</th>
+                            <td>
+                                <input type="email" name="etb_general_settings[sender_email]" value="<?php echo esc_attr( $options['sender_email'] ?? 'office@eden-cab.com' ); ?>" class="regular-text" placeholder="office@eden-cab.com">
+                                <p class="description">Adresse e-mail professionnelle liée à votre domaine (ex: <code>office@eden-cab.com</code>). Évite que les e-mails ne soient marqués comme SPAM.</p>
+                            </td>
+                        </tr>
+                        
                         <tr>
                             <th scope="row">Numéro WhatsApp de l'entreprise</th>
                             <td>
@@ -411,4 +438,37 @@ class ETB_Settings {
         </div>
         <?php
     }
+
+    /**
+     * Génère les en-têtes d'e-mail standardisés avec From officiel et Reply-To
+     *
+     * @param string $reply_email Adresse optionnelle pour Reply-To
+     * @param string $reply_name  Nom optionnel pour Reply-To
+     * @return array Tableau des en-têtes formatés pour wp_mail()
+     */
+    public static function get_mail_headers( $reply_email = '', $reply_name = '' ) {
+        $options      = get_option( 'etb_general_settings', array() );
+        $sender_name  = ! empty( $options['sender_name'] ) ? sanitize_text_field( $options['sender_name'] ) : get_bloginfo( 'name' );
+        $sender_email = ! empty( $options['sender_email'] ) && is_email( $options['sender_email'] ) 
+            ? sanitize_email( $options['sender_email'] ) 
+            : get_option( 'admin_email' );
+
+        // Nettoyage strict des caractères spéciaux pour éviter toute injection SMTP
+        $clean_sender_name = preg_replace( '/[^\p{L}\p{N}\s\-\.]/u', '', $sender_name );
+        $clean_sender_name = trim( preg_replace( '/\s+/', ' ', $clean_sender_name ) );
+
+        $headers = array(
+            'Content-Type: text/html; charset=UTF-8',
+            'From: ' . $clean_sender_name . ' <' . $sender_email . '>',
+        );
+
+        if ( ! empty( $reply_email ) && is_email( $reply_email ) ) {
+            $clean_reply_name = ! empty( $reply_name ) ? preg_replace( '/[^\p{L}\p{N}\s\-\.]/u', '', $reply_name ) : '';
+            $clean_reply_name = trim( preg_replace( '/\s+/', ' ', $clean_reply_name ) );
+            $headers[]        = 'Reply-To: ' . ( $clean_reply_name ? $clean_reply_name . ' ' : '' ) . '<' . sanitize_email( $reply_email ) . '>';
+        }
+
+        return $headers;
+    }
 }
+
