@@ -334,7 +334,9 @@
 /* Contour lumineux tournant bicolore autour du bouton Show Prices pendant Calculating... */
 .etb-quick-submit-btn.etb-loading-glow {
     position: relative !important;
-    background-color: #f1f5f9 !important;
+    background-color: transparent !important;
+    border: 1px solid rgba(251, 172, 24, 0.5) !important;
+    color: #717171 !important;
     /*box-shadow: 0 0 20px rgba(251, 172, 24, 0.5), 0 0 35px rgba(0, 210, 255, 0.35) !important;
     */
 }
@@ -674,13 +676,14 @@
     transition: color 0.2s ease !important;
 }
 
+/*
 .etb-amenity-col.track svg,
 .etb-amenity-col.candy svg{
     width: 30px !important;
     height: 30px !important;
     max-width: 30px !important;
     max-height: 30px !important;
-}
+}*/
 
 [data-etb-theme="light"] .etb-amenity-col svg,
 [data-etb-theme="light"] .etb-amenity-svg {
@@ -694,7 +697,7 @@
     color: var(--etb-text-secondary, #94a3b8) !important;
     letter-spacing: -0.01em !important;
     white-space: nowrap !important;
-    overflow: hidden !important;
+    /*overflow: hidden !important;*/
     text-overflow: ellipsis !important;
     display: block !important;
     line-height: 1 !important;
@@ -1583,7 +1586,7 @@
         margin-top: 3px !important;
         font-size: 16px !important;
         font-weight: 800 !important;
-        color: #ffffff !important;
+        color: var(--etb-text-primary) !important;
         white-space: normal !important;
     }
 
@@ -1634,12 +1637,6 @@
     }
 
 
-
-}
-
-
-
-
     /* ── CORRECTION RESPONSIVE : TITRE FARE CALCULATOR & SWITCHER THÈME ── */
     #etb-quick-widget-app {
         padding: 14px 10px !important;
@@ -1665,4 +1662,154 @@
     }
 
 
+}
+
+
+/* ==========================================================================
+   AFFICHAGE 2 COLONNES DE CARTES SUR SMARTPHONE (MOBILE VIP COMPACT)
+   ========================================================================== */
+@media (max-width: 640px) {
+    /* 1. Réduction des marges et paddings du conteneur extérieur */
+    #etb-quick-widget-app {
+        padding: 12px 6px !important;
+        margin: 15px auto !important;
+        border-radius: 14px !important;
+    }
+
+    .etb-quick-fleet-wrapper {
+        margin-top: 5px !important;
+    }
+
+    .etb-quick-fleet-heading {
+        font-size: 15px !important;
+        margin-bottom: 14px !important;
+    }
+
+    /* 2. Grille en 2 colonnes avec espacement optimisé de 8px */
+    .etb-quick-cars-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+        width: 100% !important;
+    }
+
+    /* 3. Carte compacte */
+    .etb-quick-car-item {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        min-height: auto !important;
+        border-radius: 14px !important;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2) !important;
+    }
+
+    /* 4. Hauteur photo adaptée */
+    .etb-quick-card-hero {
+        height: 110px !important;
+        border-radius: 14px 14px 0 0 !important;
+    }
+
+    .etb-quick-img-box .etb-img-static {
+        padding: 8px 10px !important;
+    }
+
+    .etb-quick-badge-vip {
+        font-size: 8.5px !important;
+        padding: 2px 8px !important;
+        top: 6px !important;
+        left: 6px !important;
+    }
+
+    .etb-quick-card-check {
+        width: 18px !important;
+        height: 18px !important;
+        top: 8px !important;
+        right: 8px !important;
+    }
+
+    .etb-quick-card-check .dashicons {
+        font-size: 13px !important;
+        width: 13px !important;
+        height: 13px !important;
+    }
+
+    /* 5. Corps de la carte et typographies */
+    .etb-quick-card-body {
+        padding: 10px 8px 12px 8px !important;
+    }
+
+    .etb-quick-car-title {
+        font-size: 13px !important;
+        margin-bottom: 4px !important;
+        line-height: 1.25 !important;
+    }
+
+    .etb-quick-specs {
+        font-size: 10.5px !important;
+        gap: 6px !important;
+        margin-bottom: 8px !important;
+    }
+
+    .etb-spec-item .dashicons {
+        font-size: 13px !important;
+        width: 13px !important;
+        height: 13px !important;
+    }
+
+    /* 6. Rangée des 6 équipements compacte */
+    .etb-quick-amenities {
+        padding: 5px 0 !important;
+        margin-bottom: 10px !important;
+        gap: 1px !important;
+    }
+
+    .etb-amenity-col svg,
+    .etb-amenity-svg {
+        width: 16px !important;
+        height: 16px !important;
+        max-width: 16px !important;
+        max-height: 16px !important;
+        margin: 0 auto 3px auto !important;
+    }
+
+    .etb-amenity-col small {
+        font-size: 7.5px !important;
+        letter-spacing: -0.02em !important;
+    }
+
+    /* 7. Pied de carte : Prix et bouton Select empilés en pleine largeur */
+    .etb-quick-card-footer {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 6px !important;
+    }
+
+    .etb-quick-price-box {
+        text-align: center !important;
+    }
+
+    .etb-quick-price-display {
+        font-size: 16px !important;
+        justify-content: center !important;
+    }
+
+    .etb-quick-amount {
+        font-size: 17px !important;
+    }
+
+    .etb-quick-currency {
+        font-size: 13px !important;
+    }
+
+    .etb-quick-all-inclusive {
+        font-size: 9px !important;
+        justify-content: center !important;
+    }
+
+    .etb-quick-select-btn {
+        width: 100% !important;
+        padding: 7px 0 !important;
+        font-size: 11.5px !important;
+        border-radius: 50px !important;
+        justify-content: center !important;
+        display: none !important;
+    }
 }

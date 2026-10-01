@@ -90,7 +90,7 @@
     border-radius: 18px !important;
     padding: 24px 26px !important;
     margin-bottom: 24px !important;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4) !important;
+    /*box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4) !important;*/
 }
 
 .etb-checkout-card-header h3 {
@@ -430,7 +430,7 @@
     border: 1.5px solid var(--etb-border-main, #232a3b) !important;
     border-radius: 20px !important;
     padding: 24px 26px !important;
-    box-shadow: var(--etb-shadow-base, 0 20px 50px rgba(0, 0, 0, 0.1)) !important;
+    /*box-shadow: var(--etb-shadow-base, 0 20px 50px rgba(0, 0, 0, 0.1)) !important;*/
 }
 .etb-chk-summary-title {
     font-size: 18px !important;
@@ -930,6 +930,7 @@
     color: #475569 !important;
 }
 
+
 [data-etb-theme="light"] .etb-tip-pill {
     background: #ffffff !important;
     border: 1.5px solid #cbd5e1 !important;
@@ -946,6 +947,8 @@
     border-color: #fbac18 !important;
     color: #b45309 !important;
 }
+
+
 
 /* Décomposition des prix */
 [data-etb-theme="light"] .etb-chk-price-row {

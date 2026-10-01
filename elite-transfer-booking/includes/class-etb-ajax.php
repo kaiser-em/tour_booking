@@ -20,7 +20,7 @@ class ETB_Ajax {
         add_action( 'wp_ajax_nopriv_etb_send_email_inquiry', array( $this, 'handle_send_email_inquiry' ) );
 
        // Route AJAX pour le Checkout Blacklane ([etb_checkout])
-        add_action( 'wp_ajax_etb_submit_checkout', array( $this, 'handle_submit_checkout' ) );
+        add_action( 'wp_ajax_etb_submit_checkout', array( $this,'handle_submit_checkout' ) );
         add_action( 'wp_ajax_nopriv_etb_submit_checkout', array( $this, 'handle_submit_checkout' ) );
 
         /// Route AJAX pour générer un jeton de devis scellé (Quote Token Handoff)
@@ -34,7 +34,11 @@ class ETB_Ajax {
         // Route AJAX pour le règlement d'un devis validé ([etb_payment])
         add_action( 'wp_ajax_etb_settle_quote_payment', array( $this, 'handle_settle_quote_payment' ) );
         add_action( 'wp_ajax_nopriv_etb_settle_quote_payment', array( $this, 'handle_settle_quote_payment' ) );
+
+        // Événement automatique de relance en arrière-plan (Panier abandonné +1h)
+        add_action( 'etb_check_abandoned_payment', array( $this, 'handle_abandoned_payment_reminder' ), 10, 1 );
     }
+    
     
 
     public function handle_validate_promo() {
@@ -688,7 +692,7 @@ class ETB_Ajax {
             . '<p style="margin: 4px 0;">📅 <strong>Date & Time:</strong> ' . esc_html( $trip_datetime ) . '</p>'
             . '<p style="margin: 4px 0;">💰 <strong>Estimated Rate:</strong> ' . esc_html( $estimated_price ) . '</p>'
             . '</div>'
-            . '<p>Our dispatch team is currently reviewing your request and will provide you with a tailored confirmation within <strong>15 minutes</strong>.</p>'
+            . '<p>Our dispatch team is currently reviewing your request and will provide you with a tailored confirmation within <strong>1 hour</strong>.</p>'
             . '<hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">'
             . '<p style="font-size: 12px; color: #64748b;">Best regards,<br><strong>' . esc_html( $company_name ) . ' Reservations Team</strong></p>'
             . '</div>'
@@ -699,7 +703,7 @@ class ETB_Ajax {
         wp_mail( $email, $subject_client, $message_client, $headers_client );
 
         wp_send_json_success( array(
-            'message' => 'Thank you! Your inquiry has been submitted. Our dispatch team will get back to you within 15 minutes.'
+            'message' => 'Thank you! Your inquiry has been submitted. Our dispatch team will get back to you within 1 hour.'
         ) );
     }
 
@@ -915,6 +919,11 @@ class ETB_Ajax {
         // Détection de l'option Pay Later
         $is_pay_later = ! empty( $_POST['etb_pay_later'] );
 
+        // Si le client va payer en ligne, on programme un contrôle automatique à +1h en cas d'abandon
+        if ( ! $is_pay_later && ! $is_quote_ride && ! $is_urgent ) {
+            wp_schedule_single_event( time() + HOUR_IN_SECONDS, 'etb_check_abandoned_payment', array( $booking_id ) );
+        }
+
         $quote_alert_note = '';
         if ( $is_urgent && ! $is_quote_ride ) {
             $formatted_total_due = number_format_i18n( $grand_total_with_tip, 2 ) . ' ' . $currency_symbol;
@@ -924,7 +933,7 @@ class ETB_Ajax {
                 . "Action : Valider la disponibilité chauffeur avant d'encaisser.\n"
                 . "🔗 Lien de paiement prêt à transmettre dès validation :\n"
                 . "👉 " . $payment_link_url . "\n"
-                . "═════════════\n\n";
+                . "════════════\n\n";
         } elseif ( $is_quote_ride ) {
             $quote_alert_note = "\n═ 🚨 DEVIS SUR MESURE REÇU DEPUIS LE SITE ═\n"
                 . "1. Fixez votre tarif dans cette fiche LimoExpress (ex: 2 400 €).\n"
@@ -932,12 +941,12 @@ class ETB_Ajax {
                 . "👉 " . $payment_link_url . "\n"
                 . "(Le lien s'activera automatiquement dès que vous aurez saisi le prix ci-dessus !)\n"
                 . "════════════\n\n";
-        } elseif ( $is_pay_later ) {
+        } elseif ( $is_pay_later || ! $is_paid_status ) {
             $formatted_total_due = number_format_i18n( $grand_total_with_tip, 2 ) . ' ' . $currency_symbol;
             $tip_info_text       = ( $tip_amount > 0 ) ? ' (incluant ' . number_format_i18n( $tip_amount, 2 ) . ' ' . $currency_symbol . ' de pourboire)' : '';
 
-            $quote_alert_note = "\n═⏳ RÈGLEMENT EN ATTENTE (PAY LATER) ═\n"
-                . "Statut : en attente, paiement à régulariser en ligne.\n"
+            $quote_alert_note = "\n═⏳ RÈGLEMENT EN ATTENTE ═\n"
+                . "Statut : en attente de paiement en ligne.\n"
                 . "Montant à régler : " . $formatted_total_due . $tip_info_text . "\n"
                 . "🔗 LIEN DE PAIEMENT SÉCURISÉ PRÊT À TRANSMETTRE :\n"
                 . "👉 " . $payment_link_url . "\n"
@@ -1008,7 +1017,11 @@ class ETB_Ajax {
             
         $company_name = get_bloginfo( 'name' );
 
-        $// En-têtes sécurisés avec From officiel (office@eden-cab.com) et Reply-To
+        // Nettoyage sécurisé du nom pour les sujets d'e-mails
+        $clean_name = preg_replace( '/[^\p{L}\p{N}\s\-\.]/u', '', $full_name );
+        $clean_name = trim( preg_replace( '/\s+/', ' ', $clean_name ) );
+
+        // En-têtes officiels stricts pour tous les envois (Client et Admin)
         $headers_client = ETB_Settings::get_mail_headers( $admin_email, $company_name );
         $headers_admin  = ETB_Settings::get_mail_headers( $email, $full_name );
 
@@ -1028,7 +1041,7 @@ class ETB_Ajax {
                 . '<p style="font-size: 14px; margin-bottom: 20px;">We have received your urgent transfer request for pickup within the next 24 hours.</p>'
                 . '<div style="background: #fffbeb; border-left: 4px solid #f59e0b; padding: 14px 16px; border-radius: 6px; margin-bottom: 22px;">'
                 . '<strong style="color: #92400e; font-size: 13px; display: block; margin-bottom: 3px;">⏱️ Chauffeur Availability Check</strong>'
-                . '<p style="margin: 0; font-size: 13px; color: #78350f;">Our dispatch team is immediately verifying chauffeur allocation for your pickup time (<strong>' . esc_html( $date ) . ' at ' . esc_html( $time ) . '</strong>). You will receive final confirmation and your payment link within <strong>15 minutes</strong>.</p>'
+                . '<p style="margin: 0; font-size: 13px; color: #78350f;">Our dispatch team is immediately verifying chauffeur allocation for your pickup time (<strong>' . esc_html( $date ) . ' at ' . esc_html( $time ) . '</strong>). You will receive final confirmation and your payment link within <strong>1 hour</strong>.</p>'
                 . '</div>'
                 . '<table style="width: 100%; border-collapse: collapse; margin-bottom: 22px; font-size: 13.5px;">'
                 . '<tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px 0; color: #64748b;">Vehicle:</td><td style="padding: 10px 0; text-align: right; font-weight: 700; color: #0f172a;">' . esc_html( $vehicle_title ) . '</td></tr>'
@@ -1046,7 +1059,7 @@ class ETB_Ajax {
                 . '</div>'
                 . '</div>';
 
-            wp_mail( $email, $subject_client, $message_client, $headers_client );
+            
 
             // Alerte e-mail administrateur pour l'urgence (Sujet propre sans entités HTML)
             $subject_admin  = '🚨 [URGENT < 24H] Nouvelle course à valider #' . $booking_id . ' - ' . $clean_name;
@@ -1123,7 +1136,7 @@ class ETB_Ajax {
                 . '<tr style="border-bottom: 2px solid #0f172a;"><td style="padding: 12px 0; font-size: 14px; font-weight: 700; color: #0f172a;">Estimated Rate:</td><td style="padding: 12px 0; text-align: right; font-size: 16px; font-weight: 800; color: #d97706;">Custom Quote (Being calculated)</td></tr>'
                 . '</table>'
                 . '<div style="background: #f8fafc; border-left: 4px solid #fbac18; padding: 14px 16px; border-radius: 6px; margin-bottom: 20px;">'
-                . '<p style="margin: 0; font-size: 13px; color: #334155;">Our team will transmit your final quotation with a direct settlement link within <strong>15 minutes</strong>.</p>'
+                . '<p style="margin: 0; font-size: 13px; color: #334155;">Our team will transmit your final quotation with a direct settlement link within <strong>1 hour</strong>.</p>'
                 . '</div>'
                 . '</div>'
                 . '<div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 30px; text-align: center; font-size: 11.5px; color: #64748b;">'
@@ -1168,7 +1181,7 @@ class ETB_Ajax {
                     . '<div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06);">'
                     . '<div style="background: #0f172a; padding: 25px 30px;">'
                     . '<h1 style="margin: 0; color: #fbac18; font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">' . esc_html( $company_name ) . '</h1>'
-                    . '<p style="margin: 4px 0 0 0; font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em;">VIP Reservation Order #' . $booking_id . ' (Payment Pending)</p>'
+                    . '<p style="margin: 4px 0 0 0; font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em;">Superior Drive -- Order #' . $booking_id . ' (Payment Pending)</p>'
                     . '</div>'
                     . '<div style="padding: 30px;">'
                     . '<p style="font-size: 15px; margin-top: 0; margin-bottom: 16px;">Dear <strong>' . esc_html( $full_name ) . '</strong>,</p>'
@@ -1629,6 +1642,100 @@ class ETB_Ajax {
             'message'     => 'Payment successfully recorded.',
         ) );
 
+    }
+
+    /**
+     * Tâche automatique : vérifie si le paiement a été abandonné et relance le client (+1h)
+     *
+     * @param int $booking_id
+     */
+    public function handle_abandoned_payment_reminder( $booking_id ) {
+        $booking_id = absint( $booking_id );
+        if ( ! $booking_id || 'tour_booking' !== get_post_type( $booking_id ) ) {
+            return;
+        }
+
+        // 1. Vérifications : est-ce déjà payé, confirmé ou déjà relancé ?
+        $status       = get_post_meta( $booking_id, '_etb_status', true );
+        $intent_id    = get_post_meta( $booking_id, '_etb_stripe_payment_intent_id', true );
+        $already_sent = get_post_meta( $booking_id, '_etb_abandoned_reminder_sent', true );
+
+        if ( 'confirmed' === $status || ! empty( $intent_id ) || '1' === $already_sent ) {
+            return; // Le paiement a été fait ! Fin silencieuse, aucun e-mail envoyé.
+        }
+
+        // 2. Vérification LimoExpress (au cas où le client a payé hors ligne)
+        if ( class_exists( 'ETB_LimoExpress' ) ) {
+            $limo_id   = get_post_meta( $booking_id, '_etb_limo_booking_id', true );
+            $limo_uuid = get_post_meta( $booking_id, '_etb_limo_uuid', true );
+            $search_id = ! empty( $limo_uuid ) ? $limo_uuid : $limo_id;
+            if ( $search_id ) {
+                $limo_check = ETB_LimoExpress::get_booking_details( $search_id, $booking_id );
+                if ( ! empty( $limo_check['paid'] ) ) {
+                    update_post_meta( $booking_id, '_etb_status', 'confirmed' );
+                    return; // Déjà payé dans LimoExpress ! Fin silencieuse.
+                }
+            }
+        }
+
+        // 3. Préparation de l'e-mail de relance avec le lien de paiement
+        $customer_email = get_post_meta( $booking_id, '_etb_customer_email', true );
+        $customer_name  = get_post_meta( $booking_id, '_etb_customer_name', true ) ?: 'Client';
+        $pay_token      = get_post_meta( $booking_id, '_etb_pay_token', true );
+
+        if ( empty( $customer_email ) || ! is_email( $customer_email ) || empty( $pay_token ) ) {
+            return;
+        }
+
+        $gen_settings     = get_option( 'etb_general_settings', array() );
+        $payment_base_url = ! empty( $gen_settings['payment_page_url'] ) ? esc_url_raw( $gen_settings['payment_page_url'] ) : home_url( '/payment/' );
+        $payment_link_url = add_query_arg( 'ref', $pay_token, $payment_base_url );
+
+        $company_name    = get_bloginfo( 'name' );
+        $currency_symbol = ! empty( $gen_settings['currency'] ) ? sanitize_text_field( $gen_settings['currency'] ) : '€';
+        $total_price     = floatval( get_post_meta( $booking_id, '_etb_total_price', true ) );
+        $pickup          = get_post_meta( $booking_id, '_etb_pickup_address', true ) ?: '—';
+        $dropoff         = get_post_meta( $booking_id, '_etb_dropoff_info', true ) ?: '—';
+        $date            = get_post_meta( $booking_id, '_etb_booking_date', true );
+        $time            = get_post_meta( $booking_id, '_etb_booking_time', true );
+
+        $admin_email = ! empty( $gen_settings['admin_email'] ) && is_email( $gen_settings['admin_email'] )
+            ? sanitize_email( $gen_settings['admin_email'] )
+            : get_option( 'admin_email' );
+
+        $headers_client = ETB_Settings::get_mail_headers( $admin_email, $company_name );
+        $subject_client = 'Complete Your VIP Reservation #' . $booking_id . ' — ' . $company_name;
+
+        $message_client = '<div style="background-color: #f1f5f9; padding: 30px 15px; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Arial, sans-serif; line-height: 1.6; color: #1e293b;">'
+            . '<div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06);">'
+            . '<div style="background: #0f172a; padding: 25px 30px;">'
+            . '<h1 style="margin: 0; color: #fbac18; font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">' . esc_html( $company_name ) . '</h1>'
+            . '<p style="margin: 4px 0 0 0; font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em;">Pending Reservation #' . $booking_id . '</p>'
+            . '</div>'
+            . '<div style="padding: 30px;">'
+            . '<p style="font-size: 15px; margin-top: 0; margin-bottom: 16px;">Dear <strong>' . esc_html( $customer_name ) . '</strong>,</p>'
+            . '<p style="font-size: 14px; margin-bottom: 20px;">We noticed you started reserving your VIP transfer but didn\'t finish the payment step. We have kept your vehicle reserved for you.</p>'
+            . '<table style="width: 100%; border-collapse: collapse; margin-bottom: 22px; font-size: 13.5px;">'
+            . '<tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px 0; color: #64748b;">Pickup:</td><td style="padding: 10px 0; text-align: right; font-weight: 600; color: #0f172a;">' . esc_html( $pickup ) . '</td></tr>'
+            . '<tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px 0; color: #64748b;">Drop-off:</td><td style="padding: 10px 0; text-align: right; font-weight: 600; color: #0f172a;">' . esc_html( $dropoff ) . '</td></tr>'
+            . '<tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px 0; color: #64748b;">Date & Time:</td><td style="padding: 10px 0; text-align: right; font-weight: 700; color: #0f172a;">' . esc_html( $date ) . ' at ' . esc_html( $time ) . '</td></tr>'
+            . '<tr style="border-bottom: 2px solid #0f172a;"><td style="padding: 12px 0; font-size: 14px; font-weight: 700; color: #0f172a;">Total to Pay:</td><td style="padding: 12px 0; text-align: right; font-size: 18px; font-weight: 800; color: #e65a15;">' . number_format_i18n( $total_price, 2 ) . ' ' . esc_html( $currency_symbol ) . '</td></tr>'
+            . '</table>'
+            . '<div style="text-align: center; margin: 26px 0 16px 0;">'
+            . '<a href="' . esc_url( $payment_link_url ) . '" style="background: #fbac18; color: #0f172a; padding: 14px 32px; text-decoration: none; border-radius: 50px; font-weight: 800; font-size: 14px; display: inline-block;">Complete Your Reservation Now ➔</a>'
+            . '</div>'
+            . '<p style="font-size: 12px; color: #64748b; text-align: center; margin-bottom: 0;">You can complete your payment online anytime prior to pickup.</p>'
+            . '</div>'
+            . '<div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 30px; text-align: center; font-size: 11.5px; color: #64748b;">'
+            . '<p style="margin: 0;">' . esc_html( $company_name ) . ' — Cannes, Côte d\'Azur, France</p>'
+            . '</div>'
+            . '</div>'
+            . '</div>';
+
+        wp_mail( $customer_email, $subject_client, $message_client, $headers_client );
+
+        // Marqueur anti-doublon (pour ne jamais relancer deux fois)
+        update_post_meta( $booking_id, '_etb_abandoned_reminder_sent', '1' );
     }
 
 }

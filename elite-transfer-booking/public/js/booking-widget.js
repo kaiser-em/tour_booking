@@ -1415,12 +1415,12 @@
 
                 var priceBox = c.querySelector('.etb-quick-price-display');
                 if (priceBox) {
-                    priceBox.innerHTML = '<span class="etb-quick-quote-badge">Custom Quote</span>';
+                    priceBox.innerHTML = '<span class="etb-quick-quote-badge">Upon Request</span>';
                 }
 
                 var detailBox = c.querySelector('.etb-quick-price-detail');
                 if (detailBox) {
-                    detailBox.innerHTML = 'Tailored pricing by dispatch';
+                    detailBox.innerHTML = 'Select to ask a custom quote';
                     detailBox.style.display = 'block';
                 }
 
@@ -1556,12 +1556,12 @@
 
                                     var priceBox = targetCard.querySelector('.etb-quick-price-display');
                                     if (priceBox) {
-                                        priceBox.innerHTML = '<span class="etb-quick-quote-badge">Custom Quote</span>';
+                                        priceBox.innerHTML = '<span class="etb-quick-quote-badge">Upon Request</span>';
                                     }
 
                                     var priceDetailEl = targetCard.querySelector('.etb-quick-price-detail');
                                     if (priceDetailEl) {
-                                        priceDetailEl.innerHTML = 'Tailored pricing by dispatch';
+                                        priceDetailEl.innerHTML = 'Select to ask a custom quote';
                                         priceDetailEl.style.display = 'block';
                                     }
 
@@ -1745,6 +1745,11 @@
 
 
                     bookingBar.classList.add('is-visible');
+
+                    // Auto-scroll fluide vers le bouton "Book this trip"
+                    setTimeout(() => {
+                        bookingBar.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 220);
                 }
             });
         });
@@ -2397,7 +2402,7 @@
                     guaranteesBoxEl.innerHTML = `
                         <div class="etb-chk-guarantee-line">
                             <span class="dashicons dashicons-clock"></span>
-                            <span>Tailored quotation sent within 15 minutes</span>
+                            <span>Tailored quotation sent within 1 hour</span>
                         </div>
                         <div class="etb-chk-guarantee-line">
                             <span class="dashicons dashicons-shield"></span>
@@ -2438,8 +2443,8 @@
                     airportCard.style.display = 'block';
                     if (airportTitle) airportTitle.textContent = 'Airport Arrival & Greeting';
                     if (airportDesc)  airportDesc.textContent  = 'Real-time flight tracking included. Your chauffeur tracks your flight and adjusts pickup time automatically.';
-                    if (flightLabel)  flightLabel.textContent  = 'Airline & Flight Number (e.g. AF 7704)';
-                    if (flightHint)   flightHint.textContent   = '60 minutes complimentary wait time included after flight landing.';
+                    if (flightLabel)  flightLabel.textContent  = 'Flight Number';
+                    if (flightHint)   flightHint.textContent   = '1 hour free waiting time after landing.';
                     if (signField)    signField.style.display  = 'block';
                     if (airportGrid)  airportGrid.style.gridTemplateColumns = '';
                     if (waitTimeText) waitTimeText.textContent = '60 min complimentary wait time included (flight tracking)';
@@ -2524,7 +2529,7 @@
             if (pickupSignInput && !pickupSignInput.dataset.manualEdit) {
                 const isSignVisible = airportCard && airportCard.style.display !== 'none' && checkoutRoot.querySelector('#etb-chk-sign-field')?.style.display !== 'none';
                 if (isSignVisible && (fName || lName)) {
-                    pickupSignInput.value = `Mr./Ms. ${lName || fName}`;
+                    pickupSignInput.value = `${lName || fName}`;
                 } else {
                     pickupSignInput.value = ''; // On garantit qu'il reste vide si caché
                 }
@@ -2748,7 +2753,7 @@
                             successTitle    = 'Quote Request Successfully Submitted!';
                             successSubtitle = 'Your quote request <strong>#' + res.data.booking_id + '</strong> has been sent to our dispatch team.';
                             successDetails  = '<p style="margin: 6px 0;">An acknowledgment has been sent to <strong>' + emailVal + '</strong>.</p>'
-                                + '<p style="margin: 6px 0;">Our dispatcher will send a tailored quotation within <strong>15 minutes</strong>.</p>';
+                                + '<p style="margin: 6px 0;">Our dispatcher will send a tailored quotation within <strong>1 hour</strong>.</p>';
                         } else if (isUrgentBooking) {
                             successTitle    = 'Urgent Booking Received!';
                             successSubtitle = 'Your short-notice reservation <strong>#' + res.data.booking_id + '</strong> is being verified by dispatch.';

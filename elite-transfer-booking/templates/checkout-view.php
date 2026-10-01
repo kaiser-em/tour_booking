@@ -131,16 +131,11 @@ if ( ! empty( $date_val ) ) {
                             </div>
                         </div>
                         
-                        <div class="etb-chk-grid-2" id="etb-chk-airport-grid">
+                        <div id="etb-chk-airport-grid" class="etb-chk-grid-2">
                             <div class="etb-chk-field" id="etb-chk-flight-field">
-                                <label for="etb-flight-number" id="etb-chk-flight-label">Airline & Flight Number (e.g. AF 7704)</label>
+                                <label for="etb-flight-number" id="etb-chk-flight-label"> Flight Number</label>
                                 <input type="text" name="etb_flight_number" id="etb-flight-number" placeholder="e.g. BA 342, DL 401..." autocomplete="off">
-                                <small class="etb-chk-hint" id="etb-chk-flight-hint">60 minutes complimentary wait time included after landing.</small>
-                            </div>
-                            <div class="etb-chk-field" id="etb-chk-sign-field">
-                                <label for="etb-pickup-sign">Name on Chauffeur Greeting Sign</label>
-                                <input type="text" name="etb_pickup_sign" id="etb-pickup-sign" placeholder="e.g. Mr. Bruce Wayne, Acme Corp..." autocomplete="off">
-                                <small class="etb-chk-hint">Displayed on the tablet held by your chauffeur at the terminal gate.</small>
+                                <small class="etb-chk-hint" id="etb-chk-flight-hint">1 hour free waiting time included after landing.</small>
                             </div>
                         </div>
                     </div>
@@ -193,9 +188,19 @@ if ( ! empty( $date_val ) ) {
                                 <small class="etb-chk-hint">Ride confirmation and official invoice will be sent here.</small>
                             </div>
                             <div class="etb-chk-field">
-                                <label for="etb-passenger-phone">Mobile Phone (with country code) *</label>
+                                <label for="etb-passenger-phone">Mobile Phone *</label>
                                 <input type="tel" name="etb_phone" id="etb-passenger-phone" placeholder="+33 6 12 34 56 78" required>
-                                <small class="etb-chk-hint">Chauffeur will send SMS when arriving on location.</small>
+                                <small class="etb-chk-hint">Chauffeur will send SMS or call when arriving on location.</small>
+                            </div>
+                            
+                        </div>
+
+                        <!-- Champ Pancarte Chauffeur (Greeting Sign) calé à 50% sous la colonne Email -->
+                        <div class="etb-chk-grid-2">
+                            <div class="etb-chk-field" id="etb-chk-sign-field" style="display: none; margin-top: 6px;">
+                                <label for="etb-pickup-sign">Name on Chauffeur Greeting Sign</label>
+                                <input type="text" name="etb_pickup_sign" id="etb-pickup-sign" placeholder="e.g. Mr. Bruce Wayne, Acme Corp..." autocomplete="off">
+                                <small class="etb-chk-hint">Name displayed on the welcome sign at arrival.</small>
                             </div>
                         </div>
 
@@ -461,7 +466,7 @@ if ( ! empty( $date_val ) ) {
                     <div class="etb-chk-guarantees">
                         <div class="etb-chk-guarantee-line">
                             <span class="dashicons dashicons-yes"></span>
-                            <span>Free cancellation up to 8 hours before pickup</span>
+                            <span>Free cancellation up to 2 hours before pickup</span>
                         </div>
                         <div class="etb-chk-guarantee-line">
                             <span class="dashicons dashicons-clock"></span>
@@ -469,7 +474,7 @@ if ( ! empty( $date_val ) ) {
                         </div>
                         <div class="etb-chk-guarantee-line">
                             <span class="dashicons dashicons-shield"></span>
-                            <span>Taxes, tolls & chauffeur gratuity included</span>
+                            <span>Taxes, tolls, fuel & insurance included</span>
                         </div>
                     </div>
 
@@ -520,7 +525,11 @@ if ( ! empty( $date_val ) ) {
                     <?php if ( $is_urgent_booking ) : ?>
                         <div style="background: rgba(251, 172, 24, 0.1); border: 1px solid rgba(251, 172, 24, 0.35); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; font-size: 12px; color: var(--etb-text-primary, #ffffff); line-height: 1.45;">
                             <strong style="color: #fbac18; display: block; margin-bottom: 2px;">⏱️ Short-Notice Pickup (&lt; 24h)</strong>
-                            For bookings scheduled within 24 hours, our dispatch team will confirm chauffeur availability before any payment is collected. You will receive a response within 15 minutes.
+                            For bookings scheduled within 24 hours, 
+                            our dispatch team will confirm chauffeur 
+                            availability before any payment is collected.
+                            You will receive a response within 
+                            1 hour during business hours (8:00 AM – 9:00 PM).
                         </div>
                     <?php endif; ?>
 
