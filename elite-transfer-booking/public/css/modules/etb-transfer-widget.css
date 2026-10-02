@@ -698,7 +698,7 @@
     letter-spacing: -0.01em !important;
     white-space: nowrap !important;
     /*overflow: hidden !important;*/
-    text-overflow: ellipsis !important;
+    /*text-overflow: ellipsis !important;*/
     display: block !important;
     line-height: 1 !important;
 }
@@ -717,17 +717,7 @@
     color: var(--etb-text-secondary, #64748b) !important;
 }
 
-.etb-amenity-col small {
-    font-size: 9px !important;
-    font-weight: 600 !important;
-    color: var(--etb-text-secondary, #64748b) !important;
-    letter-spacing: -0.02em !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    display: block !important;
-    max-width: 100% !important;
-}
+
 
 /* 5. Pied de Carte : Split Prix à gauche & Bouton pilule à droite */
 .etb-quick-card-footer {

@@ -242,9 +242,7 @@ class ETB_Ajax {
         if ( ( $data['adults'] + $data['children'] ) > $total_capacity_pax ) {
             wp_send_json_error( array( 'message' => 'Le nombre de passagers dépasse la capacité des véhicules sélectionnés.' ) );
         }
-        if ( $data['luggage'] > $total_capacity_baggage ) {
-            wp_send_json_error( array( 'message' => 'Le nombre de bagages dépasse la capacité des véhicules sélectionnés.' ) );
-        }
+
 
         // Calcul tarifaire
         $pricing_engine  = new ETB_Pricing_Engine();
@@ -280,6 +278,7 @@ class ETB_Ajax {
         update_post_meta( $booking_id, '_etb_luggage', $data['luggage'] );
         update_post_meta( $booking_id, '_etb_vehicles', $data['vehicles'] );
         update_post_meta( $booking_id, '_etb_extras', $data['extras'] );
+
         update_post_meta( $booking_id, '_etb_note', $data['note'] );
         update_post_meta( $booking_id, '_etb_total_price', $pricing_details['grand_total'] );
         update_post_meta( $booking_id, '_etb_pricing_details', $pricing_details );
@@ -739,11 +738,13 @@ class ETB_Ajax {
         $last_name       = sanitize_text_field( $_POST['etb_last_name'] ?? '' );
         $email           = sanitize_email( $_POST['etb_email'] ?? '' );
         $phone           = sanitize_text_field( $_POST['etb_phone'] ?? '' );
-        $booker_name     = sanitize_text_field( $_POST['etb_booker_name'] ?? '' );
-        $booker_email    = sanitize_email( $_POST['etb_booker_email'] ?? '' );
-        $baby_seat_count = min( 4, absint( $_POST['etb_baby_seat_count'] ?? 0 ) );
-        $notes           = sanitize_textarea_field( $_POST['etb_notes'] ?? '' );
-        $cost_center = sanitize_text_field( $_POST['etb_cost_center'] ?? '' );
+        $booker_name        = sanitize_text_field( $_POST['etb_booker_name'] ?? '' );
+        $booker_email       = sanitize_email( $_POST['etb_booker_email'] ?? '' );
+        $baby_seat_count    = min( 4, absint( $_POST['etb_baby_seat_count'] ?? 0 ) );
+        $booster_seat_count = min( 4, absint( $_POST['etb_booster_seat_count'] ?? 0 ) );
+        $total_child_seats  = $baby_seat_count + $booster_seat_count;
+        $notes              = sanitize_textarea_field( $_POST['etb_notes'] ?? '' );
+        $cost_center        = sanitize_text_field( $_POST['etb_cost_center'] ?? '' );
 
         // Calcul d'urgence serveur infaillible (< min_delay_hours)
         $gen_settings    = get_option( 'etb_general_settings', array() );
@@ -756,11 +757,13 @@ class ETB_Ajax {
         $now_ts    = current_time( 'timestamp' );
         $is_urgent = ( $pickup_ts && ( $pickup_ts - $now_ts ) < ( $min_delay_hours * HOUR_IN_SECONDS ) );
 
-        // Nouveautés : Passagers, Bagages et Pourboire chauffeur
-        $passengers_count = max( 1, absint( $_POST['etb_passengers_count'] ?? 1 ) );
-        $luggage_count    = max( 0, absint( $_POST['etb_luggage_count'] ?? 0 ) );
-        $tip_percentage   = max( 0, absint( $_POST['etb_driver_tip'] ?? 0 ) );
-        $tip_amount       = max( 0.0, floatval( $_POST['etb_tip_amount'] ?? 0.0 ) );
+        // Nouveautés : Passagers, Bagages (Checked + Cabin) et Pourboire chauffeur
+        $passengers_count   = max( 1, absint( $_POST['etb_passengers_count'] ?? 1 ) );
+        $checked_luggage    = max( 0, absint( $_POST['etb_luggage_count'] ?? 0 ) );
+        $cabin_bags         = max( 0, absint( $_POST['etb_cabin_bag_count'] ?? 0 ) );
+        $total_luggage_sum  = $checked_luggage + $cabin_bags;
+        $tip_percentage     = max( 0, absint( $_POST['etb_driver_tip'] ?? 0 ) );
+        $tip_amount         = max( 0.0, floatval( $_POST['etb_tip_amount'] ?? 0.0 ) );
 
         $full_name = trim( $first_name . ' ' . $last_name );
 
@@ -834,7 +837,9 @@ class ETB_Ajax {
         update_post_meta( $booking_id, '_etb_dropoff_info', ( 'hourly' === $mode ) ? sprintf( 'By the hour (%sh)', $duration ) : $dropoff );
         update_post_meta( $booking_id, '_etb_duration_hours', ( 'hourly' === $mode ) ? $duration : 1.0 );
         update_post_meta( $booking_id, '_etb_adults', $passengers_count );
-        update_post_meta( $booking_id, '_etb_luggage', $luggage_count );
+        update_post_meta( $booking_id, '_etb_luggage', $total_luggage_sum ); // Total cumulé
+        update_post_meta( $booking_id, '_etb_checked_luggage', $checked_luggage );
+        update_post_meta( $booking_id, '_etb_cabin_bags', $cabin_bags );
         update_post_meta( $booking_id, '_etb_vehicles', array( $vehicle_id => 1 ) );
         update_post_meta( $booking_id, '_etb_base_price', $final_price );
         update_post_meta( $booking_id, '_etb_tip_amount', $tip_amount );
@@ -848,6 +853,7 @@ class ETB_Ajax {
             $tip_driver_note = sprintf( "\n💸 POURBOIRE CHAUFFEUR INCLUS : %s € (%d%%)", number_format_i18n( $tip_amount, 2 ), $tip_percentage );
         }
 
+
         // Métadonnées exclusives Blacklane
         update_post_meta( $booking_id, '_etb_flight_number', $flight_number );
         update_post_meta( $booking_id, '_etb_waiting_board_text', $pickup_sign ?: $full_name );
@@ -855,8 +861,24 @@ class ETB_Ajax {
         update_post_meta( $booking_id, '_etb_booker_name', $booker_name );
         update_post_meta( $booking_id, '_etb_booker_email', $booker_email );
         update_post_meta( $booking_id, '_etb_baby_seat_count', $baby_seat_count );
+        update_post_meta( $booking_id, '_etb_booster_seat_count', $booster_seat_count );
+        update_post_meta( $booking_id, '_etb_total_child_seats', $total_child_seats );
         update_post_meta( $booking_id, '_etb_cost_center', $cost_center );
-        update_post_meta( $booking_id, '_etb_note', $notes . $tip_driver_note );
+
+        // Mention détaillée des sièges pour le chauffeur et le dispatch
+        $seats_detail_note = '';
+        if ( $baby_seat_count > 0 || $booster_seat_count > 0 ) {
+            $seats_list = array();
+            if ( $baby_seat_count > 0 ) {
+                $seats_list[] = sprintf( '%d Siège(s) Bébé (0-2 ans)', $baby_seat_count );
+            }
+            if ( $booster_seat_count > 0 ) {
+                $seats_list[] = sprintf( '%d Rehausseur(s) / Booster (3-10 ans)', $booster_seat_count );
+            }
+            $seats_detail_note = "\n👶 SIÈGES ENFANTS REQUIS : " . implode( ' + ', $seats_list );
+        }
+
+        update_post_meta( $booking_id, '_etb_note', $notes . $tip_driver_note . $seats_detail_note );
 
         // Construction des logs de paiement conformes au Swagger LimoExpress avec lien Stripe
         $payment_logs = array();
@@ -972,8 +994,12 @@ class ETB_Ajax {
             'vehicles'           => array( $vehicle_id => 1 ),
             'adults'             => $passengers_count,
             'children'           => 0,
-            'luggage'            => $luggage_count,
+            'luggage'            => $total_luggage_sum, // Total envoyé au champ suitcase_count de LimoExpress
+            'checked_luggage'    => $checked_luggage,
+            'cabin_bags'         => $cabin_bags,
             'baby_seat_count'    => $baby_seat_count,
+            'booster_seat_count' => $booster_seat_count,
+            'total_child_seats'  => $total_child_seats,
             'tip_amount'         => $is_quote_ride ? 0.0 : $tip_amount,
             'paid'               => $is_quote_ride ? false : $is_paid_status,
             'payment_logs'       => $is_quote_ride ? array() : $payment_logs,

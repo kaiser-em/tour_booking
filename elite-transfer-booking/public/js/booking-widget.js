@@ -199,9 +199,9 @@
                 globalSubmitErrorEl.style.display = (hasAttemptedSubmit && hasRequiredFieldsMissing) ? 'block' : 'none';
             }
 
-            // Blocage du bouton si dépassement de capacité
+            // Blocage du bouton : uniquement si dépassement du nombre de passagers
             if (submitButton) {
-                const isBlocked = isPaxCapacityExceeded || isBaggageCapacityExceeded;                
+                const isBlocked = isPaxCapacityExceeded;
                 submitButton.disabled = isBlocked;
                 submitButton.classList.toggle('etb-disabled', isBlocked);
             }
@@ -2113,6 +2113,7 @@
         const lastNameInput   = checkoutRoot.querySelector('#etb-passenger-last-name');
         const pickupSignInput = checkoutRoot.querySelector('#etb-pickup-sign');
         const airportCard     = checkoutRoot.querySelector('#etb-chk-airport-card');
+        const phoneInputEl    = checkoutRoot.querySelector('#etb-passenger-phone');
 
         // Bascule Myself vs Guest
         const toggleMyself    = checkoutRoot.querySelector('#etb-toggle-myself');
@@ -2130,9 +2131,17 @@
         const bagInputEl      = checkoutRoot.querySelector('#etb-chk-bag-input');
         const bagHint         = checkoutRoot.querySelector('#etb-chk-max-bag-hint');
 
+        const cabinBagMinusBtn = checkoutRoot.querySelector('.etb-cabin-bag-minus');
+        const cabinBagPlusBtn  = checkoutRoot.querySelector('.etb-cabin-bag-plus');
+        const cabinBagInputEl  = checkoutRoot.querySelector('#etb-chk-cabin-bag-input');
+
         const seatMinusBtn    = checkoutRoot.querySelector('.etb-seat-minus');
         const seatPlusBtn     = checkoutRoot.querySelector('.etb-seat-plus');
         const seatInput       = checkoutRoot.querySelector('#etb-chk-baby-seats');
+
+        const boosterMinusBtn = checkoutRoot.querySelector('.etb-booster-minus');
+        const boosterPlusBtn  = checkoutRoot.querySelector('.etb-booster-plus');
+        const boosterInput    = checkoutRoot.querySelector('#etb-chk-booster-seats');
 
         // Champs de carte bancaire & Initialisation Stripe
         const cardNumInput    = checkoutRoot.querySelector('#etb-card-number');
@@ -2144,61 +2153,145 @@
         let stripeCardElement = null;
         let detectedBrand     = 'card';
 
-        // Initialisation officielle Stripe Elements si la passerelle est active
-        if (typeof Stripe !== 'undefined' && typeof etbAjax !== 'undefined' && etbAjax.stripe_enabled === '1' && etbAjax.stripe_pk) {
-            try {
-                stripeInstance = Stripe(etbAjax.stripe_pk);
-                const elements = stripeInstance.elements();
-
-                // Détection de la couleur du texte selon le thème actif
-                const getStripeThemeStyle = () => {
-                    const isLight = document.documentElement.getAttribute('data-etb-theme') === 'light' 
-                                 || localStorage.getItem('etb_theme_mode') === 'light';
-                    return {
-                        base: {
-                            color: isLight ? '#1e293b' : '#ffffff',
-                            fontFamily: "'Inter', -apple-system, sans-serif",
-                            fontSize: '14px',
-                            fontWeight: '500',
-                            letterSpacing: '0.04em',
-                            '::placeholder': { color: isLight ? '#94a3b8' : 'rgba(148, 163, 184, 0.6)' },
-                            iconColor: '#fbac18'
-                        },
-                        invalid: {
-                            color: '#f87171',
-                            iconColor: '#f87171'
-                        }
-                    };
-                };
-
-                stripeCardElement = elements.create('card', {
-                    hidePostalCode: true,
-                    style: getStripeThemeStyle()
-                });
-
-                const mountPoint = checkoutRoot.querySelector('#etb-stripe-card-mount');
-                if (mountPoint) {
-                    stripeCardElement.mount('#etb-stripe-card-mount');
-
-                    // Allumage automatique des badges Visa / MC / Amex au fur et à mesure de la saisie
-                    stripeCardElement.on('change', function (event) {
-                        cardBrandBadges.forEach(b => b.classList.remove('active'));
-                        if (event.brand && event.brand !== 'unknown') {
-                            detectedBrand = event.brand;
-                            const badgeSelector = event.brand === 'mastercard' ? '.etb-brand-badge.mc' : `.etb-brand-badge.${event.brand}`;
-                            const activeBadge = checkoutRoot.querySelector(badgeSelector);
-                            if (activeBadge) activeBadge.classList.add('active');
-                        }
-                        if (event.error) {
-                            showFeedback(event.error.message, 'error');
-                        } else if (feedbackEl) {
-                            feedbackEl.style.display = 'none';
-                        }
-                    });
+        // Initialisation de la librairie internationale de téléphone (245 pays)
+        let phoneIti = null;
+        if (typeof window.intlTelInput !== 'undefined' && phoneInputEl) {
+            phoneIti = window.intlTelInput(phoneInputEl, {
+                initialCountry: "auto",
+                preferredCountries: ["fr", "mc", "gb", "us", "ch", "ae", "de", "it"],
+                // Exclut Guernesey, Jersey et l'Île de Man pour que +44 reste TOUJOURS sur le Royaume-Uni (GB)
+                excludeCountries: ["gg", "je", "im"],
+                separateDialCode: true,
+                autoPlaceholder: "aggressive",
+                utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/18.2.1/js/utils.js",
+                geoIpLookup: function (callback) {
+                    fetch("https://ipapi.co/json/")
+                        .then(function (res) { return res.json(); })
+                        .then(function (data) { callback(data && data.country_code ? data.country_code.toLowerCase() : "fr"); })
+                        .catch(function () { callback("fr"); });
                 }
-            } catch (err) {
-                console.error('Stripe initialization error:', err);
-            }
+            });
+
+            // Formateur universel d'espacement par pays
+            const formatPhoneDigitsByCountry = function (digits, iso2) {
+                if (!digits) return '';
+                iso2 = (iso2 || 'fr').toLowerCase();
+
+                // France (+33) et Monaco (+377) : 1 chiffre puis groupes de 2 (ex: 6 12 34 56 78)
+                if (iso2 === 'fr' || iso2 === 'mc') {
+                    if (digits.length <= 1) return digits;
+                    const first = digits.charAt(0);
+                    const rest  = digits.substring(1);
+                    const parts = rest.match(/.{1,2}/g) || [];
+                    return (first + ' ' + parts.join(' ')).trim();
+                }
+
+                // USA (+1) et Canada (+1) : 3 - 3 - 4 (ex: 202 555 0123)
+                if (iso2 === 'us' || iso2 === 'ca') {
+                    const p1 = digits.substring(0, 3);
+                    const p2 = digits.substring(3, 6);
+                    const p3 = digits.substring(6, 10);
+                    if (digits.length <= 3) return p1;
+                    if (digits.length <= 6) return p1 + ' ' + p2;
+                    return (p1 + ' ' + p2 + ' ' + p3).trim();
+                }
+
+                // Royaume-Uni (+44) : 4 - 3 - 3 (ex: 7911 123 456)
+                if (iso2 === 'gb') {
+                    const p1 = digits.substring(0, 4);
+                    const p2 = digits.substring(4, 7);
+                    const p3 = digits.substring(7, 11);
+                    if (digits.length <= 4) return p1;
+                    if (digits.length <= 7) return p1 + ' ' + p2;
+                    return (p1 + ' ' + p2 + ' ' + p3).trim();
+                }
+
+                // Madagascar (+261) : 2 - 2 - 3 - 2 (ex: 34 12 345 67)
+                if (iso2 === 'mg') {
+                    const p1 = digits.substring(0, 2);
+                    const p2 = digits.substring(2, 4);
+                    const p3 = digits.substring(4, 7);
+                    const p4 = digits.substring(7, 9);
+                    return [p1, p2, p3, p4].filter(Boolean).join(' ');
+                }
+
+                // Règle par défaut : groupes de 2 chiffres
+                return digits.replace(/(\d{2})(?=\d)/g, '$1 ').trim();
+            };
+
+            // Écouteur en direct sur la frappe et le copier-coller
+            const handlePhoneInputLive = function () {
+                let val = phoneInputEl.value;
+
+                // 1. Si le client colle un numéro international complet avec + ou 00
+                if (val.includes('+') || val.startsWith('00')) {
+                    let cleanPasted = val.replace(/[^\d+]/g, '');
+                    if (cleanPasted.startsWith('00')) {
+                        cleanPasted = '+' + cleanPasted.substring(2);
+                    }
+
+                    // Bascule de pays sécurisée (+44 verrouillé sur Royaume-Uni, +1 sur USA)
+                    if (cleanPasted.startsWith('+44')) {
+                        phoneIti.setCountry('gb');
+                    } else if (cleanPasted.startsWith('+1')) {
+                        phoneIti.setCountry('us');
+                    } else {
+                        phoneIti.setNumber(cleanPasted);
+                    }
+
+                    // Nettoie l'input visible pour ne garder que le numéro national sans '+'
+                    const countryData  = phoneIti.getSelectedCountryData();
+                    const dialCode     = countryData ? countryData.dialCode : '';
+                    let nationalDigits = cleanPasted.replace(/\D/g, '');
+
+                    if (dialCode && nationalDigits.startsWith(dialCode)) {
+                        nationalDigits = nationalDigits.substring(dialCode.length);
+                    }
+                    if (nationalDigits.startsWith('0')) {
+                        nationalDigits = nationalDigits.substring(1);
+                    }
+                    phoneInputEl.value = formatPhoneDigitsByCountry(nationalDigits, countryData ? countryData.iso2 : 'fr');
+                    return;
+                }
+
+                // 2. Élimination formelle de tout signe '+' ou parenthèses dans le champ
+                val = val.replace(/\+/g, '').replace(/\(0\)/g, '');
+
+                // 3. Extraction des chiffres
+                let digits = val.replace(/\D/g, '');
+
+                // 4. Retrait de l'indicatif s'il a été tapé au début sans le '+'
+                const countryData = phoneIti ? phoneIti.getSelectedCountryData() : null;
+                const dialCode    = countryData ? countryData.dialCode : '';
+                const iso2        = countryData ? countryData.iso2 : 'fr';
+
+                if (dialCode && digits.startsWith(dialCode) && digits.length > dialCode.length) {
+                    digits = digits.substring(dialCode.length);
+                }
+
+                // 5. Retrait du 0 initial
+                if (digits.startsWith('0')) {
+                    digits = digits.substring(1);
+                }
+
+                // 6. Plafond mondial strict de 15 chiffres (E.164)
+                if (digits.length > 15) {
+                    digits = digits.substring(0, 15);
+                }
+
+                // 7. Formatage dynamique en direct
+                phoneInputEl.value = formatPhoneDigitsByCountry(digits, iso2);
+            };
+
+            phoneInputEl.addEventListener('input', handlePhoneInputLive);
+
+            // Re-formatage automatique si on change de drapeau
+            phoneInputEl.addEventListener('countrychange', function () {
+                let digits = phoneInputEl.value.replace(/\D/g, '');
+                const countryData = phoneIti ? phoneIti.getSelectedCountryData() : null;
+                const iso2        = countryData ? countryData.iso2 : 'fr';
+                phoneInputEl.value = formatPhoneDigitsByCountry(digits, iso2);
+            });
         }
 
         // Éléments du tableau comptable gauche
@@ -2360,8 +2453,23 @@
                 }
             }
 
-            if (sumDatetime && dateVal && timeVal) {
-                sumDatetime.textContent = `${dateVal} at ${timeVal}`;
+            // Formatage raffiné de la date (ex: 03 Oct. 2026 at 09:00 AM)
+            const formatSummaryDateTime = (dStr, tStr) => {
+                if (!dStr) return '—';
+                const parts = dStr.split('-');
+                let dateFormatted = dStr;
+                if (parts.length === 3) {
+                    const monthsEn = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May', 'Jun.', 'Jul.', 'Aug.', 'Sep.', 'Oct.', 'Nov.', 'Dec.'];
+                    const mIdx = parseInt(parts[1], 10) - 1;
+                    const day = String(parts[2]).padStart(2, '0');
+                    const month = monthsEn[mIdx] || parts[1];
+                    dateFormatted = `${day} ${month} ${parts[0]}`;
+                }
+                return tStr ? `${dateFormatted} at ${tStr}` : dateFormatted;
+            };
+
+            if (sumDatetime && dateVal) {
+                sumDatetime.textContent = formatSummaryDateTime(dateVal, timeVal);
             }
 
             // Calcul financier de base
@@ -2476,7 +2584,7 @@
             const maxBagAllowed = parseInt(sumBag ? sumBag.textContent : 2, 10) || 2;
 
             if (paxHint) paxHint.textContent = `Max: ${maxPaxAllowed}`;
-            if (bagHint) bagHint.textContent = `Max: ${maxBagAllowed}`;
+            if (bagHint) bagHint.textContent = '-'; /*`Max: ${maxBagAllowed}`;*/
 
             if (paxInputEl) {
                 paxInputEl.value = '1';
@@ -2572,14 +2680,31 @@
 
             bagPlusBtn.addEventListener('click', function () {
                 let val = parseInt(bagInputEl.value, 10) || 0;
-                const maxLimit = parseInt(bagInputEl.dataset.max, 10) || 2;
-                if (val < maxLimit) {
+                // Déverrouillé : le client peut ajouter ses bagages librement (jusqu'à 20)
+                if (val < 20) {
                     bagInputEl.value = val + 1;
                 }
             });
         }
 
-        // 8. Contrôle des sièges enfants (+/-)
+        // Compteur Cabin Bags (Bagages cabine) déverrouillé jusqu'à 20
+        if (cabinBagMinusBtn && cabinBagPlusBtn && cabinBagInputEl) {
+            cabinBagMinusBtn.addEventListener('click', function () {
+                let val = parseInt(cabinBagInputEl.value, 10) || 0;
+                if (val > 0) {
+                    cabinBagInputEl.value = val - 1;
+                }
+            });
+
+            cabinBagPlusBtn.addEventListener('click', function () {
+                let val = parseInt(cabinBagInputEl.value, 10) || 0;
+                if (val < 20) {
+                    cabinBagInputEl.value = val + 1;
+                }
+            });
+        }
+
+        // 8. Contrôle des sièges enfants (+/-) : Baby Seat & Booster Seat
         if (seatMinusBtn && seatPlusBtn && seatInput) {
             seatMinusBtn.addEventListener('click', function () {
                 let val = parseInt(seatInput.value, 10) || 0;
@@ -2588,7 +2713,19 @@
 
             seatPlusBtn.addEventListener('click', function () {
                 let val = parseInt(seatInput.value, 10) || 0;
-                if (val < 4) seatInput.value = val + 1;
+                if (val < 10) seatInput.value = val + 1;
+            });
+        }
+
+        if (boosterMinusBtn && boosterPlusBtn && boosterInput) {
+            boosterMinusBtn.addEventListener('click', function () {
+                let val = parseInt(boosterInput.value, 10) || 0;
+                if (val > 0) boosterInput.value = val - 1;
+            });
+
+            boosterPlusBtn.addEventListener('click', function () {
+                let val = parseInt(boosterInput.value, 10) || 0;
+                if (val < 10) boosterInput.value = val + 1;
             });
         }
 
@@ -2709,6 +2846,15 @@
             const tipVal   = checkoutRoot.querySelector('#etb-chk-tip-amount')?.value || '0';
 
             const formData = new FormData(formEl);
+
+            // Injection du numéro international certifié E.164 (ex: +33612345678) pour LimoExpress
+            if (phoneIti) {
+                const fullPhone = phoneIti.getNumber();
+                if (fullPhone) {
+                    formData.set('etb_phone', fullPhone);
+                }
+            }
+
             formData.append('action', 'etb_submit_checkout');
             formData.append('nonce', etbAjax.nonce);
             if (isPayLater) {
@@ -2844,10 +2990,26 @@
                 showFeedback('Please enter a valid email address for ride confirmation.', 'error');
                 return false;
             }
-            if (!phoneVal) {
+
+            // Validation du numéro de téléphone avec détection intelligente par pays
+            const rawPhone = phoneInputEl ? phoneInputEl.value.trim() : '';
+            const digitsCount = rawPhone.replace(/\D/g, '').length;
+
+            if (!rawPhone || digitsCount < 5) {
                 showFeedback('Please enter a mobile phone number for chauffeur SMS updates.', 'error');
+                if (phoneInputEl) phoneInputEl.focus();
                 return false;
             }
+
+            // Vérification de cohérence par pays avec Google libphonenumber si disponible
+            if (phoneIti && typeof phoneIti.isValidNumber === 'function' && typeof window.intlTelInputUtils !== 'undefined') {
+                if (!phoneIti.isValidNumber()) {
+                    showFeedback('Please enter a valid phone number for the selected country.', 'error');
+                    if (phoneInputEl) phoneInputEl.focus();
+                    return false;
+                }
+            }
+
             if (!vehicleId) {
                 showFeedback('No vehicle selected. Please return and choose a vehicle.', 'error');
                 return false;

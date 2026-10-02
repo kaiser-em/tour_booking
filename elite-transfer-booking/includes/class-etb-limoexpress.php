@@ -242,10 +242,12 @@ class ETB_LimoExpress {
             }
         }
 
-        // 6. Traitement des Extras & Sièges Enfants (Lecture de la valeur réelle transmise)
-        $baby_seat_count = ! empty( $data['baby_seat_count'] ) ? absint( $data['baby_seat_count'] ) : 0;
-        $extras_summary  = '';
-        $extra_fees      = array();
+        // 6. Traitement des Extras & Sièges Enfants
+        $baby_seat_count    = ! empty( $data['baby_seat_count'] ) ? absint( $data['baby_seat_count'] ) : 0;
+        $booster_seat_count = ! empty( $data['booster_seat_count'] ) ? absint( $data['booster_seat_count'] ) : 0;
+        $total_child_seats  = ! empty( $data['total_child_seats'] ) ? absint( $data['total_child_seats'] ) : ( $baby_seat_count + $booster_seat_count );
+        $extras_summary     = '';
+        $extra_fees         = array();
 
         if ( ! empty( $data['extras'] ) ) {
             foreach ( $data['extras'] as $e_id => $qty ) {
@@ -307,23 +309,55 @@ class ETB_LimoExpress {
         $pickup_address   = ! empty( $data['pickup_address'] ) ? $data['pickup_address'] : 'Non spécifié';
         $dropoff_info     = ! empty( $data['dropoff_info'] ) ? $data['dropoff_info'] : $pickup_address;
         $total_passengers = intval( $data['adults'] ) + intval( $data['children'] );
+
+        // Détail des bagages (Checked Luggage + Cabin Bags)
+        $total_luggage_sum = intval( $data['luggage'] ?? 0 );
+        $checked_luggage   = isset( $data['checked_luggage'] ) ? intval( $data['checked_luggage'] ) : $total_luggage_sum;
+        $cabin_bags        = isset( $data['cabin_bags'] ) ? intval( $data['cabin_bags'] ) : 0;
+
+        $luggage_detail_str = (string) $total_luggage_sum;
+        if ( $checked_luggage > 0 || $cabin_bags > 0 ) {
+            $luggage_parts = array();
+            if ( $checked_luggage > 0 ) {
+                $luggage_parts[] = sprintf( '%d Checked (Grand)', $checked_luggage );
+            }
+            if ( $cabin_bags > 0 ) {
+                $luggage_parts[] = sprintf( '%d Cabin (Petit)', $cabin_bags );
+            }
+            $luggage_detail_str = sprintf( '%d (%s)', $total_luggage_sum, implode( ' + ', $luggage_parts ) );
+        }
         
         $client_note      = ! empty( $data['client_note'] ) ? trim( $data['client_note'] ) : 'Aucune';
         $dispatcher_alert = ! empty( $data['dispatcher_alert'] ) ? trim( $data['dispatcher_alert'] ) . "\n" : '';
 
         $flight_info = ! empty( $data['flight_number'] ) ? "✈️ VOL : " . trim( $data['flight_number'] ) . "\n" : "";
         $ref_info    = ! empty( $data['cost_center'] ) ? "🏢 RÉF : " . trim( $data['cost_center'] ) . "\n" : "";
-        $seats_info  = ( $baby_seat_count > 0 ) ? "👶 SIÈGES BÉBÉ REQUIS : " . $baby_seat_count . "\n" : "";
+
+        // Mention détaillée précise des sièges enfants
+        $seats_info  = '';
+        if ( $baby_seat_count > 0 || $booster_seat_count > 0 ) {
+            $seats_parts = array();
+            if ( $baby_seat_count > 0 ) {
+                $seats_parts[] = sprintf( '%d Siège(s) Bébé (0-2 ans)', $baby_seat_count );
+            }
+            if ( $booster_seat_count > 0 ) {
+                $seats_parts[] = sprintf( '%d Rehausseur(s) / Booster (3-10 ans)', $booster_seat_count );
+            }
+            $seats_info = "👶 SIÈGES ENFANTS : " . implode( ' + ', $seats_parts ) . "\n";
+        }
+
         $sign_info   = ! empty( $data['waiting_board_text'] ) ? "🪧 PANCARTE : " . trim( $data['waiting_board_text'] ) . "\n" : "";
         $promo_info  = ! empty( $promo_text ) ? $promo_text . "\n" : "";
 
+        // BLOC OPÉRATIONNEL COMMUN (Tout le terrain, zéro finance)
         // BLOC OPÉRATIONNEL COMMUN (Tout le terrain, zéro finance)
         $operational_details = sprintf(
             "📋 DOSSIER #%d\n" .
             "📍 Départ : %s\n" .
             "🏁 Arrivée : %s\n" .
             "🚘 Véhicule(s) : %s\n" .
-            "👥 Passagers : %d (🧳 Bagages : %d)\n" .
+            "👥 Passagers : %d\n" .
+            "🧳 Bagages : %s\n" .
             "%s%s%s%s" .
             "⭐ Extras : %s\n" .
             "📝 Note client : %s\n",
@@ -332,7 +366,7 @@ class ETB_LimoExpress {
             $dropoff_info,
             $vehicles_summary ?: 'Non spécifié',
             $total_passengers,
-            intval( $data['luggage'] ),
+            $luggage_detail_str,
             $seats_info,
             $flight_info,
             $sign_info,
@@ -467,9 +501,9 @@ class ETB_LimoExpress {
             'to_location'            => $is_hourly_trip ? array( 'name' => 'As Directed (À disposition)' ) : array( 'name' => $dropoff_info ),
             'price'                  => (int) round( $base_ride_price ),
             'price_type'             => 'NET',
-            'passenger_count'        => (int) $total_passengers,
+           'passenger_count'        => (int) $total_passengers,
             'suitcase_count'         => (int) $data['luggage'],
-            'baby_seat_count'        => (int) $baby_seat_count,
+            'baby_seat_count'        => (int) $total_child_seats, // Somme totale pour le champ officiel LimoExpress
             'round_trip'             => ! empty( $data['option_id'] ),
             'note'                   => $dispatcher_note,
             'note_for_driver'        => substr( $note_for_driver, 0, 500 ),

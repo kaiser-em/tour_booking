@@ -32,6 +32,17 @@ $formatted_price = ( 'Custom Quote' === $price_val || floatval( $price_val ) <= 
     ? 'Custom Quote'
     : ( number_format_i18n( floatval( $price_val ), 0 ) . ' ' . $currency_symbol );
 
+
+// Formatage de la date en anglais (ex: 03 Oct. 2026 at 09:00 AM)
+$formatted_datetime_display = '—';
+if ( ! empty( $date_val ) ) {
+    $dt_timestamp = strtotime( $date_val );
+    $formatted_datetime_display = $dt_timestamp ? date( 'd M. Y', $dt_timestamp ) : $date_val;
+    if ( ! empty( $time_val ) ) {
+        $formatted_datetime_display .= ' at ' . $time_val;
+    }
+}
+
 // Détection d'une réservation urgente (< délai minimum configuré, par défaut 24h)
 $min_delay_hours   = isset( $gen_settings['min_delay'] ) ? absint( $gen_settings['min_delay'] ) : 24;
 $is_urgent_booking = false;
@@ -189,7 +200,7 @@ if ( ! empty( $date_val ) ) {
                             </div>
                             <div class="etb-chk-field">
                                 <label for="etb-passenger-phone">Mobile Phone *</label>
-                                <input type="tel" name="etb_phone" id="etb-passenger-phone" placeholder="+33 6 12 34 56 78" required>
+                                <input type="tel" name="etb_phone" id="etb-passenger-phone" class="etb-phone-field" placeholder="6 12 34 56 78" required>
                                 <small class="etb-chk-hint">Chauffeur will send SMS or call when arriving on location.</small>
                             </div>
                             
@@ -219,11 +230,20 @@ if ( ! empty( $date_val ) ) {
                             </div>
                         </div>
 
-                        <!-- Sélecteur Passagers & Bagages interactif -->
-                        <div class="etb-chk-capacity-box" style="margin-top: 15px;">
+                        <!-- Sélecteur 3 colonnes : Passengers | Checked Luggage | Cabin Bags -->
+                        <div class="etb-chk-capacity-box etb-chk-capacity-3col" style="margin-top: 15px;">
+                            
+                            <!-- 1. Passengers -->
                             <div class="etb-chk-cap-item">
                                 <div class="etb-chk-cap-label">
-                                    <span class="dashicons dashicons-admin-users"></span>
+                                    <span class="etb-cap-svg-wrap" style="color: #fbac18; display: flex; align-items: center; flex-shrink: 0;">
+                                        <svg viewBox="0 0 100 95" width="30" height="30" fill="currentColor">
+                                            <path d="m88.484 31.117c0 8.0312-6.5117 14.539-14.539 14.539-8.0312 0-14.543-6.5078-14.543-14.539s6.5117-14.539 14.543-14.543c8.0273 0 14.539 6.5117 14.539 14.543z"/>
+                                            <path d="m0.90234 73.273c-3.0547 6.2812 2.0391 15.633 9.6914 17.562 16.133 3.6016 32.57 3.6016 48.703 0 7.6562-1.9336 12.75-11.281 9.6914-17.562-5.7109-11.867-18.844-22.293-34.047-22.391-15.203 0.10156-28.336 10.523-34.047 22.391z"/>
+                                            <path d="m54.445 25.965c0 10.77-8.7305 19.504-19.5 19.504-10.77 0-19.504-8.7344-19.504-19.504 0-10.77 8.7344-19.5 19.504-19.5 10.77-0.003906 19.5 8.7305 19.5 19.5z"/>
+                                            <path d="m99.328 66.391c-4.2578-8.8516-14.051-16.625-25.383-16.695-5.1719 0.03125-10.023 1.6719-14.176 4.2812 6.0273 4.4648 11.02 10.426 14.141 16.91 1.5391 3.1641 1.8438 6.8906 0.93359 10.605 5.7734-0.0625 11.539-0.73047 17.258-2.0078 5.707-1.4414 9.5078-8.4141 7.2266-13.094z"/>
+                                        </svg>
+                                    </span>
                                     <div>
                                         <strong>Passengers</strong>
                                         <small id="etb-chk-max-pax-hint">Max: <?php echo esc_html( $pax_count ); ?></small>
@@ -236,12 +256,17 @@ if ( ! empty( $date_val ) ) {
                                 </div>
                             </div>
 
+                            <!-- 2. Checked Luggage (Big Bags) -->
                             <div class="etb-chk-cap-item">
                                 <div class="etb-chk-cap-label">
-                                    <span class="dashicons dashicons-portfolio"></span>
+                                    <span class="etb-cap-svg-wrap" style="color: #fbac18; display: flex; align-items: center; flex-shrink: 0;">
+                                        <svg viewBox="20 8 60 88" width="30" height="30" fill="currentColor">
+                                            <path d="M70.75,26.75H60.028l1.056,5.476c2.108-0.315,4.109,1.073,4.517,3.185l0.868,4.5c0.418,2.169-1.001,4.267-3.171,4.685 l-1.227,0.237c-2.169,0.418-4.268-1.001-4.686-3.17l-0.867-4.5c-0.408-2.113,0.936-4.146,3.01-4.637l-1.113-5.775H54.75v-14 c0-0.019-0.01-0.034-0.011-0.052c0.002-0.032,0.01-0.062,0.01-0.095c0-0.773-0.626-1.397-1.397-1.397h-6.705 c-0.771,0-1.397,0.624-1.397,1.397c0,0.034,0.008,0.065,0.01,0.098c0,0.017-0.01,0.031-0.01,0.049v14h-16c-2.209,0-4,1.791-4,4v59 c0,2.209,1.791,4,4,4h6V94c0,0.69,0.559,1.25,1.25,1.25c0.689,0,1.25-0.56,1.25-1.25v-0.25h24.5V94c0,0.69,0.559,1.25,1.25,1.25 c0.689,0,1.25-0.56,1.25-1.25v-0.25h6c2.209,0,4-1.791,4-4v-59C74.75,28.541,72.959,26.75,70.75,26.75z M47.75,14h4.5v12.75h-4.5V14 z M63.39,84.078h-26.78c-1.027,0-1.86-0.834-1.86-1.859c0-1.028,0.833-1.859,1.86-1.859h26.78c1.026,0,1.859,0.831,1.859,1.859 C65.249,83.244,64.416,84.078,63.39,84.078z"/>
+                                        </svg>
+                                    </span>
                                     <div>
-                                        <strong>Luggage</strong>
-                                        <small id="etb-chk-max-bag-hint">Max: <?php echo esc_html( $bag_count ); ?></small>
+                                        <strong>Checked Luggage</strong>
+                                        <small>Large suitcase</small>
                                     </div>
                                 </div>
                                 <div class="etb-chk-qty-control">
@@ -250,6 +275,29 @@ if ( ! empty( $date_val ) ) {
                                     <button type="button" class="etb-chk-qty-btn etb-bag-plus">+</button>
                                 </div>
                             </div>
+
+                            <!-- 3. Cabin Bags (Hand luggage) -->
+                            <div class="etb-chk-cap-item">
+                                <div class="etb-chk-cap-label">
+                                    <span class="etb-cap-svg-wrap suitcase" style="color: #fbac18; display: flex; align-items: center; flex-shrink: 0;">
+                                        <svg viewBox="0 0 401.438 401.438" width="20" height="20" fill="currentColor">
+                                            <path d="M272.25,71.625c0-15.816-12.871-28.688-28.688-28.688H157.5c-15.816,0-28.688,12.871-28.688,28.688V90.75H76.5V358.5 h248.625V90.75H272.25V71.625z M253.125,90.75H147.938V71.625c0-5.279,4.284-9.562,9.562-9.562h86.062 c5.278,0,9.562,4.284,9.562,9.562L253.125,90.75L253.125,90.75z"/>
+                                            <path d="M0,129v191.25c0,21.123,17.126,38.25,38.25,38.25h28.688V90.75H38.25C17.126,90.75,0,107.876,0,129z"/>
+                                            <path d="M363.188,90.75H334.5V358.5h28.688c21.125,0,38.25-17.127,38.25-38.25V129C401.438,107.876,384.311,90.75,363.188,90.75z"/>
+                                        </svg>
+                                    </span>
+                                    <div>
+                                        <strong>Cabin Bags</strong>
+                                        <small>Hand luggage</small>
+                                    </div>
+                                </div>
+                                <div class="etb-chk-qty-control">
+                                    <button type="button" class="etb-chk-qty-btn etb-cabin-bag-minus">-</button>
+                                    <input type="number" name="etb_cabin_bag_count" id="etb-chk-cabin-bag-input" value="0" min="0" readonly>
+                                    <button type="button" class="etb-chk-qty-btn etb-cabin-bag-plus">+</button>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
 
@@ -267,20 +315,54 @@ if ( ! empty( $date_val ) ) {
                             </div>
                         </div>
 
-                        <!-- Sièges enfants -->
-                        <div class="etb-chk-child-seats-box">
-                            <div class="etb-chk-seat-info">
-                                <span class="dashicons dashicons-heart"></span>
-                                <div>
-                                    <strong>Child / Baby Seats Required?</strong>
-                                    <p>Infant seat (0-1 yr), Toddler seat (1-4 yrs) or Booster (4-10 yrs).</p>
+                        <!-- Sièges enfants : 1. Baby Seat & 2. Booster Seat en 2 colonnes (Côte à côte) -->
+                        <div class="etb-chk-grid-2 etb-chk-seats-wrapper" style="margin-bottom: 16px;">
+                            
+                            <!-- 1. Baby Seat (0-2 yrs) -->
+                            <div class="etb-chk-child-seats-box">
+                                <div class="etb-chk-seat-info">
+                                    <span class="etb-seat-svg-icon" style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; color: #fbac18; flex-shrink: 0;">
+                                        <svg viewBox="0 0 100 100" width="22" height="22" fill="currentColor">
+                                            <path d="M50.673,29.234c7.425-0.008,13.452-6.03,13.452-13.451c0-7.443-6.025-13.468-13.452-13.451 C43.236,2.316,37.214,8.34,37.219,15.784C37.214,23.205,43.236,29.226,50.673,29.234z"/>
+                                            <path d="M50.673,57.383H36.41V47.062L25.55,58.029c-4.921,4.921-11.581-1.379-6.645-6.32l17.989-18.043 c1.47-1.438,3.068-2.359,5.62-2.38h8.159l0,0h7.995c2.521,0.021,4.229,0.916,5.726,2.38L82.6,51.924 c4.684,4.665-2.157,11.024-6.644,6.267L64.771,47.009v10.373L50.673,57.383z M69,21.086L20.952,65.308 l3.946,4.287l48.05-44.221L69,21.086z"/>
+                                            <path d="M75.764,69.482c-16.016-8.113-34.926-8.059-50.867,0.108c-0.788-1.539-1.577-3.076-2.366-4.613 c17.418-8.924,38.077-8.983,55.574-0.122C77.325,66.398,76.545,67.94,75.764,69.482z"/>
+                                            <path d="M39.219,65.945l7.887,7.886l-7.831,7.83l8.048,8.053c4.731,4.739-1.815,11.53-6.701,6.645l-12.75-13.234 c-2.721-2.801-3.476-7.944-0.539-10.858c0-0.011,1.96-1.982,4.06-4.092C31.393,68.174,35.177,66.692,39.219,65.945z"/>
+                                            <path d="M69.791,68.174c2.099,2.109,4.06,4.081,4.06,4.092c2.935,2.914,2.183,8.058-0.539,10.858L60.561,96.358 c-4.885,4.886-11.432-1.905-6.7-6.645l8.048-8.053l-7.831-7.83l7.886-7.886C66.006,66.692,69.791,68.174,69.791,68.174z"/>
+                                            <path d="M21.251,72.781c-0.491,0.429-1.236,0.378-1.664-0.115l-2.284-2.619c-0.428-0.49-0.377-1.235,0.114-1.664 l2.241-1.953c0.491-0.429,0.649-0.419,1.078,0.074l2.83,3.246c0.428,0.491,0.417,0.649-0.073,1.077L21.251,72.781z M22.132,70.187 c0.259-0.229,0.286-0.62,0.06-0.878l-1.204-1.383c-0.226-0.259-0.62-0.286-0.879-0.061l-1.016,0.887 c-0.259,0.225-0.287,0.619-0.06,0.878l1.204,1.382c0.226,0.26,0.62,0.286,0.878,0.061L22.132,70.187z"/>
+                                        </svg>
+                                    </span>
+                                    <div>
+                                        <strong>Baby Seat</strong>
+                                        <p>For infant 0-2 yrs.</p>
+                                    </div>
+                                </div>
+                                <div class="etb-chk-qty-control">
+                                    <button type="button" class="etb-chk-qty-btn etb-seat-minus">-</button>
+                                    <input type="number" name="etb_baby_seat_count" id="etb-chk-baby-seats" value="0" min="0" max="4" readonly>
+                                    <button type="button" class="etb-chk-qty-btn etb-seat-plus">+</button>
                                 </div>
                             </div>
-                            <div class="etb-chk-qty-control">
-                                <button type="button" class="etb-chk-qty-btn etb-seat-minus">-</button>
-                                <input type="number" name="etb_baby_seat_count" id="etb-chk-baby-seats" value="0" min="0" max="4" readonly>
-                                <button type="button" class="etb-chk-qty-btn etb-seat-plus">+</button>
+
+                            <!-- 2. Booster / Child Seat (3-10 yrs) -->
+                            <div class="etb-chk-child-seats-box">
+                                <div class="etb-chk-seat-info">
+                                    <span class="etb-seat-svg-icon" style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; color: #fbac18; flex-shrink: 0;">
+                                        <svg viewBox="0 0 100 100" width="22" height="22" fill="currentColor">
+                                            <path d="M 72.317,5.001 A 9.686,9.686 0 0 0 62.784,15.594 c 0.514,0.178 1.013,0.368 1.513,0.605 7.244,3.44 10.383,12.198 6.961,19.445 -1.041,2.187 -2.619,3.946 -4.464,5.296 l 13.052,-6.999 2.27,4.237 -15.624,8.398 c 1.599,2.867 1.884,6.389 0.378,9.571 -1.102,2.344 -6.844,14.419 -8.058,16.948 -0.833,1.747 -1.931,3.298 -3.216,4.615 l 2.459,5.372 -4.388,2.005 -2.005,-4.388 c -4.748,2.666 -10.657,3.089 -15.927,0.605 l -2.856,-1.379 c -2.856,-1.379 -4.97,-3.408 -6.62,-5.485 -1.611,-2.034 -2.391,-4.336 -3.026,-6.469 -2.387,1.562 -4.899,3.184 -6.166,4.086 -2.445,1.706 -5.524,1.91 -8.134,0.832 a 9.695,9.695 0 0 0 2.005,8.474 l 7.301,8.739 a 9.686,9.686 0 0 0 7.453,3.48 l 27.276,0 a 9.686,9.686 0 0 0 8.739,-5.561 l 24.552,-51.904 a 9.686,9.686 0 0 0 0.189,-7.869 L 81.434,11.054 A 9.686,9.686 0 0 0 72.317,5.001 z M 57.45,18.431 c -3.886,0.216 -7.558,2.522 -9.344,6.28 -2.598,5.489 -0.233,12.017 5.258,14.603 5.471,2.603 11.2,0.246 14.603,-5.221 2.588,-5.481 0.261,-11.2 -5.221,-14.603 -1.71,-0.81 -3.53,-1.157 -5.296,-1.059 z M 34.486,28.683 c -0.612,0.05 -1.2,0.225 -1.778,0.53 -2.326,1.203 -3.216,4.04 -2.005,6.356 l 5.561,10.706 c 0.604,1.149 1.628,1.989 2.875,2.345 l 5.675,1.665 -1.665,3.367 16.494,-8.852 c -0.132,-0.057 -0.275,-0.107 -0.416,-0.151 0,0 -12.451,-3.643 -15.511,-4.54 -1.289,-2.48 -4.615,-8.928 -4.615,-8.928 -0.912,-1.728 -2.779,-2.646 -4.615,-2.497 z M 63.389,48.279 46.214,57.51 53.894,74.155 c 0.623,-0.792 1.177,-1.66 1.627,-2.61 1.174,-2.446 6.977,-14.65 8.058,-16.948 0.994,-2.102 0.839,-4.424 -0.189,-6.318 z M 28.812,52.403 c -1.244,0.029 -2.496,0.402 -3.594,1.173 0,0 -9.617,6.54 -13.089,8.966 -2.181,1.55 -2.73,4.579 -1.173,6.772 1.545,2.191 4.579,2.703 6.772,1.173 2.412,-1.717 8.236,-5.39 10.517,-6.999 0,0 1.461,7.322 3.632,10.063 1.432,1.803 3.149,3.429 5.372,4.502 4.288,2.021 9.075,1.668 12.862,-0.567 L 41.031,57.926 38.307,63.449 34.222,55.127 C 32.935,53.289 30.885,52.355 28.812,52.403 z"/>
+                                        </svg>
+                                    </span>
+                                    <div>
+                                        <strong>Booster Seat</strong>
+                                        <p>For child 3-10 yrs.</p>
+                                    </div>
+                                </div>
+                                <div class="etb-chk-qty-control">
+                                    <button type="button" class="etb-chk-qty-btn etb-booster-minus">-</button>
+                                    <input type="number" name="etb_booster_seat_count" id="etb-chk-booster-seats" value="0" min="0" max="4" readonly>
+                                    <button type="button" class="etb-chk-qty-btn etb-booster-plus">+</button>
+                                </div>
                             </div>
+
                         </div>
 
                         <div class="etb-chk-field" style="margin-top: 15px;">
@@ -402,50 +484,29 @@ if ( ! empty( $date_val ) ) {
                             <h4 id="etb-chk-summary-vehicle-name"><?php echo esc_html( $vehicle_name ); ?></h4>
                             <div class="etb-chk-summary-specs" id="etb-chk-summary-specs">
                                 <span class="etb-summary-spec-item">
-                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fbac18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
-                                        <circle cx="12" cy="7" r="4"></circle>
+                                    <svg viewBox="0 0 100 95" width="15" height="15" fill="#fbac18">
+                                        <path d="m88.484 31.117c0 8.0312-6.5117 14.539-14.539 14.539-8.0312 0-14.543-6.5078-14.543-14.539s6.5117-14.539 14.543-14.543c8.0273 0 14.539 6.5117 14.539 14.543z"/>
+                                        <path d="m0.90234 73.273c-3.0547 6.2812 2.0391 15.633 9.6914 17.562 16.133 3.6016 32.57 3.6016 48.703 0 7.6562-1.9336 12.75-11.281 9.6914-17.562-5.7109-11.867-18.844-22.293-34.047-22.391-15.203 0.10156-28.336 10.523-34.047 22.391z"/>
+                                        <path d="m54.445 25.965c0 10.77-8.7305 19.504-19.5 19.504-10.77 0-19.504-8.7344-19.504-19.504 0-10.77 8.7344-19.5 19.504-19.5 10.77-0.003906 19.5 8.7305 19.5 19.5z"/>
+                                        <path d="m99.328 66.391c-4.2578-8.8516-14.051-16.625-25.383-16.695-5.1719 0.03125-10.023 1.6719-14.176 4.2812 6.0273 4.4648 11.02 10.426 14.141 16.91 1.5391 3.1641 1.8438 6.8906 0.93359 10.605 5.7734-0.0625 11.539-0.73047 17.258-2.0078 5.707-1.4414 9.5078-8.4141 7.2266-13.094z"/>
                                     </svg>
-                                    <span><strong id="etb-chk-pax-count"><?php echo esc_html( $pax_count ); ?></strong> passengers</span>
+                                    <span><strong id="etb-chk-pax-count"><?php echo esc_html( $pax_count ); ?></strong> Passengers</span>
                                 </span>
                                 <span class="etb-spec-dot">•</span>
                                 <span class="etb-summary-spec-item">
-                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fbac18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
-                                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                                    <svg viewBox="20 8 60 88" width="15" height="15" fill="#fbac18">
+                                        <path d="M70.75,26.75H60.028l1.056,5.476c2.108-0.315,4.109,1.073,4.517,3.185l0.868,4.5c0.418,2.169-1.001,4.267-3.171,4.685 l-1.227,0.237c-2.169,0.418-4.268-1.001-4.686-3.17l-0.867-4.5c-0.408-2.113,0.936-4.146,3.01-4.637l-1.113-5.775H54.75v-14 c0-0.019-0.01-0.034-0.011-0.052c0.002-0.032,0.01-0.062,0.01-0.095c0-0.773-0.626-1.397-1.397-1.397h-6.705 c-0.771,0-1.397,0.624-1.397,1.397c0,0.034,0.008,0.065,0.01,0.098c0,0.017-0.01,0.031-0.01,0.049v14h-16c-2.209,0-4,1.791-4,4v59 c0,2.209,1.791,4,4,4h6V94c0,0.69,0.559,1.25,1.25,1.25c0.689,0,1.25-0.56,1.25-1.25v-0.25h24.5V94c0,0.69,0.559,1.25,1.25,1.25 c0.689,0,1.25-0.56,1.25-1.25v-0.25h6c2.209,0,4-1.791,4-4v-59C74.75,28.541,72.959,26.75,70.75,26.75z M47.75,14h4.5v12.75h-4.5V14 z M63.39,84.078h-26.78c-1.027,0-1.86-0.834-1.86-1.859c0-1.028,0.833-1.859,1.86-1.859h26.78c1.026,0,1.859,0.831,1.859,1.859 C65.249,83.244,64.416,84.078,63.39,84.078z"/>
                                     </svg>
-                                    <span><strong id="etb-chk-bag-count"><?php echo esc_html( $bag_count ); ?></strong> luggage</span>
+                                    <span><strong id="etb-chk-bag-count"><?php echo esc_html( $bag_count ); ?></strong> Luggage</span>
                                 </span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Détails Itinéraire & Horaires (Tracé Blacklane) -->
+                    <!-- Détails Itinéraire & Horaires (Date en 1er puis Trajet) -->
                     <div class="etb-chk-summary-timeline">
-                        <div class="etb-chk-timeline-item" id="etb-chk-timeline-pickup-row">
-                            <span class="etb-chk-bullet etb-bullet-pickup"></span>
-                            <div class="etb-chk-timeline-text">
-                                <small>PICKUP</small>
-                                <strong id="etb-chk-summary-pickup"><?php echo esc_html( $pickup_addr ?: '—' ); ?></strong>
-                            </div>
-                        </div>
-
-                        <div class="etb-chk-timeline-item" id="etb-chk-timeline-dropoff-row">
-                            <span class="etb-chk-bullet etb-bullet-dropoff"></span>
-                            <div class="etb-chk-timeline-text">
-                                <small>DROP-OFF</small>
-                                <strong id="etb-chk-summary-dropoff"><?php echo esc_html( $dropoff_addr ?: '—' ); ?></strong>
-                            </div>
-                        </div>
-
-                        <div class="etb-chk-timeline-item" id="etb-chk-timeline-duration-row" style="display: none;">
-                            <span class="etb-chk-bullet etb-bullet-hourly"></span>
-                            <div class="etb-chk-timeline-text">
-                                <small>DURATION</small>
-                                <strong id="etb-chk-summary-duration">—</strong>
-                            </div>
-                        </div>
-
+                        
+                        <!-- 1. DATE & TIME (En tête) -->
                         <div class="etb-chk-timeline-item" id="etb-chk-timeline-date-row">
                             <span class="etb-chk-calendar-icon">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fbac18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -457,9 +518,37 @@ if ( ! empty( $date_val ) ) {
                             </span>
                             <div class="etb-chk-timeline-text">
                                 <small>DATE & TIME</small>
-                                <strong id="etb-chk-summary-datetime"><?php echo esc_html( ( $date_val && $time_val ) ? sprintf( '%s at %s', $date_val, $time_val ) : '—' ); ?></strong>
+                                <strong id="etb-chk-summary-datetime"><?php echo esc_html( $formatted_datetime_display ); ?></strong>
                             </div>
                         </div>
+
+                        <!-- 2. PICKUP (Départ) -->
+                        <div class="etb-chk-timeline-item" id="etb-chk-timeline-pickup-row">
+                            <span class="etb-chk-bullet etb-bullet-pickup"></span>
+                            <div class="etb-chk-timeline-text">
+                                <small>PICKUP</small>
+                                <strong id="etb-chk-summary-pickup"><?php echo esc_html( $pickup_addr ?: '—' ); ?></strong>
+                            </div>
+                        </div>
+
+                        <!-- 3. DROP-OFF (Arrivée) -->
+                        <div class="etb-chk-timeline-item" id="etb-chk-timeline-dropoff-row">
+                            <span class="etb-chk-bullet etb-bullet-dropoff"></span>
+                            <div class="etb-chk-timeline-text">
+                                <small>DROP-OFF</small>
+                                <strong id="etb-chk-summary-dropoff"><?php echo esc_html( $dropoff_addr ?: '—' ); ?></strong>
+                            </div>
+                        </div>
+
+                        <!-- 3bis. DURATION (Mode À l'heure) -->
+                        <div class="etb-chk-timeline-item" id="etb-chk-timeline-duration-row" style="display: none;">
+                            <span class="etb-chk-bullet etb-bullet-hourly"></span>
+                            <div class="etb-chk-timeline-text">
+                                <small>DURATION</small>
+                                <strong id="etb-chk-summary-duration">—</strong>
+                            </div>
+                        </div>
+
                     </div>
 
                     <!-- Engagements de service Blacklane -->

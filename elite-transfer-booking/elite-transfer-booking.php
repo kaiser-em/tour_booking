@@ -34,9 +34,10 @@ class Elite_Transfer_Booking {
         wp_enqueue_style( 'etb-tokens', ETB_URL . 'public/css/modules/etb-tokens.css', array( 'dashicons' ), ETB_VERSION );
 
         // 2. Modules thématiques isolés (avec dépendance stricte sur les tokens)
+        wp_enqueue_style( 'intl-tel-input-style', 'https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/18.2.1/css/intlTelInput.css', array(), '18.2.1' );
         wp_enqueue_style( 'etb-transfer-widget', ETB_URL . 'public/css/modules/etb-transfer-widget.css', array( 'etb-tokens' ), ETB_VERSION );
         wp_enqueue_style( 'etb-circuits', ETB_URL . 'public/css/modules/etb-circuits.css', array( 'etb-tokens' ), ETB_VERSION );
-        wp_enqueue_style( 'etb-checkout', ETB_URL . 'public/css/modules/etb-checkout.css', array( 'etb-tokens' ), ETB_VERSION );
+        wp_enqueue_style( 'etb-checkout', ETB_URL . 'public/css/modules/etb-checkout.css', array( 'etb-tokens', 'intl-tel-input-style' ), ETB_VERSION );
         wp_enqueue_style( 'etb-payment', ETB_URL . 'public/css/modules/etb-payment.css', array( 'etb-tokens' ), ETB_VERSION );
         
         $gen_settings    = get_option( 'etb_general_settings', array() );
@@ -54,11 +55,12 @@ class Elite_Transfer_Booking {
         $stripe_enabled = ! empty( $gen_settings['stripe_enabled'] ) && '1' === $gen_settings['stripe_enabled'];
         $stripe_pk      = ! empty( $gen_settings['stripe_publishable_key'] ) ? trim( $gen_settings['stripe_publishable_key'] ) : '';
 
-        if ( $stripe_enabled && ! empty( $stripe_pk ) ) {
-            wp_enqueue_script( 'stripe-js', 'https://js.stripe.com/v3/', array(), null, true );
-        }
+        // Librairie internationale de téléphone (245 pays)
+        wp_enqueue_script( 'intl-tel-input-script', 'https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/18.2.1/js/intlTelInput.min.js', array(), '18.2.1', true );
 
-        wp_enqueue_script( 'etb-booking-script', ETB_URL . 'public/js/booking-widget.js', array(), ETB_VERSION, true );
+        wp_enqueue_script( 'etb-booking-script', ETB_URL . 'public/js/booking-widget.js', array( 'intl-tel-input-script' ), ETB_VERSION, true );
+
+       
 
         // Transmission des variables sécurisées à JavaScript
         wp_localize_script( 'etb-booking-script', 'etbAjax', array(
