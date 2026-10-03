@@ -35,23 +35,21 @@ $has_valid_booking = ( $booking_id > 0 && 'tour_booking' === get_post_type( $boo
 
 if ( isset( $_GET['debug'] ) && current_user_can( 'manage_options' ) ) {
     echo '<div style="background:#000;color:#0f0;padding:20px;font-family:monospace;font-size:12px;z-index:99999;position:relative;">';
-    echo '=== DIAGNOSTIC WORDPRESS ===<br>';
+    echo '=== DIAGNOSTIC WORDPRESS & LIMOEXPRESS ===<br>';
     echo 'Booking ID WP : ' . esc_html( $booking_id ) . '<br>';
-    echo 'Post Type : ' . esc_html( get_post_type( $booking_id ) ) . '<br>';
-    echo '_etb_total_price en base : ' . var_export( get_post_meta( $booking_id, '_etb_total_price', true ), true ) . '<br>';
-    echo '_etb_limo_status en base : ' . var_export( get_post_meta( $booking_id, '_etb_limo_status', true ), true ) . '<br>';
-    echo '_etb_limo_booking_id en base : ' . var_export( get_post_meta( $booking_id, '_etb_limo_booking_id', true ), true ) . '<br>';
-    echo '_etb_limo_uuid en base : ' . var_export( get_post_meta( $booking_id, '_etb_limo_uuid', true ), true ) . '<br>';
+    echo '_etb_total_price : ' . var_export( get_post_meta( $booking_id, '_etb_total_price', true ), true ) . '<br>';
+    echo '_etb_limo_booking_id : ' . var_export( get_post_meta( $booking_id, '_etb_limo_booking_id', true ), true ) . '<br>';
+    echo '_etb_limo_uuid : ' . var_export( get_post_meta( $booking_id, '_etb_limo_uuid', true ), true ) . '<br>';
     echo '</div>';
 }
 
 
 
 // 2. Contrôle de sécurité cryptographique anti-falsification
-$url_amount      = isset( $_GET['amount'] ) ? floatval( $_GET['amount'] ) : 0.0;
-$url_signature   = sanitize_text_field( $_GET['sig'] ?? '' );
-$is_tampered     = false;
-$settled_amount  = 0.0;
+//$url_amount      = isset( $_GET['amount'] ) ? floatval( $_GET['amount'] ) : 0.0;
+//$url_signature   = sanitize_text_field( $_GET['sig'] ?? '' );
+//$is_tampered     = false;
+//$settled_amount  = 0.0;
 
 // 2. Initialisation des états de base
 $is_already_paid = false;
@@ -109,24 +107,47 @@ if ( $url_amount > 0 ) {
     }
 }
 
-// 4. Récupération des détails de la réservation
+// 4. Récupération des détails complets de la réservation
 if ( $has_valid_booking && ! $is_tampered ) {
-    $customer_name  = get_post_meta( $booking_id, '_etb_customer_name', true ) ?: ( $pay_data['client_name'] ?? 'VIP Client' );
-    $customer_email = get_post_meta( $booking_id, '_etb_customer_email', true ) ?: ( $pay_data['client_email'] ?? '' );
-    $customer_phone = get_post_meta( $booking_id, '_etb_customer_phone', true ) ?: ( $pay_data['client_phone'] ?? '' );
-    $pickup_address = get_post_meta( $booking_id, '_etb_pickup_address', true ) ?: ( $pay_data['pickup'] ?? '—' );
-    $dropoff_info   = get_post_meta( $booking_id, '_etb_dropoff_info', true ) ?: ( $pay_data['dropoff'] ?? '—' );
-    $booking_date   = get_post_meta( $booking_id, '_etb_booking_date', true ) ?: ( $pay_data['date'] ?? '—' );
-    $booking_time   = get_post_meta( $booking_id, '_etb_booking_time', true ) ?: ( $pay_data['time'] ?? '—' );
-    $flight_number  = get_post_meta( $booking_id, '_etb_flight_number', true );
-    $limo_id        = get_post_meta( $booking_id, '_etb_limo_booking_id', true ) ?: ( $pay_data['limo_id'] ?? '' );
+    $customer_name   = get_post_meta( $booking_id, '_etb_customer_name', true ) ?: ( $pay_data['client_name'] ?? 'VIP Client' );
+    $customer_email  = get_post_meta( $booking_id, '_etb_customer_email', true ) ?: ( $pay_data['client_email'] ?? '' );
+    $customer_phone  = get_post_meta( $booking_id, '_etb_customer_phone', true ) ?: ( $pay_data['client_phone'] ?? '' );
+    $pickup_address  = get_post_meta( $booking_id, '_etb_pickup_address', true ) ?: ( $pay_data['pickup'] ?? '—' );
+    $dropoff_info    = get_post_meta( $booking_id, '_etb_dropoff_info', true ) ?: ( $pay_data['dropoff'] ?? '—' );
+    $booking_date    = get_post_meta( $booking_id, '_etb_booking_date', true ) ?: ( $pay_data['date'] ?? '' );
+    $booking_time    = get_post_meta( $booking_id, '_etb_booking_time', true ) ?: ( $pay_data['time'] ?? '' );
+    $flight_number   = get_post_meta( $booking_id, '_etb_flight_number', true );
+    $waiting_sign    = get_post_meta( $booking_id, '_etb_waiting_board_text', true );
+    $limo_id         = get_post_meta( $booking_id, '_etb_limo_booking_id', true ) ?: ( $pay_data['limo_id'] ?? '' );
+
+    // Passagers et Bagages détaillés
+    $pax_count       = absint( get_post_meta( $booking_id, '_etb_adults', true ) ?: 1 );
+    $checked_luggage = absint( get_post_meta( $booking_id, '_etb_checked_luggage', true ) );
+    $cabin_bags      = absint( get_post_meta( $booking_id, '_etb_cabin_bags', true ) );
+    $total_luggage   = absint( get_post_meta( $booking_id, '_etb_luggage', true ) ?: ($checked_luggage + $cabin_bags) );
+
+    // Sièges enfants
+    $baby_seats      = absint( get_post_meta( $booking_id, '_etb_baby_seat_count', true ) );
+    $booster_seats   = absint( get_post_meta( $booking_id, '_etb_booster_seat_count', true ) );
+
+    // Tarification décomposée & Pourboire chauffeur
+    $saved_tip_percent = absint( get_post_meta( $booking_id, '_etb_tip_percentage', true ) ?: 0 );
+    $saved_tip_amount  = floatval( get_post_meta( $booking_id, '_etb_tip_amount', true ) ?: 0.0 );
+    $saved_base_price  = floatval( get_post_meta( $booking_id, '_etb_base_price', true ) );
+
+    // Si le prix de base n'est pas isolé, on le déduit du montant total
+    if ( $saved_base_price <= 0 ) {
+        $saved_base_price = ( $settled_amount > $saved_tip_amount ) ? ( $settled_amount - $saved_tip_amount ) : $settled_amount;
+    }
     
     $vehicles = get_post_meta( $booking_id, '_etb_vehicles', true ) ?: array();
     $vehicle_title = 'VIP Chauffeured Vehicle';
+    $vehicle_img   = '';
     if ( ! empty( $vehicles ) && is_array( $vehicles ) ) {
         foreach ( $vehicles as $v_id => $q ) {
             if ( $q > 0 ) {
                 $vehicle_title = get_the_title( $v_id );
+                $vehicle_img   = get_the_post_thumbnail_url( $v_id, 'full' ) ?: '';
                 break;
             }
         }
@@ -137,11 +158,29 @@ if ( $has_valid_booking && ! $is_tampered ) {
     $customer_phone  = '';
     $pickup_address  = '—';
     $dropoff_info    = '—';
-    $booking_date    = '—';
-    $booking_time    = '—';
+    $booking_date    = '';
+    $booking_time    = '';
     $flight_number   = '';
+    $waiting_sign    = '';
     $limo_id         = '';
+    $pax_count       = 1;
+    $checked_luggage = 0;
+    $cabin_bags      = 0;
+    $total_luggage   = 0;
+    $baby_seats      = 0;
+    $booster_seats   = 0;
     $vehicle_title   = 'VIP Chauffeured Vehicle';
+    $vehicle_img     = '';
+}
+
+// Formatage de la date en anglais (ex: 03 Oct. 2026 at 09:00 AM)
+$formatted_pay_datetime = '—';
+if ( ! empty( $booking_date ) ) {
+    $dt_ts = strtotime( $booking_date );
+    $formatted_pay_datetime = $dt_ts ? date( 'd M. Y', $dt_ts ) : $booking_date;
+    if ( ! empty( $booking_time ) ) {
+        $formatted_pay_datetime .= ' at ' . $booking_time;
+    }
 }
 
 $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_symbol;
@@ -245,7 +284,7 @@ $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_s
                             <!-- Nom de marque & Slogan -->
                             <div class="etb-payment-logo-wrap" style="display: flex; flex-direction: column;">
                                 <span class="etb-payment-brand-title" style="font-size: 20px; font-weight: 900; letter-spacing: 0.08em; color: var(--etb-text-primary, #ffffff); line-height: 1.1;">EDEN CAB</span>
-                                <span class="etb-payment-brand-sub" style="font-size: 11px; color: #fbac18; text-transform: uppercase; letter-spacing: 0.14em; font-weight: 800; margin-top: 3px;"><?php echo esc_html( $sub_brand ); ?></span>
+                                <span class="etb-payment-brand-sub" style="font-size: 11px; color: var(--etb-accent-gold, #fbac18); text-transform: uppercase; letter-spacing: 0.14em; font-weight: 800; margin-top: 3px;"><?php echo esc_html( $sub_brand ); ?></span>
                             </div>
                         </div>
 
@@ -256,23 +295,45 @@ $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_s
                         </div>
                     </div>
 
-                    <!-- Montant principal en très gros -->
+                    <!-- Montant principal & Décomposition dynamique -->
                     <div style="margin-bottom: 24px;">
                         <span style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--etb-text-secondary, #94a3b8); letter-spacing: 0.05em;">Total Amount</span>
-                        <div style="font-size: 38px; font-weight: 900; color: var(--etb-accent-gold, #fbac18); letter-spacing: -1px; margin-top: 2px;">
+                        <div id="etb-pay-display-total" style="font-size: 38px; font-weight: 900; color: var(--etb-accent-gold, #fbac18); letter-spacing: -1px; margin-top: 2px;">
                             <?php echo esc_html( $formatted_amount ); ?>
+                        </div>
+                        <div id="etb-pay-display-tip-line" style="font-size: 12px; margin-top: 2px; <?php echo ( $saved_tip_amount <= 0 ) ? 'display: none;' : ''; ?>">
+                            Includes <strong id="etb-pay-display-tip-text"><?php echo number_format_i18n( $saved_tip_amount, 2 ); ?> <?php echo esc_html( $currency_symbol ); ?></strong> driver tip (<span id="etb-pay-display-tip-pct"><?php echo esc_html( $saved_tip_percent ); ?>%</span>)
                         </div>
                     </div>
 
                     <!-- Détails de la mission -->
                     <div style="border-top: 1px solid var(--etb-border-light, rgba(255,255,255,0.08)); padding-top: 20px; margin-bottom: 20px;">
-                        <h4 style="font-size: 16px; font-weight: 800; margin: 0 0 6px 0; color: var(--etb-text-primary, #ffffff);"><?php echo esc_html( $vehicle_title ); ?></h4>
-                        <p style="font-size: 13px; color: var(--etb-text-secondary, #94a3b8); margin: 0 0 16px 0;">
-                            Passenger: <strong style="color: var(--etb-text-primary, #ffffff);"><?php echo esc_html( $customer_name ); ?></strong>
-                        </p>
+                        
+                        <!-- 1. NOM DU VÉHICULE -->
+                        <h4 style="font-size: 17px; font-weight: 800; margin: 0 0 16px 0; color: var(--etb-text-primary, #ffffff); letter-spacing: 0.02em;">
+                            <?php echo esc_html( $vehicle_title ); ?>
+                        </h4>
 
-                        <!-- Timeline trajet -->
-                        <div class="etb-chk-summary-timeline">
+                        <!-- 2. TIMELINE : DATE, PICKUP, DROPOFF, FLIGHT, GREETING SIGN -->
+                        <div class="etb-chk-summary-timeline" style="margin-bottom: 18px;">
+                            
+                            <!-- Date & Time -->
+                            <div class="etb-chk-timeline-item">
+                                <span class="etb-chk-calendar-icon">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fbac18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                                    </svg>
+                                </span>
+                                <div class="etb-chk-timeline-text">
+                                    <small>DATE & TIME</small>
+                                    <strong><?php echo esc_html( $formatted_pay_datetime ); ?></strong>
+                                </div>
+                            </div>
+
+                            <!-- Pickup -->
                             <div class="etb-chk-timeline-item">
                                 <span class="etb-chk-bullet etb-bullet-pickup"></span>
                                 <div class="etb-chk-timeline-text">
@@ -280,6 +341,8 @@ $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_s
                                     <strong><?php echo esc_html( $pickup_address ); ?></strong>
                                 </div>
                             </div>
+
+                            <!-- Drop-off -->
                             <div class="etb-chk-timeline-item">
                                 <span class="etb-chk-bullet etb-bullet-dropoff"></span>
                                 <div class="etb-chk-timeline-text">
@@ -287,15 +350,8 @@ $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_s
                                     <strong><?php echo esc_html( $dropoff_info ); ?></strong>
                                 </div>
                             </div>
-                            <div class="etb-chk-timeline-item">
-                                <span class="etb-chk-calendar-icon">
-                                    <span class="dashicons dashicons-calendar-alt" style="color: #fbac18; font-size: 15px;"></span>
-                                </span>
-                                <div class="etb-chk-timeline-text">
-                                    <small>DATE & TIME</small>
-                                    <strong><?php echo esc_html( $booking_date . ' at ' . $booking_time ); ?></strong>
-                                </div>
-                            </div>
+
+                            <!-- Vol si présent -->
                             <?php if ( ! empty( $flight_number ) ) : ?>
                                 <div class="etb-chk-timeline-item">
                                     <span class="dashicons dashicons-airplane" style="color: #fbac18; font-size: 15px; margin-left: 2px;"></span>
@@ -305,10 +361,70 @@ $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_s
                                     </div>
                                 </div>
                             <?php endif; ?>
+
+                            <!-- Pancarte d'accueil si présente -->
+                            <?php if ( ! empty( $waiting_sign ) ) : ?>
+                                <div class="etb-chk-timeline-item">
+                                    <span style="font-size: 13px; line-height: 1; margin-left: 2px;">🪧</span>
+                                    <div class="etb-chk-timeline-text">
+                                        <small>GREETING SIGN</small>
+                                        <strong><?php echo esc_html( $waiting_sign ); ?></strong>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
                         </div>
+
+                        <!-- 3. PASSAGER & CAPACITÉS (PAX, CHECKED, CABIN, SIÈGES BÉBÉ) -->
+                        <div style="border-top: 1px dashed var(--etb-border-light, rgba(255,255,255,0.08)); padding-top: 16px;">
+                            <p style="font-size: 13px; color: var(--etb-text-secondary, #94a3b8); margin: 0 0 10px 0;">
+                                Passenger: <strong style="color: var(--etb-text-primary, #ffffff);"><?php echo esc_html( $customer_name ); ?></strong>
+                            </p>
+
+                            <!-- Spécifications Passagers & Bagages : Pax, Checked, Cabin -->
+                            <div style="display: flex; align-items: center; gap: 12px; font-size: 12px; flex-wrap: wrap;">
+                                <span style="display: inline-flex; align-items: center; gap: 5px;">
+                                    <svg viewBox="0 0 100 95" width="14" height="14" fill=" var(--etb-accent-gold, #fbac18)">
+                                        <path d="m88.484 31.117c0 8.0312-6.5117 14.539-14.539 14.539-8.0312 0-14.543-6.5078-14.543-14.539s6.5117-14.539 14.543-14.543c8.0273 0 14.539 6.5117 14.539 14.543z"/>
+                                        <path d="m0.90234 73.273c-3.0547 6.2812 2.0391 15.633 9.6914 17.562 16.133 3.6016 32.57 3.6016 48.703 0 7.6562-1.9336 12.75-11.281 9.6914-17.562-5.7109-11.867-18.844-22.293-34.047-22.391-15.203 0.10156-28.336 10.523-34.047 22.391z"/>
+                                        <path d="m54.445 25.965c0 10.77-8.7305 19.504-19.5 19.504-10.77 0-19.504-8.7344-19.504-19.504 0-10.77 8.7344-19.5 19.504-19.5 10.77-0.003906 19.5 8.7305 19.5 19.5z"/>
+                                        <path d="m99.328 66.391c-4.2578-8.8516-14.051-16.625-25.383-16.695-5.1719 0.03125-10.023 1.6719-14.176 4.2812 6.0273 4.4648 11.02 10.426 14.141 16.91 1.5391 3.1641 1.8438 6.8906 0.93359 10.605 5.7734-0.0625 11.539-0.73047 17.258-2.0078 5.707-1.4414 9.5078-8.4141 7.2266-13.094z"/>
+                                    </svg>
+                                    <strong style="color: var(--etb-text-primary, #ffffff);"><?php echo esc_html( $pax_count ); ?></strong> Passengers
+                                </span>
+                                <span>•</span>
+                                <span style="display: inline-flex; align-items: center; gap: 5px;">
+                                    <svg viewBox="20 8 60 88" width="14" height="14" fill=" var(--etb-accent-gold, #fbac18)">
+                                        <path d="M70.75,26.75H60.028l1.056,5.476c2.108-0.315,4.109,1.073,4.517,3.185l0.868,4.5c0.418,2.169-1.001,4.267-3.171,4.685 l-1.227,0.237c-2.169,0.418-4.268-1.001-4.686-3.17l-0.867-4.5c-0.408-2.113,0.936-4.146,3.01-4.637l-1.113-5.775H54.75v-14 c0-0.019-0.01-0.034-0.011-0.052c0.002-0.032,0.01-0.062,0.01-0.095c0-0.773-0.626-1.397-1.397-1.397h-6.705 c-0.771,0-1.397,0.624-1.397,1.397c0,0.034,0.008,0.065,0.01,0.098c0,0.017-0.01,0.031-0.01,0.049v14h-16c-2.209,0-4,1.791-4,4v59 c0,2.209,1.791,4,4,4h6V94c0,0.69,0.559,1.25,1.25,1.25c0.689,0,1.25-0.56,1.25-1.25v-0.25h24.5V94c0,0.69,0.559,1.25,1.25,1.25 c0.689,0,1.25-0.56,1.25-1.25v-0.25h6c2.209,0,4-1.791,4-4v-59C74.75,28.541,72.959,26.75,70.75,26.75z M47.75,14h4.5v12.75h-4.5V14 z M63.39,84.078h-26.78c-1.027,0-1.86-0.834-1.86-1.859c0-1.028,0.833-1.859,1.86-1.859h26.78c1.026,0,1.859,0.831,1.859,1.859 C65.249,83.244,64.416,84.078,63.39,84.078z"/>
+                                    </svg>
+                                    <strong style="color: var(--etb-text-primary, #ffffff);"><?php echo esc_html( $checked_luggage ); ?></strong> Checked
+                                </span>
+                                <span>•</span>
+                                <span style="display: inline-flex; align-items: center; gap: 5px;">
+                                    <svg viewBox="0 0 401.438 401.438" width="13" height="13" fill=" var(--etb-accent-gold, #fbac18)">
+                                        <path d="M272.25,71.625c0-15.816-12.871-28.688-28.688-28.688H157.5c-15.816,0-28.688,12.871-28.688,28.688V90.75H76.5V358.5 h248.625V90.75H272.25V71.625z M253.125,90.75H147.938V71.625c0-5.279,4.284-9.562,9.562-9.562h86.062 c5.278,0,9.562,4.284,9.562,9.562L253.125,90.75L253.125,90.75z"/>
+                                        <path d="M0,129v191.25c0,21.123,17.126,38.25,38.25,38.25h28.688V90.75H38.25C17.126,90.75,0,107.876,0,129z"/>
+                                        <path d="M363.188,90.75H334.5V358.5h28.688c21.125,0,38.25-17.127,38.25-38.25V129C401.438,107.876,384.311,90.75,363.188,90.75z"/>
+                                    </svg>
+                                    <strong style="color: var(--etb-text-primary, #ffffff);"><?php echo esc_html( $cabin_bags ); ?></strong> Cabin
+                                </span>
+                            </div>
+
+                            <!-- Sièges enfants si présents -->
+                            <?php if ( $baby_seats > 0 || $booster_seats > 0 ) : ?>
+                                <div class="baby-seat-list">
+                                    👶 Child Seats: 
+                                    <?php 
+                                    $seats_recap = array();
+                                    if ( $baby_seats > 0 ) $seats_recap[] = $baby_seats . ' Baby Seat (0-2y)';
+                                    if ( $booster_seats > 0 ) $seats_recap[] = $booster_seats . ' Booster (3-10y)';
+                                    echo esc_html( implode( ' + ', $seats_recap ) );
+                                    ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+
                     </div>
 
-                    <!-- Référence du dossier -->
                     <!-- Référence du dossier -->
                     <div style="font-size: 12px; color: var(--etb-text-secondary, #94a3b8); border-top: 1px dashed var(--etb-border-light, rgba(255,255,255,0.08)); padding-top: 12px;">
                         <span>Booking Reference: <strong style="color: var(--etb-text-primary, #ffffff);">#<?php echo esc_html( $booking_id ); ?></strong></span>
@@ -327,8 +443,7 @@ $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_s
 
                 </div>
             </div>
-             
-
+            
             <!-- ══════════════════════════════════════════════════════════════ -->
             <!-- COLONNE 2 (DROITE) : FORMULAIRE DE PAIEMENT STRIPE              -->
             <!-- ══════════════════════════════════════════════════════════════ -->
@@ -339,6 +454,16 @@ $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_s
 
                     <form id="etb-standalone-payment-form" onsubmit="return false;">
                         <input type="hidden" name="booking_id" id="etb-pay-booking-id" value="<?php echo esc_attr( $booking_id ); ?>">
+                        <input type="hidden" name="base_fare" id="etb-pay-base-fare" value="<?php echo esc_attr( $saved_base_price ); ?>">
+                        <input type="hidden" name="tip_percentage" id="etb-pay-tip-percent" value="<?php echo esc_attr( $saved_tip_percent ); ?>">
+                        <input type="hidden" name="tip_amount" id="etb-pay-tip-amount" value="<?php echo esc_attr( $saved_tip_amount ); ?>">
+                        <input type="hidden" name="amount" id="etb-pay-amount" value="<?php echo esc_attr( $settled_amount ); ?>">
+
+                
+                        <input type="hidden" name="booking_id" id="etb-pay-booking-id" value="<?php echo esc_attr( $booking_id ); ?>">
+                        <input type="hidden" name="base_fare" id="etb-pay-base-fare" value="<?php echo esc_attr( $saved_base_price ); ?>">
+                        <input type="hidden" name="tip_percentage" id="etb-pay-tip-percent" value="<?php echo esc_attr( $saved_tip_percent ); ?>">
+                        <input type="hidden" name="tip_amount" id="etb-pay-tip-amount" value="<?php echo esc_attr( $saved_tip_amount ); ?>">
                         <input type="hidden" name="amount" id="etb-pay-amount" value="<?php echo esc_attr( $settled_amount ); ?>">
                         <input type="hidden" name="client_name" id="etb-pay-client-name" value="<?php echo esc_attr( $customer_name ); ?>">
                         <input type="hidden" name="client_email" id="etb-pay-client-email" value="<?php echo esc_attr( $customer_email ); ?>">
@@ -428,8 +553,31 @@ $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_s
                             </div>
                         </div>
 
+                        <!-- Sélecteur de Pourboire Chauffeur (Positionné au trait rouge juste au-dessus du texte légal) -->
+                        <div class="etb-chk-tip-section" style="margin-top: 20px; margin-bottom: 16px;">
+                            <label class="etb-chk-tip-title" style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.05em; margin-bottom: 8px; display: block;">Driver Tip (Optional)</label>
+                            <div class="etb-chk-tip-pills">
+                                <label class="etb-tip-pill <?php echo ( 0 === $saved_tip_percent ) ? 'active' : ''; ?>" data-tip="0">
+                                    <input type="radio" name="etb_pay_driver_tip" value="0" <?php checked( $saved_tip_percent, 0 ); ?>>
+                                    <span>None</span>
+                                </label>
+                                <label class="etb-tip-pill <?php echo ( 10 === $saved_tip_percent ) ? 'active' : ''; ?>" data-tip="10">
+                                    <input type="radio" name="etb_pay_driver_tip" value="10" <?php checked( $saved_tip_percent, 10 ); ?>>
+                                    <span>10%</span>
+                                </label>
+                                <label class="etb-tip-pill <?php echo ( 15 === $saved_tip_percent ) ? 'active' : ''; ?>" data-tip="15">
+                                    <input type="radio" name="etb_pay_driver_tip" value="15" <?php checked( $saved_tip_percent, 15 ); ?>>
+                                    <span>15%</span>
+                                </label>
+                                <label class="etb-tip-pill <?php echo ( 20 === $saved_tip_percent ) ? 'active' : ''; ?>" data-tip="20">
+                                    <input type="radio" name="etb_pay_driver_tip" value="20" <?php checked( $saved_tip_percent, 20 ); ?>>
+                                    <span>20%</span>
+                                </label>
+                            </div>
+                        </div>
+
                         <!-- Mandat légal en anglais avec nom légal dynamique (Point 3) -->
-                        <div class="etb-payment-disclaimer-text" style="margin-top: 18px; margin-bottom: 22px;">
+                        <div class="etb-payment-disclaimer-text" style="margin-top: 14px; margin-bottom: 22px;">
                             <p style="font-size: 11.5px; color: var(--etb-text-secondary, #64748b); line-height: 1.5; margin: 0;">
                                 By providing your payment card information, you authorize <strong><?php echo esc_html( $legal_name ); ?></strong> to charge your card for future payments in accordance with its terms and conditions.
                             </p>

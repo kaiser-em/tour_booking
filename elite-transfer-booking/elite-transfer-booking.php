@@ -51,14 +51,21 @@ class Elite_Transfer_Booking {
             wp_enqueue_script( 'google-maps-places', 'https://maps.googleapis.com/maps/api/js?key=' . esc_attr( $google_key ) . '&libraries=places&language=en', array(), null, true );
         }
 
+        $script_deps = array( 'intl-tel-input-script' );
+
         // Chargement de la librairie officielle Stripe.js si activée
         $stripe_enabled = ! empty( $gen_settings['stripe_enabled'] ) && '1' === $gen_settings['stripe_enabled'];
         $stripe_pk      = ! empty( $gen_settings['stripe_publishable_key'] ) ? trim( $gen_settings['stripe_publishable_key'] ) : '';
 
+        if ( $stripe_enabled && ! empty( $stripe_pk ) ) {
+            wp_enqueue_script( 'stripe-js', 'https://js.stripe.com/v3/', array(), null, true );
+            $script_deps[] = 'stripe-js';
+        }
+
         // Librairie internationale de téléphone (245 pays)
         wp_enqueue_script( 'intl-tel-input-script', 'https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/18.2.1/js/intlTelInput.min.js', array(), '18.2.1', true );
 
-        wp_enqueue_script( 'etb-booking-script', ETB_URL . 'public/js/booking-widget.js', array( 'intl-tel-input-script' ), ETB_VERSION, true );
+        wp_enqueue_script( 'etb-booking-script', ETB_URL . 'public/js/booking-widget.js', $script_deps, ETB_VERSION, true );
 
        
 

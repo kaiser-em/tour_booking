@@ -474,7 +474,7 @@
     font-size: 15px !important;
     font-weight: 800 !important;
     color: var(--etb-text-primary, #ffffff) !important;
-    margin: 0 0 4px 0 !important;
+    margin: 0 0 10px 0 !important;
 }
 
 .etb-chk-summary-specs {
@@ -677,7 +677,7 @@
 .etb-chk-submit-btn:hover {
     background: #e39402 !important;
     /*transform: translateY(-2px) !important;*/
-    box-shadow: 0 5px 10px rgba(251, 172, 24, 0.5) !important;
+    /*box-shadow: 0 5px 10px rgba(251, 172, 24, 0.5) !important;*/
 }
 
 .etb-chk-submit-btn:disabled {
@@ -1045,7 +1045,7 @@
 
 .etb-payment-brand-sub {
     font-size: 11px !important;
-    color: #fbac18 !important;
+    color: var(--etb-accent-gold, #fbac18) !important;
     text-transform: uppercase !important;
     letter-spacing: 0.15em !important;
     font-weight: 700 !important;
@@ -1153,7 +1153,7 @@
 #etb-chk-tip-row span,
 #etb-chk-tip-row strong,
 #etb-chk-tip-percent {
-    color: #4ade80 !important;
+    color: #00210c !important;
 }
 
 /* D. Formulaire Carte Bancaire */
@@ -1536,6 +1536,14 @@
 }
 [data-etb-theme="light"] .etb-icon-sun { opacity: 0 !important; } /* Masqué sous la pastille */
 [data-etb-theme="light"] .etb-icon-moon { color: #64748b !important; }
+
+
+[data-etb-theme="dark"] #etb-chk-tip-row,
+[data-etb-theme="dark"] #etb-chk-tip-row span,
+[data-etb-theme="dark"] #etb-chk-tip-row strong,
+[data-etb-theme="dark"] #etb-chk-tip-percent {
+    color: #c3d6ca  !important;
+}
 
 /* ==========================================================================
 

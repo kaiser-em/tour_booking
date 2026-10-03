@@ -904,16 +904,14 @@ class ETB_Ajax {
                 'last_4_digits'  => substr( $card_last4 ?: '4242', -4 ),
                 'brand'          => strtolower( $card_brand ),
                 'expire_date'    => $card_exp,
-                'receipt_number' => $intent_id,  // Remplira "Numéro du reçu"
-                'remark'         => $stripe_url, // Remplira "Remarque" avec le lien direct
-               'paid_at'        => wp_date( 'Y-m-d H:i:s' ),
+                'receipt_number' => $intent_id,
+                'remark'         => $stripe_url,
+                'paid_at'        => wp_date( 'Y-m-d H:i:s' ),
             );
             $is_paid_status = true;
 
-            // Sauvegarde de l'ID Stripe dans WordPress
             update_post_meta( $booking_id, '_etb_stripe_payment_intent_id', $intent_id );
         }
-
 
         // Injection du lien Stripe direct dans la note répartiteur LimoExpress
         $stripe_note_info = ! empty( $stripe_url ) ? "\n💳 PAIEMENT STRIPE : " . $stripe_url . "\n" : "";
@@ -1453,12 +1451,14 @@ class ETB_Ajax {
     public function handle_settle_quote_payment() {
         check_ajax_referer( 'etb_booking_nonce', 'nonce' );
 
-        $booking_id = absint( $_POST['booking_id'] ?? 0 );
-        $amount     = floatval( $_POST['amount'] ?? 0.0 );
-        $intent_id  = sanitize_text_field( $_POST['payment_intent_id'] ?? '' );
-        $card_last4 = sanitize_text_field( $_POST['card_last4'] ?? '4242' );
-        $card_brand = sanitize_text_field( $_POST['card_brand'] ?? 'card' );
-        $card_exp   = sanitize_text_field( $_POST['card_exp'] ?? '' );
+        $booking_id     = absint( $_POST['booking_id'] ?? 0 );
+        $amount         = floatval( $_POST['amount'] ?? 0.0 );
+        $intent_id      = sanitize_text_field( $_POST['payment_intent_id'] ?? '' );
+        $card_last4     = sanitize_text_field( $_POST['card_last4'] ?? '4242' );
+        $card_brand     = sanitize_text_field( $_POST['card_brand'] ?? 'card' );
+        $card_exp       = sanitize_text_field( $_POST['card_exp'] ?? '' );
+        $tip_amount     = max( 0.0, floatval( $_POST['tip_amount'] ?? 0.0 ) );
+        $tip_percentage = max( 0, absint( $_POST['tip_percentage'] ?? 0 ) );
 
         if ( ! $booking_id || get_post_type( $booking_id ) !== 'tour_booking' ) {
             wp_send_json_error( array( 'message' => 'Invalid booking reference.' ) );
@@ -1480,6 +1480,8 @@ class ETB_Ajax {
         // 2. Mise à jour de la réservation WordPress
         update_post_meta( $booking_id, '_etb_status', 'confirmed' );
         update_post_meta( $booking_id, '_etb_total_price', $amount );
+        update_post_meta( $booking_id, '_etb_tip_amount', $tip_amount );
+        update_post_meta( $booking_id, '_etb_tip_percentage', $tip_percentage );
         update_post_meta( $booking_id, '_etb_stripe_payment_intent_id', $intent_id );
         update_post_meta( $booking_id, '_etb_paid_at', current_time( 'mysql' ) );
 
@@ -1496,7 +1498,7 @@ class ETB_Ajax {
         );
         update_post_meta( $booking_id, '_etb_payment_logs', array( $payment_log ) );
 
-        // 3. Appel de l'API LimoExpress officielle (Mise à jour en PAID et CONFIRMED via UUID)
+        // 3. Appel de l'API LimoExpress officielle (Mise à jour des frais et passage en PAID)
         $limo_uuid  = get_post_meta( $booking_id, '_etb_limo_uuid', true );
         $limo_id    = get_post_meta( $booking_id, '_etb_limo_booking_id', true );
         $limo_token = $gen_settings['limo_api_token'] ?? '';
@@ -1511,7 +1513,6 @@ class ETB_Ajax {
             }
         }
 
-        // L'UUID officiel LimoExpress est obligatoire pour les actions de statut
         $target_uuid = ! empty( $limo_uuid ) ? $limo_uuid : $limo_id;
 
         if ( ! empty( $limo_token ) && ! empty( $target_uuid ) ) {
@@ -1521,14 +1522,164 @@ class ETB_Ajax {
                 'Authorization' => 'Bearer ' . $limo_token,
             );
 
-            // A. Action 1 : Marquer la course comme PAYÉE (POST /mark-booking-as-paid)
+            // Construction du tampon de paiement pour la note
+            $tip_stamp_line = ( $tip_amount > 0 ) ? sprintf( "💸 Pourboire chauffeur inclus : %s € (%d%%)\n", number_format( $tip_amount, 2 ), $tip_percentage ) : "";
+
+            $paid_stamp = "\n═ ✅ PAIEMENT ENCAISSÉ EN LIGNE ═\n"
+                . "💳 Montant réglé : " . number_format( $amount, 2 ) . " €\n"
+                . $tip_stamp_line
+                . "💳 Moyen : " . ucfirst( $card_brand ) . " •••• " . substr( $card_last4, -4 ) . "\n"
+                . "📅 Encaissé le : " . current_time( 'd/m/Y à H:i' ) . "\n";
+            if ( ! empty( $stripe_url ) ) {
+                $paid_stamp .= "🔗 LIEN STRIPE DIRECT :\n" . $stripe_url . "\n";
+            }
+            $paid_stamp .= "═══════════\n\n";
+
+            // Nettoyage rigoureux de l'ancienne note : suppression de l'ancien pourboire et des bandeaux d'attente
+            $limo_check    = ETB_LimoExpress::get_booking_details( $target_uuid, $booking_id );
+            $raw_note      = ! empty( $limo_check['limo_note'] ) ? $limo_check['limo_note'] : get_post_meta( $booking_id, '_etb_note', true );
+            $existing_note = preg_replace( '/═\s*[⏳🚨].*?═.*?═{10,}[\r\n\s]*/us', '', (string) $raw_note );
+            $existing_note = preg_replace( '/[\r\n]*💸\s*POURBOIRE CHAUFFEUR INCLUS\s*:.*?(?=\r|\n|$)/ui', '', $existing_note );
+
+            // Données de trajet pour POST /api/integration/bookings
+            $pickup_addr  = get_post_meta( $booking_id, '_etb_pickup_address', true ) ?: 'Non renseigné';
+            $dropoff_addr = get_post_meta( $booking_id, '_etb_dropoff_info', true ) ?: $pickup_addr;
+            $booking_dt   = get_post_meta( $booking_id, '_etb_booking_date', true );
+            $booking_tm   = get_post_meta( $booking_id, '_etb_booking_time', true ) ?: '09:00';
+            $pickup_iso   = sprintf( '%s %s:00', $booking_dt, substr( $booking_tm, 0, 5 ) );
+            $type_id      = $gen_settings['limo_booking_type_id'] ?? '';
+
+            $valid_type_id = ! empty( $type_id ) ? (string) $type_id : '';
+            if ( empty( $valid_type_id ) && class_exists( 'ETB_LimoExpress' ) ) {
+                $available_types = ETB_LimoExpress::get_booking_types();
+                if ( ! empty( $available_types[0]['id'] ) ) {
+                    $valid_type_id = (string) $available_types[0]['id'];
+                }
+            }
+
+            // Calcul du tarif transport net
+            $net_ride_price = ( $tip_amount > 0 && $amount > $tip_amount ) ? ( $amount - $tip_amount ) : $amount;
+
+          // 1. Définition officielle de la devise Euro (UUID LimoExpress)
+            $currency_uuid = '3cf48cef-5da3-4fa9-bc05-66b96350ecec';
+
+            // 2. Construction de extra_fees : préservation des extras éventuels + pourboire
+            $extra_fees = array();
+
+            $saved_extras = get_post_meta( $booking_id, '_etb_extras', true );
+            if ( ! empty( $saved_extras ) && is_array( $saved_extras ) ) {
+                foreach ( $saved_extras as $e_id => $qty ) {
+                    if ( $qty > 0 ) {
+                        $e_name     = get_the_title( $e_id );
+                        $e_price    = floatval( get_post_meta( $e_id, '_etb_price', true ) );
+                        $line_total = (float) round( $e_price * $qty, 2 );
+                        if ( $line_total > 0 ) {
+                            $extra_fees[] = array(
+                                'category' => str_replace( '-', '_', sanitize_title( $e_name ) ),
+                                'value'    => $line_total,
+                                'amount'   => $line_total,
+                                'active'   => true,
+                            );
+                        }
+                    }
+                }
+            }
+
+            // Ajout du pourboire actualisé
+            if ( $tip_amount > 0 ) {
+                $clean_tip = (float) round( $tip_amount, 2 );
+                $extra_fees[] = array(
+                    'category' => 'gratuity_amount',
+                    'value'    => $clean_tip,
+                    'amount'   => $clean_tip,
+                    'active'   => true,
+                );
+            }
+
+            // 3. Détection du moyen de paiement Carte dans LimoExpress
+            delete_transient( 'etb_limo_card_method_id' );
+            $card_method_id = '';
+            $pm_res = wp_remote_get( 'https://api.limoexpress.me/api/integration/payment-methods', array(
+                'headers' => array(
+                    'Accept'        => 'application/json',
+                    'Authorization' => 'Bearer ' . $limo_token,
+                ),
+                'timeout' => 10,
+            ) );
+            if ( ! is_wp_error( $pm_res ) && 200 === wp_remote_retrieve_response_code( $pm_res ) ) {
+                $pm_data = json_decode( wp_remote_retrieve_body( $pm_res ), true );
+                if ( ! empty( $pm_data['data'] ) && is_array( $pm_data['data'] ) ) {
+                    foreach ( $pm_data['data'] as $method ) {
+                        $m_name = strtolower( $method['name'] ?? '' );
+                        if ( strpos( $m_name, 'card' ) !== false || strpos( $m_name, 'carte' ) !== false || strpos( $m_name, 'credit' ) !== false || strpos( $m_name, 'cb' ) !== false || strpos( $m_name, 'stripe' ) !== false || strpos( $m_name, 'online' ) !== false ) {
+                            $card_method_id = (string) $method['id'];
+                            set_transient( 'etb_limo_card_method_id', $card_method_id, 12 * HOUR_IN_SECONDS );
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // 4. Récupération de la classe de véhicule LimoExpress
+            $vehicle_class_id = '';
+            $booked_vehicles  = get_post_meta( $booking_id, '_etb_vehicles', true );
+            if ( ! empty( $booked_vehicles ) && is_array( $booked_vehicles ) ) {
+                foreach ( $booked_vehicles as $v_id => $qty ) {
+                    if ( $qty > 0 ) {
+                        $v_class = get_post_meta( $v_id, '_etb_limo_class_id', true );
+                        if ( ! empty( $v_class ) ) {
+                            $vehicle_class_id = trim( $v_class );
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // 5. Payload de mise à jour officiel (POST /api/integration/bookings)
+            $update_payload = array(
+                'id'                => (string) $target_uuid,
+                'booking_type_id'   => $valid_type_id,
+                'from_location'     => array( 'name' => $pickup_addr ),
+                'to_location'       => array( 'name' => $dropoff_addr ),
+                'pickup_time'       => $pickup_iso,
+                'price'             => (float) round( $net_ride_price, 2 ),
+                'price_type'        => 'NET',
+                'currency_id'       => $currency_uuid,
+                'note'              => $paid_stamp . trim( $existing_note ),
+                'paid'              => true,
+                'confirmed'         => true,
+                'extra_fees'        => $extra_fees,
+                'driving_extra_fees'=> $extra_fees,
+            );
+
+            if ( ! empty( $vehicle_class_id ) ) {
+                $update_payload['vehicle_class_id'] = $vehicle_class_id;
+            }
+            if ( ! empty( $card_method_id ) ) {
+                $update_payload['payment_method_id'] = $card_method_id;
+            }
+
+            // Log du payload envoyé pour traçabilité parfaite
+            //error_log( "[ETB DIAGNOSTIC PAYLOAD ENVOYÉ A LIMO] : " . wp_json_encode( $update_payload ) );
+
+            // ÉTAPE 1 : Envoi officiel à POST /api/integration/bookings
+            $update_res = wp_remote_post( 'https://api.limoexpress.me/api/integration/bookings', array(
+                'headers' => $headers,
+                'body'    => wp_json_encode( $update_payload ),
+                'timeout' => 15,
+            ) );
+
+            $up_code = ! is_wp_error( $update_res ) ? wp_remote_retrieve_response_code( $update_res ) : 500;
+            $up_body = ! is_wp_error( $update_res ) ? wp_remote_retrieve_body( $update_res ) : $update_res->get_error_message();
+            error_log( "[ETB DIAGNOSTIC LIMOEXPRESS] Code HTTP: " . $up_code . " | Réponse API: " . $up_body );
+
+            // ÉTAPE 2 : Déclenchement officiel du statut Payé et Confirmé
             $paid_res = wp_remote_post( 'https://api.limoexpress.me/api/integration/mark-booking-as-paid', array(
                 'headers' => $headers,
                 'body'    => wp_json_encode( array( 'id' => (string) $target_uuid ) ),
                 'timeout' => 15,
             ) );
 
-            // B. Action 2 : Marquer la course comme CONFIRMÉE (POST /mark-booking-as-confirmed)
             $conf_res = wp_remote_post( 'https://api.limoexpress.me/api/integration/mark-booking-as-confirmed', array(
                 'headers' => $headers,
                 'body'    => wp_json_encode( array( 'id' => (string) $target_uuid ) ),
@@ -1536,55 +1687,10 @@ class ETB_Ajax {
             ) );
 
             $paid_code = ! is_wp_error( $paid_res ) ? wp_remote_retrieve_response_code( $paid_res ) : 500;
-            $conf_code = ! is_wp_error( $conf_res ) ? wp_remote_retrieve_response_code( $conf_res ) : 500;
-
             if ( $paid_code >= 200 && $paid_code < 300 ) {
                 $limo_synced = true;
                 update_post_meta( $booking_id, '_etb_limo_paid_synced', '1' );
-
-                // C. Action 3 : Mise à jour de la note répartiteur avec le tampon de paiement officiel Stripe
-                $paid_stamp = "\n═ ✅ PAIEMENT ENCAISSÉ EN LIGNE ═\n"
-                    . "💳 Montant réglé : " . number_format( $amount, 2 ) . " €\n"
-                    . "💳 Moyen : " . ucfirst( $card_brand ) . " •••• " . substr( $card_last4, -4 ) . "\n"
-                    . "📅 Encaissé le : " . current_time( 'd/m/Y à H:i' ) . "\n";
-                if ( ! empty( $stripe_url ) ) {
-                    $paid_stamp .= "🔗 LIEN STRIPE DIRECT :\n" . $stripe_url . "\n";
-                }
-                $paid_stamp .= "════════════\n\n";
-
-                // Récupération des données minimales requises par POST /api/integration/bookings
-                $pickup_addr  = get_post_meta( $booking_id, '_etb_pickup_address', true ) ?: 'Non renseigné';
-                $dropoff_addr = get_post_meta( $booking_id, '_etb_dropoff_info', true ) ?: $pickup_addr;
-                $booking_dt   = get_post_meta( $booking_id, '_etb_booking_date', true );
-                $booking_tm   = get_post_meta( $booking_id, '_etb_booking_time', true ) ?: '09:00';
-                $pickup_iso   = sprintf( '%s %s:00', $booking_dt, substr( $booking_tm, 0, 5 ) );
-                $type_id      = $gen_settings['limo_booking_type_id'] ?? '';
-
-                // On récupère la NOTE INTACTE depuis LimoExpress !
-                $limo_check    = ETB_LimoExpress::get_booking_details( $target_uuid, $booking_id );
-                $existing_note = ! empty( $limo_check['limo_note'] ) ? $limo_check['limo_note'] : ( get_post_meta( $booking_id, '_etb_note', true ) ?: '' );
-
-                // On efface l'ancien bandeau temporaire (Pay Later, Devis ou Course urgente) pour ne pas polluer la note finale
-                $existing_note = preg_replace( '/═\s*[⏳🚨].*?═.*?═{10,}[\r\n\s]*/us', '', $existing_note );
-
-                $update_payload = array(
-                    'id'              => (string) $target_uuid,
-                    'booking_type_id' => ! empty( $type_id ) ? (string) $type_id : 'default',
-                    'from_location'   => array( 'name' => $pickup_addr ),
-                    'to_location'     => array( 'name' => $dropoff_addr ),
-                    'pickup_time'     => $pickup_iso,
-                    'note'            => $paid_stamp . trim( $existing_note ),
-                    'paid'            => true,
-                    'confirmed'       => true,
-                );
-
-                wp_remote_post( 'https://api.limoexpress.me/api/integration/bookings', array(
-                    'headers' => $headers,
-                    'body'    => wp_json_encode( $update_payload ),
-                    'timeout' => 15,
-                ) );
-                    
-
+                delete_post_meta( $booking_id, '_etb_limo_paid_error' );
             } else {
                 $err_msg = ! is_wp_error( $paid_res ) ? wp_remote_retrieve_body( $paid_res ) : $paid_res->get_error_message();
                 update_post_meta( $booking_id, '_etb_limo_paid_error', $err_msg );

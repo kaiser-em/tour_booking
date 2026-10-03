@@ -7,7 +7,7 @@
    ========================================================================== */
 .etb-stripe-split-card-box {
     background: #fbfcfd !important;
-    border: 1px solid #cbd5e1 !important;
+    border: 1px solid #a4a4a4 !important;
     border-radius: 10px !important;
     overflow: hidden !important;
     transition: all 0.2s ease !important;
@@ -164,4 +164,34 @@
 
 
 
-/* ==========================================================================
+/* ==========================================================================*/
+
+[data-etb-theme="dark"] #etb-pay-display-tip-line{
+    font-weight: bold !important;
+    color: #4ad43f !important;
+}
+
+[data-etb-theme="light"] #etb-pay-display-tip-line{
+    font-weight: bold !important;
+    color: #6f6f6f !important ;
+}
+
+[data-etb-theme="dark"] .baby-seat-list{
+    margin-top: 10px;
+    font-size: 11.5px;
+    color: #fbac18;
+    background: rgb(89 61 7 / 30%);
+    padding: 5px 12px;
+    border-radius: 6px;
+    display: inline-block;
+}
+
+[data-etb-theme="light"] .baby-seat-list{
+    margin-top: 10px;
+    font-size: 11.5px;
+    color: #0b0b0b;
+    background: rgb(78 78 78 / 14%);
+    padding: 5px 12px;
+    border-radius: 6px;
+    display: inline-block;
+}

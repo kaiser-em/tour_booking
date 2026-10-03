@@ -364,14 +364,15 @@
 
 /* Notice d'erreur */
 .etb-quick-error-notice {
-    background: rgba(83, 23, 23, 0.3) !important;
+    background: rgb(245 140 140) !important;
     border: 1px solid rgba(217, 126, 126, 0.48) !important;
-    color: #ff584e !important;
+    color: #830c05 !important;
     padding: 12px 18px !important;
     border-radius: 10px !important;
     font-size: 13px !important;
     margin-top: 15px !important;
     text-align: center !important;
+    font-weight: 500 !important;
 }
 
 /* 3. Section Flotte de Véhicules (Style Eden Cab Sombre VIP) */
@@ -597,6 +598,15 @@
     align-items: center !important;
     gap: 6px !important;
     font-weight: 600 !important;
+}
+
+/* Bascule d'affichage du label Passagers */
+.etb-lbl-desktop {
+    display: inline !important;
+}
+
+.etb-lbl-mobile {
+    display: none !important;
 }
 
 .etb-spec-item .dashicons {
@@ -973,7 +983,7 @@
 
 /* 1. Bandeau d'information VIP (Masqué par défaut, affiché UNIQUEMENT via .is-visible) */
 .etb-quick-info-notice {
-    background: rgba(251, 172, 24, 0.08) !important;
+    background: rgba(106, 69, 0, 0.55) !important;
     border: 1px solid rgba(251, 172, 24, 0.35) !important;
     color: var(--etb-qw-text-white) !important;
     padding: 14px 20px !important;
@@ -1655,11 +1665,12 @@
 }
 
 
+
 /* ==========================================================================
    AFFICHAGE 2 COLONNES DE CARTES SUR SMARTPHONE (MOBILE VIP COMPACT)
-   ========================================================================== */
+   ========================================================================== 
 @media (max-width: 640px) {
-    /* 1. Réduction des marges et paddings du conteneur extérieur */
+    /* 1. Réduction des marges et paddings du conteneur extérieur 
     #etb-quick-widget-app {
         padding: 12px 6px !important;
         margin: 15px auto !important;
@@ -1675,14 +1686,14 @@
         margin-bottom: 14px !important;
     }
 
-    /* 2. Grille en 2 colonnes avec espacement optimisé de 8px */
+    /* 2. Grille en 2 colonnes avec espacement optimisé de 8px 
     .etb-quick-cars-grid {
         grid-template-columns: repeat(2, 1fr) !important;
         gap: 8px !important;
         width: 100% !important;
     }
 
-    /* 3. Carte compacte */
+    /* 3. Carte compacte 
     .etb-quick-car-item {
         min-width: 0 !important;
         max-width: 100% !important;
@@ -1691,7 +1702,7 @@
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2) !important;
     }
 
-    /* 4. Hauteur photo adaptée */
+    /* 4. Hauteur photo adaptée 
     .etb-quick-card-hero {
         height: 110px !important;
         border-radius: 14px 14px 0 0 !important;
@@ -1721,13 +1732,13 @@
         height: 13px !important;
     }
 
-    /* 5. Corps de la carte et typographies */
+    /* 5. Corps de la carte et typographies 
     .etb-quick-card-body {
         padding: 10px 8px 12px 8px !important;
     }
 
     .etb-quick-car-title {
-        font-size: 13px !important;
+        font-size: 10px !important;
         margin-bottom: 4px !important;
         line-height: 1.25 !important;
     }
@@ -1744,7 +1755,7 @@
         height: 13px !important;
     }
 
-    /* 6. Rangée des 6 équipements compacte */
+    /* 6. Rangée des 6 équipements compacte 
     .etb-quick-amenities {
         padding: 5px 0 !important;
         margin-bottom: 10px !important;
@@ -1765,7 +1776,7 @@
         letter-spacing: -0.02em !important;
     }
 
-    /* 7. Pied de carte : Prix et bouton Select empilés en pleine largeur */
+    /* 7. Pied de carte : Prix et bouton Select empilés en pleine largeur 
     .etb-quick-card-footer {
         flex-direction: column !important;
         align-items: stretch !important;
@@ -1802,4 +1813,23 @@
         justify-content: center !important;
         display: none !important;
     }
+
+    .etb-spec-item svg{
+        width: 15px !important;
+        height: 15px !important;
+    }
+    .etb-spec-item span{
+        font-size: 10px !important;
+    }
+
+    /* Bascule "Passengers" en "Pax" sur les écrans < 640px 
+    .etb-lbl-desktop {
+        display: none !important;
+    }
+
+    .etb-lbl-mobile {
+        display: inline !important;
+    }
 }
+
+*/

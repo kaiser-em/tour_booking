@@ -1697,14 +1697,16 @@
                     const waPhone   = (typeof etbAjax !== 'undefined' && etbAjax.company_whatsapp) ? etbAjax.company_whatsapp : '';
                     const adminMail = (typeof etbAjax !== 'undefined' && etbAjax.admin_email) ? etbAjax.admin_email : '';
 
-                    // Formatage raffiné de la date (ex: 2026-09-26 -> 26 Sep 2026)
+                    // Formatage compact WhatsApp / Email (ex: 2026-10-03 -> 03-Oct-26)
                     const formatPrettyDate = (dStr) => {
                         if (!dStr) return '';
                         const parts = dStr.split('-');
                         if (parts.length !== 3) return dStr;
                         const monthsEn = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                        const mIdx = parseInt(parts[1], 10) - 1;
-                        return `${parts[2]} ${monthsEn[mIdx] || parts[1]} ${parts[0]}`;
+                        const mIdx      = parseInt(parts[1], 10) - 1;
+                        const monthStr  = monthsEn[mIdx] || parts[1];
+                        const shortYear = parts[0].slice(-2);
+                        return `${parts[2]}-${monthStr}-${shortYear}`;
                     };
 
                     const prettyDate = formatPrettyDate(rawDate);
@@ -3107,6 +3109,85 @@
             });
         }
 
+        // ── Gestion dynamique du Pourboire Chauffeur sur la page de paiement ──
+        const tipPills       = payRoot.querySelectorAll('.etb-tip-pill');
+        const baseFareInput  = payRoot.querySelector('#etb-pay-base-fare');
+        const tipPctInput    = payRoot.querySelector('#etb-pay-tip-percent');
+        const tipAmtInput    = payRoot.querySelector('#etb-pay-tip-amount');
+        const amountInput    = payRoot.querySelector('#etb-pay-amount');
+        const displayTotalEl = payRoot.querySelector('#etb-pay-display-total');
+        const tipLineEl      = payRoot.querySelector('#etb-pay-display-tip-line');
+        const tipTextEl      = payRoot.querySelector('#etb-pay-display-tip-text');
+        const tipPctEl       = payRoot.querySelector('#etb-pay-display-tip-pct');
+        const currencySym    = (typeof etbAjax !== 'undefined' && etbAjax.currency) ? etbAjax.currency : '€';
+
+        // Parseur sécurisé de prix (gère virgules, espaces et devises)
+        const parseMoneyValue = function (val) {
+            if (!val) return 0;
+            const clean = String(val).replace(',', '.').replace(/[^-0-9.]/g, '');
+            return parseFloat(clean) || 0;
+        };
+
+        const updateStandaloneTip = function (pct) {
+            // Résolution intelligente du prix de base (spécial Custom Quote) :
+            // Si base_fare est à 0, on le déduit immédiatement depuis le montant total actuel
+            let baseFare = parseMoneyValue(baseFareInput ? baseFareInput.value : 0);
+            if (baseFare <= 0) {
+                const currentTotal = parseMoneyValue(amountInput ? amountInput.value : 0) 
+                                  || parseMoneyValue(displayTotalEl ? displayTotalEl.textContent : 0);
+                const currentTip   = parseMoneyValue(tipAmtInput ? tipAmtInput.value : 0);
+                baseFare = (currentTotal > currentTip) ? (currentTotal - currentTip) : currentTotal;
+                
+                // Mémorisation immédiate dans tous les champs base_fare
+                if (baseFare > 0) {
+                    payRoot.querySelectorAll('input[name="base_fare"]').forEach(inp => inp.value = baseFare.toFixed(2));
+                }
+            }
+
+            const tipVal   = Math.round((baseFare * (pct / 100)) * 100) / 100;
+            const newTotal = baseFare + tipVal;
+
+            // Synchronisation de TOUS les inputs (anti-doublon)
+            payRoot.querySelectorAll('input[name="tip_percentage"]').forEach(inp => inp.value = pct);
+            payRoot.querySelectorAll('input[name="tip_amount"]').forEach(inp => inp.value = tipVal.toFixed(2));
+            payRoot.querySelectorAll('input[name="amount"]').forEach(inp => inp.value = newTotal.toFixed(2));
+
+            const formattedTotal = newTotal.toFixed(2) + ' ' + currencySym;
+            const formattedTip   = tipVal.toFixed(2) + ' ' + currencySym;
+
+            if (displayTotalEl) displayTotalEl.textContent = formattedTotal;
+            if (payText) payText.textContent = `Pay ${formattedTotal}`;
+
+            if (tipLineEl) {
+                if (pct > 0) {
+                    tipLineEl.style.display = 'block';
+                    if (tipTextEl) tipTextEl.textContent = formattedTip;
+                    if (tipPctEl) tipPctEl.textContent = pct + '%';
+                } else {
+                    tipLineEl.style.display = 'none';
+                }
+            }
+        };
+
+        // Écouteur de clic avec protection contre le double-déclenchement du label
+        tipPills.forEach(pill => {
+            pill.addEventListener('click', function (e) {
+                // Ignore le clic synthétique venant de l'input radio enfant
+                if (e.target.tagName && e.target.tagName.toLowerCase() === 'input') {
+                    return;
+                }
+
+                tipPills.forEach(p => p.classList.remove('active'));
+                this.classList.add('active');
+
+                const radio = this.querySelector('input[type="radio"]');
+                if (radio) radio.checked = true;
+
+                const pct = parseInt(this.dataset.tip, 10) || 0;
+                updateStandaloneTip(pct);
+            });
+        });
+
         // Vérification de Stripe
         if (typeof Stripe === 'undefined' || typeof etbAjax === 'undefined' || etbAjax.stripe_enabled !== '1' || !etbAjax.stripe_pk) {
             if (feedbackEl) {
@@ -3269,6 +3350,12 @@
                             updateData.append('card_last4', realLast4);
                             updateData.append('card_brand', realBrand);
                             updateData.append('card_exp', realExp);
+
+                             // Transmission du pourboire chauffeur ajusté
+                            const finalTipAmt = tipAmtInput ? tipAmtInput.value : '0';
+                            const finalTipPct = tipPctInput ? tipPctInput.value : '0';
+                            updateData.append('tip_amount', finalTipAmt);
+                            updateData.append('tip_percentage', finalTipPct);
 
                             fetch(etbAjax.ajax_url, { method: 'POST', body: updateData })
                             .then(u => u.json())
