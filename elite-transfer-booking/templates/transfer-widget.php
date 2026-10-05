@@ -353,6 +353,13 @@ $now_time = '';
             <?php endforeach; endif; ?>
         </div>
 
+        <!-- Bandeau de réservation urgente (< 24h) identique au Checkout -->
+        <div id="etb-quick-urgent-notice" style="display: none; background: rgba(251, 172, 24, 0.1); border: 1px solid rgba(251, 172, 24, 0.35); border-radius: 10px; padding: 12px 16px; margin: 18px 0; font-size: 12px; color: var(--etb-text-primary, #ffffff); line-height: 1.45; text-align: left;">
+            <strong style="color: #fbac18; display: block; margin-bottom: 2px;">⏱️ Short-Notice Pickup (&lt; 24h)</strong>
+            For bookings scheduled within 24 hours, our dispatch team will confirm chauffeur availability before any payment is collected. You will receive a response within 1 hour during business hours (8:00 AM – 9:00 PM).
+        </div>
+
+
         <!-- 4. BARRE DE CONFIRMATION / RÉSERVATION HYBRIDE (Option C) -->
         <div class="etb-quick-confirm-bar" id="etb-quick-booking-bar" style="display: none;">
             <div class="etb-quick-summary-info">

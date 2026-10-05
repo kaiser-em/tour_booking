@@ -3,14 +3,14 @@
  * Plugin Name: Elite Transfer Booking
  * Plugin URI: 
  * Description: Système de réservation d'excursions, circuits touristiques et transferts privés. avec lien API ou autonome
- * Version:     2.2.0
+ * Version:     2.2.2
  * Author:      Reich C
  * Text Domain: elite-transfer-booking
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'ETB_VERSION', '2.2.0' );
+define( 'ETB_VERSION', '2.2.2' );
 define( 'ETB_PATH', plugin_dir_path( __FILE__ ) );
 define( 'ETB_URL', plugin_dir_url( __FILE__ ) );
 

@@ -241,39 +241,121 @@
     height: 16px !important;
 }
 
-/* 5. Boîte Sièges Enfants */
+/* 5. Boîte Sièges Enfants — Structure 2 Niveaux VIP */
 .etb-chk-child-seats-box {
     display: flex !important;
+    flex-direction: column !important;
     justify-content: space-between !important;
-    align-items: center !important;
+    gap: 12px !important;
     background: rgba(255, 255, 255, 0.03) !important;
     border: 1px solid rgba(255, 255, 255, 0.08) !important;
     border-radius: 12px !important;
-    padding: 14px 18px !important;
+    padding: 14px 16px !important;
+    transition: border-color 0.2s ease !important;
+}
+
+.etb-chk-child-seats-box:hover {
+    border-color: rgba(251, 172, 24, 0.25) !important;
+}
+
+/* Ligne 1 : Titre + Sélecteur de quantité */
+.etb-chk-seat-top-row {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    gap: 8px !important;
 }
 
 .etb-chk-seat-info {
     display: flex !important;
     align-items: center !important;
-    gap: 12px !important;
+    gap: 10px !important;
+    min-width: 0 !important;
 }
 
-.etb-chk-seat-info .dashicons {
-    font-size: 20px !important;
-    width: 20px !important;
-    height: 20px !important;
-    color: #fbac18 !important;
+.etb-chk-seat-text {
+    display: flex !important;
+    flex-direction: column !important;
+    min-width: 0 !important;
 }
 
-.etb-chk-seat-info strong {
-    font-size: 13px !important;
+.etb-chk-seat-text strong {
+    font-size: 13.5px !important;
+    font-weight: 700 !important;
     color: #ffffff !important;
+    line-height: 1.2 !important;
+    white-space: nowrap !important;
 }
 
-.etb-chk-seat-info p {
+.etb-chk-seat-age {
     font-size: 11px !important;
+    font-weight: 500 !important;
     color: #94a3b8 !important;
-    margin: 2px 0 0 0 !important;
+    margin-top: 2px !important;
+    line-height: 1 !important;
+}
+
+/* Neutralisation du margin-top sur le compteur à l'intérieur de la boîte */
+.etb-chk-child-seats-box .etb-chk-qty-control {
+    margin: 0 !important;
+    flex-shrink: 0 !important;
+}
+
+/* Ligne 2 : Badge Gratuité & Tarif supplémentaire */
+.etb-chk-seat-pricing-row {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    padding-top: 10px !important;
+    border-top: 1px dashed rgba(255, 255, 255, 0.08) !important;
+    gap: 8px !important;
+}
+
+.etb-chk-seat-badge-free {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    background: rgba(34, 197, 94, 0.12) !important;
+    border: 1px solid rgba(34, 197, 94, 0.3) !important;
+    color: #4ade80 !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    padding: 3px 8px !important;
+    border-radius: 6px !important;
+    letter-spacing: 0.02em !important;
+    white-space: nowrap !important;
+}
+
+.etb-chk-seat-badge-extra {
+    font-size: 11.5px !important;
+    font-weight: 700 !important;
+    color: #fbac18 !important;
+    white-space: nowrap !important;
+}
+
+/* Adaptation en Light Mode */
+[data-etb-theme="light"] .etb-chk-seat-text strong {
+    color: #0f172a !important;
+}
+
+[data-etb-theme="light"] .etb-chk-seat-age {
+    color: #64748b !important;
+}
+
+[data-etb-theme="light"] .etb-chk-seat-pricing-row {
+    border-top-color: #e2e8f0 !important;
+}
+
+[data-etb-theme="light"] .etb-chk-seat-badge-free {
+    background: #dcfce7 !important;
+    border-color: #86efac !important;
+    color: #15803d !important;
+}
+
+[data-etb-theme="light"] .etb-chk-seat-badge-extra {
+    color: #d97706 !important;
 }
 
 .etb-chk-qty-control {
@@ -1684,4 +1766,28 @@
 
 [data-etb-theme="light"] .iti__dial-code {
     color: #64748b !important;
+}
+
+/* ==========================================================================
+   NEUTRALISATION DE L'AUTOFILL DU NAVIGATEUR (CHROME / EDGE / SAFARI)
+   Empêche les champs auto-complétés de devenir blancs dans le thème sombre
+   ========================================================================== */
+.etb-checkout-wrapper input:-webkit-autofill,
+.etb-checkout-wrapper input:-webkit-autofill:hover, 
+.etb-checkout-wrapper input:-webkit-autofill:focus, 
+.etb-checkout-wrapper input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px #151e32 inset !important;
+    -webkit-text-fill-color: #ffffff !important;
+    caret-color: #ffffff !important;
+    transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Adaptation si le mode clair (Light Mode) est activé */
+[data-etb-theme="light"] .etb-checkout-wrapper input:-webkit-autofill,
+[data-etb-theme="light"] .etb-checkout-wrapper input:-webkit-autofill:hover, 
+[data-etb-theme="light"] .etb-checkout-wrapper input:-webkit-autofill:focus, 
+[data-etb-theme="light"] .etb-checkout-wrapper input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+    -webkit-text-fill-color: #0f172a !important;
+    caret-color: #0f172a !important;
 }

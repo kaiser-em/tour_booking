@@ -981,7 +981,7 @@ class ETB_Meta_Manager {
 
     private function send_status_change_email( $booking_id, $new_status ) {
         $email = get_post_meta( $booking_id, '_etb_customer_email', true );
-        $name  = get_post_meta( $booking_id, '_etb_customer_name', true );
+        $name  = get_post_meta( $booking_id, '_etb_customer_name', true ) ?: 'Client';
         $date  = get_post_meta( $booking_id, '_etb_booking_date', true );
         $time  = get_post_meta( $booking_id, '_etb_booking_time', true );
 
@@ -989,38 +989,78 @@ class ETB_Meta_Manager {
 
         $general_settings = get_option( 'etb_general_settings', array() );
         $currency_symbol  = ! empty( $general_settings['currency'] ) ? sanitize_text_field( $general_settings['currency'] ) : '€';
+        $company_name     = get_bloginfo( 'name' );
+        $admin_email      = ! empty( $general_settings['admin_email'] ) && is_email( $general_settings['admin_email'] ) ? sanitize_email( $general_settings['admin_email'] ) : get_option( 'admin_email' );
+
         $total            = get_post_meta( $booking_id, '_etb_total_price', true );
         $formatted_total  = number_format_i18n( (float) $total, 2 ) . ' ' . $currency_symbol;
 
-        $subject = ''; $status_title = ''; $status_message = '';
+        // Formatage de la date en "03 Oct 2026"
+        $date_ts          = strtotime( $date );
+        $formatted_dt     = $date_ts ? date( 'd M Y', $date_ts ) : $date;
+        $datetime_display = $formatted_dt . ( $time ? ' at ' . $time : '' );
+
+        $subject = ''; 
+        $status_title = ''; 
+        $status_message = '';
+        $badge_color = '#15803d';
+
         switch ( $new_status ) {
             case 'confirmed':
-                $subject = sprintf( '✅ Votre réservation #%d est confirmée', $booking_id );
-                $status_title = 'Réservation Confirmée';
-                $status_message = 'Votre demande de réservation a été validée par notre équipe.';
+                $subject        = sprintf( '✅ Your Booking #%d is Confirmed — %s', $booking_id, $company_name );
+                $status_title   = 'Reservation Confirmed';
+                $status_message = 'Your booking has been approved and locked in dispatch. Your chauffeur is allocated for your mission.';
+                $badge_color    = '#15803d';
                 break;
             case 'cancelled':
-                $subject = sprintf( '❌ Annulation de votre réservation #%d', $booking_id );
-                $status_title = 'Réservation Annulée';
-                $status_message = 'Votre demande de réservation a été annulée.';
+                $subject        = sprintf( '❌ Your Booking #%d has been Cancelled — %s', $booking_id, $company_name );
+                $status_title   = 'Reservation Cancelled';
+                $status_message = 'Your booking request has been cancelled. If you believe this is an error, please contact our dispatch team.';
+                $badge_color    = '#dc2626';
                 break;
             case 'completed':
-                $subject = sprintf( '🏁 Votre réservation #%d est terminée', $booking_id );
-                $status_title = 'Prestation Effectuée';
-                $status_message = 'Votre prestation est désormais terminée. Merci pour votre confiance !';
+                $subject        = sprintf( '🏁 Your Ride #%d is Completed — %s', $booking_id, $company_name );
+                $status_title   = 'Service Completed';
+                $status_message = 'Your chauffeur mission is now complete. Thank you for choosing us for your private transportation.';
+                $badge_color    = '#0284c7';
                 break;
             default:
                 return;
         }
 
-        $headers = array( 'Content-Type: text/html; charset=UTF-8' );
-        $message = sprintf(
-            '<h2>Bonjour %s,</h2><p><strong>Mise à jour concernant votre dossier #%d :</strong></p><div style="background-color: #f8f9fa; border-left: 4px solid #0073aa; padding: 12px; margin: 15px 0;"><h3 style="margin-top:0;">%s</h3><p style="margin-bottom:0;">%s</p></div><hr><h3>Rappel de vos informations :</h3><ul><li><strong>Date et Heure :</strong> %s à %s</li><li><strong>Montant Total :</strong> %s</li></ul>',
-            esc_html( $name ), $booking_id, esc_html( $status_title ), esc_html( $status_message ), esc_html( $date ), esc_html( $time ), $formatted_total
-        );
+        $headers = class_exists( 'ETB_Settings' ) 
+            ? ETB_Settings::get_mail_headers( $admin_email, $company_name )
+            : array( 'Content-Type: text/html; charset=UTF-8' );
+
+        $message = '<div style="background-color: #f1f5f9; padding: 30px 15px; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Arial, sans-serif; line-height: 1.6; color: #1e293b;">'
+            . '<div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06);">'
+            . '<div style="background: #0f172a; padding: 25px 30px;">'
+            . '<h1 style="margin: 0; color: #fbac18; font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">' . esc_html( $company_name ) . '</h1>'
+            . '<p style="margin: 4px 0 0 0; font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em;">Status Update — Dossier #' . $booking_id . '</p>'
+            . '</div>'
+            . '<div style="padding: 30px;">'
+            . '<p style="font-size: 15px; margin-top: 0; margin-bottom: 16px;">Dear <strong>' . esc_html( $name ) . '</strong>,</p>'
+            . '<div style="background: #f8fafc; border-left: 4px solid ' . $badge_color . '; padding: 14px 18px; border-radius: 6px; margin-bottom: 24px;">'
+            . '<strong style="color: ' . $badge_color . '; font-size: 14px; display: block; margin-bottom: 4px;">' . esc_html( $status_title ) . '</strong>'
+            . '<p style="margin: 0; font-size: 13.5px; color: #334155;">' . esc_html( $status_message ) . '</p>'
+            . '</div>'
+            . '<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13.5px;">'
+            . '<tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px 0; color: #64748b;">Booking Reference:</td><td style="padding: 10px 0; text-align: right; font-weight: 700; color: #0f172a;">#' . $booking_id . '</td></tr>'
+            . '<tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px 0; color: #64748b;">Date & Time:</td><td style="padding: 10px 0; text-align: right; font-weight: 700; color: #0f172a;">' . esc_html( $datetime_display ) . '</td></tr>'
+            . '<tr style="border-bottom: 2px solid #0f172a;"><td style="padding: 12px 0; font-size: 14px; font-weight: 700; color: #0f172a;">Total Fare:</td><td style="padding: 12px 0; text-align: right; font-size: 18px; font-weight: 800; color: #e65a15;">' . $formatted_total . '</td></tr>'
+            . '</table>'
+            . '<div style="margin-top: 25px; padding: 14px 16px; background: #f8fafc; border-radius: 6px; font-size: 12.5px; color: #64748b; text-align: center;">'
+            . 'If you have any questions, feel free to reply directly to this email.'
+            . '</div>'
+            . '</div>'
+            . '<div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 30px; text-align: center; font-size: 11.5px; color: #64748b;">'
+            . '<p style="margin: 0;">' . esc_html( $company_name ) . ' — VIP Chauffeur & Private Transfers</p>'
+            . '</div>'
+            . '</div>'
+            . '</div>';
+
         wp_mail( $email, $subject, $message, $headers );
     }
-
 
     /**
      * Affiche la vue imprimable de la facture

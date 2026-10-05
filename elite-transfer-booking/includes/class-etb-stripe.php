@@ -109,6 +109,22 @@ class ETB_Stripe {
             $data['amount_to_capture'] = round( floatval( $amount ) * 100 );
         }
 
-        return self::request( 'payment_intents/' . urlencode( $payment_intent_id ) . '/capture', 'POST', $data );
+       return self::request( 'payment_intents/' . urlencode( $payment_intent_id ) . '/capture', 'POST', $data );
+    }
+
+    /**
+     * Récupère et vérifie les détails d'un PaymentIntent depuis l'API Stripe (GET)
+     *
+     * @param string $payment_intent_id Identifiant Stripe (ex: pi_3Mxxx)
+     * @return array|WP_Error Données de l'intention ou WP_Error en cas d'échec
+     */
+    public static function retrieve_payment_intent( $payment_intent_id ) {
+        $clean_id = sanitize_text_field( trim( $payment_intent_id ) );
+
+        if ( empty( $clean_id ) ) {
+            return new WP_Error( 'stripe_invalid_id', 'Identifiant PaymentIntent manquant.' );
+        }
+
+        return self::request( 'payment_intents/' . urlencode( $clean_id ), 'GET' );
     }
 }

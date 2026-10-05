@@ -739,6 +739,39 @@
         const quoteNoticeEl  = quickRoot.querySelector('#etb-quick-quote-notice');
         const whatsappBtn    = quickRoot.querySelector('#etb-quick-whatsapp-btn');
         const bookBtnLabel   = quickRoot.querySelector('#etb-quick-book-btn-label');
+        const urgentNoticeEl = quickRoot.querySelector('#etb-quick-urgent-notice');
+
+        // Détection dynamique des courses urgentes (< 24h)
+        const checkIsUrgent = () => {
+            const rawDate = dateInput ? dateInput.value.trim() : '';
+            const rawTime = timeInput ? timeInput.value.trim() : '';
+            if (!rawDate || !rawTime || rawTime === '-- : --') return false;
+
+            let h = 9, m = 0;
+            const cleanTime = rawTime.toUpperCase();
+            if (cleanTime.includes('AM') || cleanTime.includes('PM')) {
+                const parts = cleanTime.split(/\s+/);
+                const hm = (parts[0] || '').split(':');
+                h = parseInt(hm[0], 10) || 0;
+                m = parseInt(hm[1], 10) || 0;
+                if (cleanTime.includes('PM') && h < 12) h += 12;
+                if (cleanTime.includes('AM') && h === 12) h = 0;
+            } else {
+                const hm = cleanTime.split(':');
+                h = parseInt(hm[0], 10) || 0;
+                m = parseInt(hm[1], 10) || 0;
+            }
+
+            const dParts = rawDate.split('-');
+            if (dParts.length !== 3) return false;
+
+            const pickupDate = new Date(parseInt(dParts[0], 10), parseInt(dParts[1], 10) - 1, parseInt(dParts[2], 10), h, m, 0);
+            const now = new Date();
+            const diffHours = (pickupDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+            // Retourne true UNIQUEMENT si la course a lieu entre 0h et 24h
+            return diffHours >= 0 && diffHours < 24;
+        };
 
         let currentMode = 'transfer';
         let selectedCar = null;
@@ -1278,123 +1311,131 @@
             });
         });
 
-        // Fonction utilitaire pour dévoiler la flotte
+       // Fonction utilitaire pour dévoiler la flotte et évaluer le bandeau urgent
         const showFleetSection = () => {
             if (fleetSection) {
                 fleetSection.style.display = 'block';
                 fleetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
+
+            // Évaluation immédiate dès l'affichage des prix : < 24h = visible, sinon = masqué
+            if (urgentNoticeEl) {
+                urgentNoticeEl.style.display = checkIsUrgent() ? 'block' : 'none';
+            }
         };
 
-        // Fonction de recalcul instantané des tarifs horaires
-        const recalculateHourlyFleet = () => {
-            // Désactivation formelle du mode devis pour le mode horaire
-            isQuoteMode = false;
-            if (quoteNoticeEl) quoteNoticeEl.classList.remove('is-visible');
+      
+        // Calcul et affichage dynamique des suppléments sièges enfants (Baby > 1 = 50€, Booster > 2 = 50€)
+        const calculateChildSeatsFee = () => {
+            const babyInput    = document.getElementById('etb-chk-baby-seats');
+            const boosterInput = document.getElementById('etb-chk-booster-seats');
 
-            const durationHours = parseFloat(durationSelect ? durationSelect.value : 4);
-            let availableCarsCount = 0;
+            const babyCount    = parseInt(babyInput ? babyInput.value : 0, 10) || 0;
+            const boosterCount = parseInt(boosterInput ? boosterInput.value : 0, 10) || 0;
 
-            carCards.forEach(card => {
-                const minHours    = parseFloat(card.getAttribute('data-min-hours')) || 4;
-                const hourlyRate  = parseFloat(card.getAttribute('data-hourly-rate')) || 0;
-                const pack10h     = parseFloat(card.getAttribute('data-pack-10h')) || 0;
-                const supHourRate = parseFloat(card.getAttribute('data-sup-hour-rate')) || 0;
-                const kmPerHour   = parseFloat(card.getAttribute('data-km-ph')) || 35;
-                const kmSupRate   = parseFloat(card.getAttribute('data-km-sup-rate')) || 0;
+            const paidBaby    = Math.max(0, babyCount - 1);
+            const paidBooster = Math.max(0, boosterCount - 2);
 
-                // Règle de durée minimale : masquage si insuffisant
-                if (durationHours < minHours) {
-                    card.style.display = 'none';
-                    card.classList.add('etb-hidden');
-                    card.classList.remove('selected');
-                    return;
+            const feeBaby    = paidBaby * 50;
+            const feeBooster = paidBooster * 50;
+
+            // 1. Mise à jour Baby Seat
+            const babyRow   = document.getElementById('etb-chk-baby-seats-row');
+            const babyLabel = document.getElementById('etb-chk-baby-seats-label');
+            const babyVal   = document.getElementById('etb-chk-breakdown-baby-seats');
+
+            if (babyRow) {
+                if (feeBaby > 0) {
+                    babyRow.style.setProperty('display', 'flex', 'important');
+                    if (babyLabel) babyLabel.textContent = `Extra Baby Seat (${paidBaby})`;
+                    if (babyVal) babyVal.textContent = `+ ${feeBaby} ${currency}`;
                 } else {
-                    card.style.display = 'flex';
-                    card.classList.remove('etb-hidden');
-                }
-
-                let calculatedPrice = 0;
-                let priceDetailHtml = '';
-
-                if (durationHours < 10) {
-                    calculatedPrice = hourlyRate > 0 ? Math.round(durationHours * hourlyRate) : pack10h;
-                    if (hourlyRate > 0) {
-                        priceDetailHtml = `Price for ${durationHours} hours <br> <strong>${hourlyRate} ${currency}</strong> per hour`;
-                    }
-                } else if (durationHours === 10) {
-                    calculatedPrice = pack10h > 0 ? pack10h : Math.round(durationHours * hourlyRate);
-                    const hourlyEquivalent = pack10h > 0 ? Math.round(pack10h / 10) : hourlyRate;
-                    priceDetailHtml = `Price for 10 hours <br> <strong>${hourlyEquivalent} ${currency}</strong> per hour`;
-                } else {
-                    const extraHours = durationHours - 10;
-                    const basePack   = pack10h > 0 ? pack10h : Math.round(10 * hourlyRate);
-                    calculatedPrice  = Math.round(basePack + (extraHours * supHourRate));
-                    if (pack10h > 0 && supHourRate > 0) {
-                        priceDetailHtml = `10h Package + ${extraHours} extra hour(s) <br> <strong>${supHourRate} ${currency}</strong> per extra hour`;
-                    }
-                }
-
-                // Quota kilométrique
-                const totalKm = Math.round(durationHours * kmPerHour);
-                const kmInfoEl = card.querySelector('.etb-quick-km-info');
-                if (kmInfoEl) {
-                    let kmText = '' + totalKm + ' km included';
-                    if (kmSupRate > 0) {
-                        kmText += ' (' + kmSupRate.toFixed(2) + ' €/km sup.)';
-                    }
-                    kmInfoEl.textContent = kmText;
-                    kmInfoEl.classList.add('is-visible'); // <-- Activation via la classe CSS
-                }
-
-                // 1. Régénération complète du prix chiffré avec "All inclusive" à côté
-                const priceBox = card.querySelector('.etb-quick-price-display');
-                if (priceBox) {
-                    priceBox.innerHTML = '<span class="etb-quick-amount">' + calculatedPrice + '</span> <span class="etb-quick-currency">' + currency + '</span> <span class="etb-quick-all-inclusive">All inclusive</span>';
-                }
-
-                // 2. Mise à jour de la ligne d'explication horaire
-                const detailEl = card.querySelector('.etb-quick-price-detail');
-                if (detailEl) {
-                    if (priceDetailHtml) {
-                        detailEl.innerHTML = priceDetailHtml;
-                        detailEl.style.display = 'block';
-                    } else {
-                        detailEl.style.display = 'none';
-                    }
-                }
-
-                // 3. Remise du bouton sur Select
-                const selBtn = card.querySelector('.etb-quick-select-btn');
-                if (selBtn) {
-                    selBtn.textContent = 'Select';
-                }
-
-                card.dataset.calculatedPrice = calculatedPrice;
-                card.dataset.isQuote = '0';
-                card.style.display = 'flex';
-                card.classList.remove('etb-hidden');
-                availableCarsCount++;
-            });
-
-            // Si un véhicule est déjà sélectionné, on actualise la barre du bas
-            if (selectedCar && selectedCar.id) {
-                const activeCard = quickRoot.querySelector(`.etb-quick-car-item[data-id="${selectedCar.id}"]`);
-                if (activeCard && activeCard.style.display !== 'none') {
-                    const updatedPrice = activeCard.dataset.calculatedPrice || '0';
-                    selectedCar.price   = updatedPrice;
-                    selectedCar.isQuote = false;
-                    if (selectedTotEl) selectedTotEl.textContent = updatedPrice + ' ' + currency;
-                    if (bookBtnLabel) bookBtnLabel.textContent = 'Book this Trip';
-                    const activeBtn = activeCard.querySelector('.etb-quick-select-btn');
-                    if (activeBtn) activeBtn.textContent = '✓ Selected';
-                } else {
-                    selectedCar = null;
-                    if (bookingBar) bookingBar.classList.remove('is-visible');
+                    babyRow.style.setProperty('display', 'none', 'important');
                 }
             }
 
-            return availableCarsCount;
+            // 2. Mise à jour Booster Seat
+            const boosterRow   = document.getElementById('etb-chk-booster-seats-row');
+            const boosterLabel = document.getElementById('etb-chk-booster-seats-label');
+            const boosterVal   = document.getElementById('etb-chk-breakdown-booster-seats');
+
+            if (boosterRow) {
+                if (feeBooster > 0) {
+                    boosterRow.style.setProperty('display', 'flex', 'important');
+                    if (boosterLabel) boosterLabel.textContent = `Extra Booster Seat (${paidBooster})`;
+                    if (boosterVal) boosterVal.textContent = `+ ${feeBooster} ${currency}`;
+                } else {
+                    boosterRow.style.setProperty('display', 'none', 'important');
+                }
+            }
+
+            return feeBaby + feeBooster;
+        };
+        // 2. Fonction de recalcul du total incluant sièges enfants et pourboire
+        const recalculateTotalWithTip = (tipPercent) => {
+            if (isQuoteRide) {
+                if (tipRow) {
+                    tipRow.classList.remove('is-visible');
+                    tipRow.style.setProperty('display', 'none', 'important');
+                }
+                if (payTipRowEl) {
+                    payTipRowEl.classList.add('is-hidden');
+                    payTipRowEl.style.setProperty('display', 'none', 'important');
+                }
+                if (tipAmountInput) tipAmountInput.value = '0';
+                if (sumTotalPrice) sumTotalPrice.textContent = 'Custom Quote';
+                if (payGrandTotalEl) payGrandTotalEl.textContent = 'Custom Quote';
+                if (payTotalDueEl) payTotalDueEl.textContent = 'Custom Quote';
+                return;
+            }
+
+            // Prise en compte du supplément sièges
+            const seatsFee = calculateChildSeatsFee();
+            const subtotalBeforeTip = baseNumericPrice + seatsFee;
+
+            const tipVal = Math.round((subtotalBeforeTip * (tipPercent / 100)) * 100) / 100;
+            if (tipAmountInput) tipAmountInput.value = tipVal;
+
+            const totalWithTip   = subtotalBeforeTip + tipVal;
+            const formattedTotal = totalWithTip.toFixed(2) + ' ' + currency;
+
+            if (tipVal > 0) {
+                if (tipRow) {
+                    tipRow.classList.add('is-visible');
+                    tipRow.style.setProperty('display', 'flex', 'important');
+                }
+                if (tipPercentText) tipPercentText.textContent = `${tipPercent}%`;
+                if (tipBreakdown) tipBreakdown.textContent = `+ ${tipVal.toFixed(2)} ${currency}`;
+                if (sumTotalPrice) sumTotalPrice.textContent = formattedTotal;
+
+                if (payTipRowEl) {
+                    payTipRowEl.classList.remove('is-hidden');
+                    payTipRowEl.style.setProperty('display', 'flex', 'important');
+                }
+                if (payTipAmountEl) payTipAmountEl.textContent = `+ ${tipVal.toFixed(2)} ${currency}`;
+                if (payGrandTotalEl) payGrandTotalEl.textContent = formattedTotal;
+                if (payTotalDueEl) payTotalDueEl.textContent = formattedTotal;
+            } else {
+                const subtotalFormatted = subtotalBeforeTip.toFixed(0) + ' ' + currency;
+
+                if (tipRow) {
+                    tipRow.classList.remove('is-visible');
+                    tipRow.style.setProperty('display', 'none', 'important');
+                }
+                if (sumTotalPrice) sumTotalPrice.textContent = subtotalFormatted;
+
+                if (payTipRowEl) {
+                    payTipRowEl.classList.add('is-hidden');
+                    payTipRowEl.style.setProperty('display', 'none', 'important');
+                }
+                if (payGrandTotalEl) payGrandTotalEl.textContent = subtotalFormatted;
+                if (payTotalDueEl) payTotalDueEl.textContent = subtotalFormatted;
+            }
+
+            if (currentCheckoutStep === 2 && submitText) {
+                const finalBtnTotal = (tipVal > 0) ? formattedTotal : (subtotalBeforeTip.toFixed(0) + ' ' + currency);
+                submitText.textContent = `Pay ${finalBtnTotal} Now`;
+            }
         };
 
         // Fonction d'activation du mode Devis Sur Mesure (Custom Quote)
@@ -1640,6 +1681,7 @@
                     this.classList.remove('selected');
                     selectedCar = null;
                     if (bookingBar) bookingBar.classList.remove('is-visible');
+                    if (urgentNoticeEl) urgentNoticeEl.style.display = 'none';
                     const btn = this.querySelector('.etb-quick-select-btn');
                     if (btn) {
                         btn.textContent = (this.dataset.isQuote === '1' || isQuoteMode) ? 'Request Quote' : 'Select';
@@ -1745,6 +1787,11 @@
                         emailInquiryBtn.href = `mailto:${adminMail}?subject=${emailSubject}&body=${emailBody}`;
                     }
 
+
+                    // Affichage du bandeau < 24h si le trajet est urgent
+                    if (urgentNoticeEl) {
+                        urgentNoticeEl.style.display = checkIsUrgent() ? 'block' : 'none';
+                    }
 
                     bookingBar.classList.add('is-visible');
 
@@ -2331,7 +2378,52 @@
         let baseNumericPrice    = 0;
         let isQuoteRide         = false;
 
-        // 2. Fonction de recalcul du pourboire (accessible partout)
+        // Calcul du supplément des sièges enfants payants (Baby > 1 = 50€, Booster > 2 = 50€)
+        const calculateChildSeatsFee = () => {
+            const babyCount    = parseInt(seatInput ? seatInput.value : 0, 10) || 0;
+            const boosterCount = parseInt(boosterInput ? boosterInput.value : 0, 10) || 0;
+
+            // Règle métier : 1er Baby Seat offert, 2 premiers Booster Seats offerts
+            const paidBaby    = Math.max(0, babyCount - 1);
+            const paidBooster = Math.max(0, boosterCount - 2);
+
+            const feeBaby    = paidBaby * 50;
+            const feeBooster = paidBooster * 50;
+
+            // 1. Affichage dynamique de la ligne Siège Bébé
+            const babyRow   = checkoutRoot.querySelector('#etb-chk-baby-seats-row');
+            const babyLabel = checkoutRoot.querySelector('#etb-chk-baby-seats-label');
+            const babyVal   = checkoutRoot.querySelector('#etb-chk-breakdown-baby-seats');
+
+            if (babyRow) {
+                if (feeBaby > 0) {
+                    babyRow.style.setProperty('display', 'flex', 'important');
+                    if (babyLabel) babyLabel.textContent = `Extra Baby Seat (${paidBaby})`;
+                    if (babyVal) babyVal.textContent = `+ ${feeBaby.toFixed(2)} ${currency}`;
+                } else {
+                    babyRow.style.setProperty('display', 'none', 'important');
+                }
+            }
+
+            // 2. Affichage dynamique de la ligne Rehausseur (Booster)
+            const boosterRow   = checkoutRoot.querySelector('#etb-chk-booster-seats-row');
+            const boosterLabel = checkoutRoot.querySelector('#etb-chk-booster-seats-label');
+            const boosterVal   = checkoutRoot.querySelector('#etb-chk-breakdown-booster-seats');
+
+            if (boosterRow) {
+                if (feeBooster > 0) {
+                    boosterRow.style.setProperty('display', 'flex', 'important');
+                    if (boosterLabel) boosterLabel.textContent = `Extra Booster Seat (${paidBooster})`;
+                    if (boosterVal) boosterVal.textContent = `+ ${feeBooster.toFixed(2)} ${currency}`;
+                } else {
+                    boosterRow.style.setProperty('display', 'none', 'important');
+                }
+            }
+
+            return feeBaby + feeBooster;
+        };
+
+        // 2. Fonction de recalcul du total incluant sièges enfants et pourboire
         const recalculateTotalWithTip = (tipPercent) => {
             if (isQuoteRide) {
                 if (tipRow) {
@@ -2349,14 +2441,17 @@
                 return;
             }
 
-            const tipVal = Math.round((baseNumericPrice * (tipPercent / 100)) * 100) / 100;
-            if (tipAmountInput) tipAmountInput.value = tipVal;
+            // Prise en compte du supplément sièges
+            const seatsFee = calculateChildSeatsFee();
+            const subtotalBeforeTip = baseNumericPrice + seatsFee;
 
-            const totalWithTip   = baseNumericPrice + tipVal;
+            const tipVal = Math.round((subtotalBeforeTip * (tipPercent / 100)) * 100) / 100;
+            if (tipAmountInput) tipAmountInput.value = tipVal.toFixed(2);
+
+            const totalWithTip   = subtotalBeforeTip + tipVal;
             const formattedTotal = totalWithTip.toFixed(2) + ' ' + currency;
 
             if (tipVal > 0) {
-                // Colonne Droite
                 if (tipRow) {
                     tipRow.classList.add('is-visible');
                     tipRow.style.setProperty('display', 'flex', 'important');
@@ -2365,7 +2460,6 @@
                 if (tipBreakdown) tipBreakdown.textContent = `+ ${tipVal.toFixed(2)} ${currency}`;
                 if (sumTotalPrice) sumTotalPrice.textContent = formattedTotal;
 
-                // Colonne Gauche
                 if (payTipRowEl) {
                     payTipRowEl.classList.remove('is-hidden');
                     payTipRowEl.style.setProperty('display', 'flex', 'important');
@@ -2374,28 +2468,28 @@
                 if (payGrandTotalEl) payGrandTotalEl.textContent = formattedTotal;
                 if (payTotalDueEl) payTotalDueEl.textContent = formattedTotal;
             } else {
-                const baseFormatted = baseNumericPrice.toFixed(0) + ' ' + currency;
+                const subtotalFormatted = subtotalBeforeTip.toFixed(2) + ' ' + currency;
 
                 if (tipRow) {
                     tipRow.classList.remove('is-visible');
                     tipRow.style.setProperty('display', 'none', 'important');
                 }
-                if (sumTotalPrice) sumTotalPrice.textContent = baseFormatted;
+                if (sumTotalPrice) sumTotalPrice.textContent = subtotalFormatted;
 
                 if (payTipRowEl) {
                     payTipRowEl.classList.add('is-hidden');
                     payTipRowEl.style.setProperty('display', 'none', 'important');
                 }
-                if (payGrandTotalEl) payGrandTotalEl.textContent = baseFormatted;
-                if (payTotalDueEl) payTotalDueEl.textContent = baseFormatted;
+                if (payGrandTotalEl) payGrandTotalEl.textContent = subtotalFormatted;
+                if (payTotalDueEl) payTotalDueEl.textContent = subtotalFormatted;
             }
 
-            // Mise à jour du bouton si l'utilisateur est déjà sur l'écran de paiement
             if (currentCheckoutStep === 2 && submitText) {
-                const finalBtnTotal = (tipVal > 0) ? formattedTotal : (baseNumericPrice.toFixed(0) + ' ' + currency);
+                const finalBtnTotal = (tipVal > 0) ? formattedTotal : (subtotalBeforeTip.toFixed(2) + ' ' + currency);
                 submitText.textContent = `Pay ${finalBtnTotal} Now`;
             }
         };
+
 
         // 3. Hydratation automatique depuis le serveur (Quote Token) ou les paramètres
         const hydrateFromHandoff = () => {
@@ -2474,11 +2568,11 @@
                 sumDatetime.textContent = formatSummaryDateTime(dateVal, timeVal);
             }
 
-            // Calcul financier de base
+             // Calcul financier de base (précision centimes)
             baseNumericPrice = parseFloat(rawPrice) || 0;
             isQuoteRide      = (rawPrice === 'Custom Quote' || baseNumericPrice <= 0);
 
-            const formattedPrice = isQuoteRide ? 'Custom Quote' : `${baseNumericPrice.toFixed(0)} ${currency}`;
+            const formattedPrice = isQuoteRide ? 'Custom Quote' : `${baseNumericPrice.toFixed(2)} ${currency}`;
             if (sumBasePrice) sumBasePrice.textContent = formattedPrice;
             if (sumTotalPrice) sumTotalPrice.textContent = formattedPrice;
 
@@ -2488,18 +2582,58 @@
             const totalLabelEl    = checkoutRoot.querySelector('.etb-chk-price-row.total-row span:first-child');
             const guaranteesBoxEl = checkoutRoot.querySelector('.etb-chk-guarantees');
 
-            const isUrgentInput = checkoutRoot.querySelector('#etb-chk-is-urgent');
-            const isUrgentRide  = (isUrgentInput && isUrgentInput.value === '1');
+            // Détection dynamique en temps réel de la réservation urgente (< 24h)
+            const checkIsUrgentCheckout = () => {
+                const rawDate = dateInput ? dateInput.value.trim() : '';
+                const rawTime = timeInput ? timeInput.value.trim() : '';
+                if (!rawDate || !rawTime || rawTime === '-- : --') return false;
 
-                if (isQuoteRide) {
-                    // 1. Bouton d'action Devis
-                    if (submitText) submitText.textContent = 'Submit Quote Request';
+                let h = 9, m = 0;
+                const cleanTime = rawTime.toUpperCase();
+                if (cleanTime.includes('AM') || cleanTime.includes('PM')) {
+                    const parts = cleanTime.split(/\s+/);
+                    const hm = (parts[0] || '').split(':');
+                    h = parseInt(hm[0], 10) || 0;
+                    m = parseInt(hm[1], 10) || 0;
+                    if (cleanTime.includes('PM') && h < 12) h += 12;
+                    if (cleanTime.includes('AM') && h === 12) h = 0;
+                } else {
+                    const hm = cleanTime.split(':');
+                    h = parseInt(hm[0], 10) || 0;
+                    m = parseInt(hm[1], 10) || 0;
+                }
 
-                    // 2. Masquage total de la section pourboire
-                    if (tipSectionEl) tipSectionEl.style.setProperty('display', 'none', 'important');
-                } else if (isUrgentRide) {
-                    // Bouton d'action Course Urgente (< 24h)
-                    if (submitText) submitText.textContent = 'Request Urgent Booking';
+                const dParts = rawDate.split('-');
+                if (dParts.length !== 3) return false;
+
+                const pickupDate = new Date(parseInt(dParts[0], 10), parseInt(dParts[1], 10) - 1, parseInt(dParts[2], 10), h, m, 0);
+                const now = new Date();
+                const diffHours = (pickupDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+                // Urgent si la prise en charge a lieu entre maintenant et moins de 24h
+                return diffHours >= 0 && diffHours < 24;
+            };
+
+            const isUrgentInput  = checkoutRoot.querySelector('#etb-chk-is-urgent');
+            const urgentNoticeEl = checkoutRoot.querySelector('#etb-chk-urgent-notice-box');
+            const payLaterWrap   = checkoutRoot.querySelector('#etb-chk-pay-later-wrap');
+
+            // Évaluation synchronisée : validée si calculée par le navigateur OU initialisée par PHP
+            const isUrgentRide = checkIsUrgentCheckout() || (isUrgentInput && isUrgentInput.value === '1');
+
+            if (isUrgentInput) isUrgentInput.value = isUrgentRide ? '1' : '0';
+            if (urgentNoticeEl) urgentNoticeEl.style.display = isUrgentRide ? 'block' : 'none';
+            if (payLaterWrap && isUrgentRide) payLaterWrap.style.display = 'none';
+
+            if (isQuoteRide) {
+                // 1. Bouton d'action Devis
+                if (submitText) submitText.textContent = 'Submit Quote Request';
+
+                // 2. Masquage total de la section pourboire
+                if (tipSectionEl) tipSectionEl.style.setProperty('display', 'none', 'important');
+            } else if (isUrgentRide) {
+                // Bouton d'action Course Urgente (< 24h)
+                if (submitText) submitText.textContent = 'Request Urgent Booking';
                 
                 // 3. Masquage de la ligne Base Fare redondante
                 if (baseFareRowEl) baseFareRowEl.style.setProperty('display', 'none', 'important');
@@ -2632,22 +2766,49 @@
             });
         }
 
-        // 6. Auto-remplissage de la pancarte (Uniquement si visible)
+        // 6. Auto-remplissage de la pancarte : Prénom titré + NOM EN MAJUSCULE
         const updateGreetingSign = () => {
             const fName = firstNameInput ? firstNameInput.value.trim() : '';
             const lName = lastNameInput ? lastNameInput.value.trim() : '';
             if (pickupSignInput && !pickupSignInput.dataset.manualEdit) {
                 const isSignVisible = airportCard && airportCard.style.display !== 'none' && checkoutRoot.querySelector('#etb-chk-sign-field')?.style.display !== 'none';
                 if (isSignVisible && (fName || lName)) {
-                    pickupSignInput.value = `${lName || fName}`;
+                    // 1. Prénom : Première lettre en majuscule, reste en minuscule (ex: "krasimir" -> "Krasimir")
+                    const formattedFirst = fName ? fName.split(/(\s+|-)/).map(part => {
+                        if (part.trim() === '' || part === '-') return part;
+                        return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+                    }).join('') : '';
+
+                    // 2. Nom : Tout en majuscule (ex: "ivanov" -> "IVANOV")
+                    const formattedLast = lName ? lName.toUpperCase() : '';
+
+                    // 3. Combinaison harmonieuse
+                    if (formattedFirst && formattedLast) {
+                        pickupSignInput.value = `${formattedFirst} ${formattedLast}`;
+                    } else {
+                        pickupSignInput.value = formattedLast || formattedFirst;
+                    }
                 } else {
-                    pickupSignInput.value = ''; // On garantit qu'il reste vide si caché
+                    pickupSignInput.value = ''; // Reste vide si masqué
                 }
             }
         };
 
         if (firstNameInput) firstNameInput.addEventListener('input', updateGreetingSign);
-        if (lastNameInput) lastNameInput.addEventListener('input', updateGreetingSign);
+
+        // Majuscule automatique sur le nom de famille (Last Name) lors de la saisie
+        if (lastNameInput) {
+            lastNameInput.addEventListener('input', function () {
+                const start = this.selectionStart;
+                const end   = this.selectionEnd;
+                this.value  = this.value.toUpperCase();
+                if (start !== null && end !== null) {
+                    this.setSelectionRange(start, end);
+                }
+                updateGreetingSign();
+            });
+        }
+
         if (pickupSignInput) {
             pickupSignInput.addEventListener('input', function () {
                 this.dataset.manualEdit = '1';
@@ -2706,28 +2867,54 @@
             });
         }
 
-        // 8. Contrôle des sièges enfants (+/-) : Baby Seat & Booster Seat
+        // Récupère le pourcentage de pourboire actuellement sélectionné
+        const getCurrentTipPercent = () => {
+            const activeTipPill = checkoutRoot.querySelector('.etb-tip-pill.active');
+            return activeTipPill ? (parseInt(activeTipPill.dataset.tip, 10) || 0) : 0;
+        };
+
+        // 8. Contrôle des sièges enfants (+/-) avec mise à jour immédiate
         if (seatMinusBtn && seatPlusBtn && seatInput) {
             seatMinusBtn.addEventListener('click', function () {
                 let val = parseInt(seatInput.value, 10) || 0;
-                if (val > 0) seatInput.value = val - 1;
+                if (val > 0) {
+                    seatInput.value = val - 1;
+                    const activePill = checkoutRoot.querySelector('.etb-tip-pill.active');
+                    const tipPct = activePill ? (parseInt(activePill.dataset.tip, 10) || 0) : 0;
+                    recalculateTotalWithTip(tipPct);
+                }
             });
 
             seatPlusBtn.addEventListener('click', function () {
                 let val = parseInt(seatInput.value, 10) || 0;
-                if (val < 10) seatInput.value = val + 1;
+                if (val < 10) {
+                    seatInput.value = val + 1;
+                    const activePill = checkoutRoot.querySelector('.etb-tip-pill.active');
+                    const tipPct = activePill ? (parseInt(activePill.dataset.tip, 10) || 0) : 0;
+                    recalculateTotalWithTip(tipPct);
+                }
             });
         }
 
         if (boosterMinusBtn && boosterPlusBtn && boosterInput) {
             boosterMinusBtn.addEventListener('click', function () {
                 let val = parseInt(boosterInput.value, 10) || 0;
-                if (val > 0) boosterInput.value = val - 1;
+                if (val > 0) {
+                    boosterInput.value = val - 1;
+                    const activePill = checkoutRoot.querySelector('.etb-tip-pill.active');
+                    const tipPct = activePill ? (parseInt(activePill.dataset.tip, 10) || 0) : 0;
+                    recalculateTotalWithTip(tipPct);
+                }
             });
 
             boosterPlusBtn.addEventListener('click', function () {
                 let val = parseInt(boosterInput.value, 10) || 0;
-                if (val < 10) boosterInput.value = val + 1;
+                if (val < 10) {
+                    boosterInput.value = val + 1;
+                    const activePill = checkoutRoot.querySelector('.etb-tip-pill.active');
+                    const tipPct = activePill ? (parseInt(activePill.dataset.tip, 10) || 0) : 0;
+                    recalculateTotalWithTip(tipPct);
+                }
             });
         }
 
@@ -3129,28 +3316,28 @@
         };
 
         const updateStandaloneTip = function (pct) {
-            // Résolution intelligente du prix de base (spécial Custom Quote) :
-            // Si base_fare est à 0, on le déduit immédiatement depuis le montant total actuel
+            const seatsFeeEl = payRoot.querySelector('#etb-pay-child-seat-fee');
+            const seatsFee   = parseMoneyValue(seatsFeeEl ? seatsFeeEl.value : 0);
+
             let baseFare = parseMoneyValue(baseFareInput ? baseFareInput.value : 0);
             if (baseFare <= 0) {
                 const currentTotal = parseMoneyValue(amountInput ? amountInput.value : 0) 
                                   || parseMoneyValue(displayTotalEl ? displayTotalEl.textContent : 0);
                 const currentTip   = parseMoneyValue(tipAmtInput ? tipAmtInput.value : 0);
-                baseFare = (currentTotal > currentTip) ? (currentTotal - currentTip) : currentTotal;
+                baseFare = (currentTotal > (currentTip + seatsFee)) ? (currentTotal - currentTip - seatsFee) : currentTotal;
                 
-                // Mémorisation immédiate dans tous les champs base_fare
-                if (baseFare > 0) {
-                    payRoot.querySelectorAll('input[name="base_fare"]').forEach(inp => inp.value = baseFare.toFixed(2));
+                if (baseFare > 0 && baseFareInput) {
+                    baseFareInput.value = baseFare.toFixed(2);
                 }
             }
 
             const tipVal   = Math.round((baseFare * (pct / 100)) * 100) / 100;
-            const newTotal = baseFare + tipVal;
+            const newTotal = baseFare + seatsFee + tipVal;
 
-            // Synchronisation de TOUS les inputs (anti-doublon)
-            payRoot.querySelectorAll('input[name="tip_percentage"]').forEach(inp => inp.value = pct);
-            payRoot.querySelectorAll('input[name="tip_amount"]').forEach(inp => inp.value = tipVal.toFixed(2));
-            payRoot.querySelectorAll('input[name="amount"]').forEach(inp => inp.value = newTotal.toFixed(2));
+            // Synchronisation des inputs
+            if (tipPctInput) tipPctInput.value = pct;
+            if (tipAmtInput) tipAmtInput.value = tipVal.toFixed(2);
+            if (amountInput) amountInput.value = newTotal.toFixed(2);
 
             const formattedTotal = newTotal.toFixed(2) + ' ' + currencySym;
             const formattedTip   = tipVal.toFixed(2) + ' ' + currencySym;
@@ -3160,11 +3347,11 @@
 
             if (tipLineEl) {
                 if (pct > 0) {
-                    tipLineEl.style.display = 'block';
-                    if (tipTextEl) tipTextEl.textContent = formattedTip;
+                    tipLineEl.style.setProperty('display', 'flex', 'important');
+                    if (tipTextEl) tipTextEl.textContent = '+' + formattedTip;
                     if (tipPctEl) tipPctEl.textContent = pct + '%';
                 } else {
-                    tipLineEl.style.display = 'none';
+                    tipLineEl.style.setProperty('display', 'none', 'important');
                 }
             }
         };

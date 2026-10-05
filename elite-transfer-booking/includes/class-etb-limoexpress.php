@@ -341,7 +341,7 @@ class ETB_LimoExpress {
                 $seats_parts[] = sprintf( '%d Siège(s) Bébé (0-2 ans)', $baby_seat_count );
             }
             if ( $booster_seat_count > 0 ) {
-                $seats_parts[] = sprintf( '%d Rehausseur(s) / Booster (3-10 ans)', $booster_seat_count );
+                $seats_parts[] = sprintf( '%d Rehausseur(s) / Booster (2-10 ans)', $booster_seat_count );
             }
             $seats_info = "👶 SIÈGES ENFANTS : " . implode( ' + ', $seats_parts ) . "\n";
         }
@@ -499,7 +499,7 @@ class ETB_LimoExpress {
             'duration'               => $duration_formatted,
             'from_location'          => array( 'name' => $pickup_address ),
             'to_location'            => $is_hourly_trip ? array( 'name' => 'As Directed (À disposition)' ) : array( 'name' => $dropoff_info ),
-            'price'                  => (int) round( $base_ride_price ),
+            'price'                  => (float) round( $base_ride_price, 2 ),
             'price_type'             => 'NET',
            'passenger_count'        => (int) $total_passengers,
             'suitcase_count'         => (int) $data['luggage'],
@@ -769,10 +769,14 @@ class ETB_LimoExpress {
     public static function get_or_create_client( $data, $settings, $booking_id = 0 ) {
         $token = $settings['limo_api_token'] ?? '';
         
-        // Client de secours par défaut
-        $default_fallback_id = ! empty( $settings['limo_client_id'] ) 
-            ? trim( $settings['limo_client_id'] ) 
-            : 'e56ea49f-8533-41b9-97c9-17343ee35a4e';
+        // Client de secours par défaut (résolution dynamique sans hardcode)
+        $default_fallback_id = ! empty( $settings['limo_client_id'] ) ? trim( $settings['limo_client_id'] ) : '';
+        if ( empty( $default_fallback_id ) ) {
+            $available_clients = self::get_clients();
+            if ( ! empty( $available_clients[0]['id'] ) ) {
+                $default_fallback_id = trim( $available_clients[0]['id'] );
+            }
+        }
 
         if ( empty( $token ) || empty( $data['name'] ) ) {
             return $default_fallback_id;

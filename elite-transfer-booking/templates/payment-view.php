@@ -88,9 +88,11 @@ if ( $url_amount > 0 ) {
         // Si la course a été retrouvée dans LimoExpress
         if ( isset( $limo_check['price'] ) ) {
             $live_limo_price = floatval( $limo_check['price'] );
+            $child_seats_fee = floatval( get_post_meta( $booking_id, '_etb_child_seat_fee', true ) );
 
-            // LimoExpress fait foi absolue : on adopte le montant exact de Limo (qu'il soit 2400 € ou 0 €)
-            $settled_amount = $live_limo_price;
+            // Le total LimoExpress = Tarif transport + Sièges enfants
+            $settled_amount = $live_limo_price + $child_seats_fee;
+            update_post_meta( $booking_id, '_etb_base_price', $live_limo_price );
             update_post_meta( $booking_id, '_etb_total_price', $settled_amount );
 
             // Sauvegarde de l'UUID réel de la course pour le paiement final
@@ -126,18 +128,24 @@ if ( $has_valid_booking && ! $is_tampered ) {
     $cabin_bags      = absint( get_post_meta( $booking_id, '_etb_cabin_bags', true ) );
     $total_luggage   = absint( get_post_meta( $booking_id, '_etb_luggage', true ) ?: ($checked_luggage + $cabin_bags) );
 
-    // Sièges enfants
+    // Sièges enfants et calcul des suppléments payants
     $baby_seats      = absint( get_post_meta( $booking_id, '_etb_baby_seat_count', true ) );
     $booster_seats   = absint( get_post_meta( $booking_id, '_etb_booster_seat_count', true ) );
+    $child_seat_fee  = floatval( get_post_meta( $booking_id, '_etb_child_seat_fee', true ) );
+    $paid_baby       = max( 0, $baby_seats - 1 );
+    $paid_booster    = max( 0, $booster_seats - 2 );
+    $fee_baby        = (float) ( $paid_baby * 50.0 );
+    $fee_booster     = (float) ( $paid_booster * 50.0 );
 
     // Tarification décomposée & Pourboire chauffeur
     $saved_tip_percent = absint( get_post_meta( $booking_id, '_etb_tip_percentage', true ) ?: 0 );
     $saved_tip_amount  = floatval( get_post_meta( $booking_id, '_etb_tip_amount', true ) ?: 0.0 );
     $saved_base_price  = floatval( get_post_meta( $booking_id, '_etb_base_price', true ) );
 
-    // Si le prix de base n'est pas isolé, on le déduit du montant total
     if ( $saved_base_price <= 0 ) {
-        $saved_base_price = ( $settled_amount > $saved_tip_amount ) ? ( $settled_amount - $saved_tip_amount ) : $settled_amount;
+        $saved_base_price = ( $settled_amount > ( $saved_tip_amount + $child_seat_fee ) ) 
+            ? ( $settled_amount - $saved_tip_amount - $child_seat_fee ) 
+            : $settled_amount;
     }
     
     $vehicles = get_post_meta( $booking_id, '_etb_vehicles', true ) ?: array();
@@ -295,14 +303,33 @@ $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_s
                         </div>
                     </div>
 
-                    <!-- Montant principal & Décomposition dynamique -->
+                    <!-- Montant principal & Décomposition dynamique en anglais -->
                     <div style="margin-bottom: 24px;">
                         <span style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--etb-text-secondary, #94a3b8); letter-spacing: 0.05em;">Total Amount</span>
                         <div id="etb-pay-display-total" style="font-size: 38px; font-weight: 900; color: var(--etb-accent-gold, #fbac18); letter-spacing: -1px; margin-top: 2px;">
                             <?php echo esc_html( $formatted_amount ); ?>
                         </div>
-                        <div id="etb-pay-display-tip-line" style="font-size: 12px; margin-top: 2px; <?php echo ( $saved_tip_amount <= 0 ) ? 'display: none;' : ''; ?>">
-                            Includes <strong id="etb-pay-display-tip-text"><?php echo number_format_i18n( $saved_tip_amount, 2 ); ?> <?php echo esc_html( $currency_symbol ); ?></strong> driver tip (<span id="etb-pay-display-tip-pct"><?php echo esc_html( $saved_tip_percent ); ?>%</span>)
+                        
+                        <!-- Détails des suppléments inclus sous le total -->
+                        <div class="etb-pay-breakdown-details" style="font-size: 12.5px; margin-top: 6px; display: flex; flex-direction: column; gap: 3px;">
+                            <?php if ( $fee_baby > 0 ) : ?>
+                                <div style="display: flex; align-items: center; gap: 6px; color: var(--etb-text-primary, #fbac18);">
+                                    <span>•</span>
+                                    <span>Includes <strong>+<?php echo number_format_i18n( $fee_baby, 2 ); ?> <?php echo esc_html( $currency_symbol ); ?></strong> Extra Baby Seat (x<?php echo esc_html( $paid_baby ); ?>)</span>
+                                </div>
+                            <?php endif; ?>
+
+                            <?php if ( $fee_booster > 0 ) : ?>
+                                <div style="display: flex; align-items: center; gap: 6px; color: var(--etb-text-primary, #fbac18);">
+                                    <span>•</span>
+                                    <span>Includes <strong>+<?php echo number_format_i18n( $fee_booster, 2 ); ?> <?php echo esc_html( $currency_symbol ); ?></strong> Extra Booster Seat (x<?php echo esc_html( $paid_booster ); ?>)</span>
+                                </div>
+                            <?php endif; ?>
+
+                            <div id="etb-pay-display-tip-line" style="display: <?php echo ( $saved_tip_amount > 0 ) ? 'flex' : 'none'; ?>; align-items: center; gap: 6px; color: #4ade80;">
+                                <span>•</span>
+                                <span>Includes <strong id="etb-pay-display-tip-text">+<?php echo number_format_i18n( $saved_tip_amount, 2 ); ?> <?php echo esc_html( $currency_symbol ); ?></strong> Driver Tip (<span id="etb-pay-display-tip-pct"><?php echo esc_html( $saved_tip_percent ); ?>%</span>)</span>
+                            </div>
                         </div>
                     </div>
 
@@ -416,7 +443,7 @@ $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_s
                                     <?php 
                                     $seats_recap = array();
                                     if ( $baby_seats > 0 ) $seats_recap[] = $baby_seats . ' Baby Seat (0-2y)';
-                                    if ( $booster_seats > 0 ) $seats_recap[] = $booster_seats . ' Booster (3-10y)';
+                                    if ( $booster_seats > 0 ) $seats_recap[] = $booster_seats . ' Booster (2-10y)';
                                     echo esc_html( implode( ' + ', $seats_recap ) );
                                     ?>
                                 </div>
@@ -455,13 +482,7 @@ $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_s
                     <form id="etb-standalone-payment-form" onsubmit="return false;">
                         <input type="hidden" name="booking_id" id="etb-pay-booking-id" value="<?php echo esc_attr( $booking_id ); ?>">
                         <input type="hidden" name="base_fare" id="etb-pay-base-fare" value="<?php echo esc_attr( $saved_base_price ); ?>">
-                        <input type="hidden" name="tip_percentage" id="etb-pay-tip-percent" value="<?php echo esc_attr( $saved_tip_percent ); ?>">
-                        <input type="hidden" name="tip_amount" id="etb-pay-tip-amount" value="<?php echo esc_attr( $saved_tip_amount ); ?>">
-                        <input type="hidden" name="amount" id="etb-pay-amount" value="<?php echo esc_attr( $settled_amount ); ?>">
-
-                
-                        <input type="hidden" name="booking_id" id="etb-pay-booking-id" value="<?php echo esc_attr( $booking_id ); ?>">
-                        <input type="hidden" name="base_fare" id="etb-pay-base-fare" value="<?php echo esc_attr( $saved_base_price ); ?>">
+                        <input type="hidden" name="child_seat_fee" id="etb-pay-child-seat-fee" value="<?php echo esc_attr( $child_seat_fee ); ?>">
                         <input type="hidden" name="tip_percentage" id="etb-pay-tip-percent" value="<?php echo esc_attr( $saved_tip_percent ); ?>">
                         <input type="hidden" name="tip_amount" id="etb-pay-tip-amount" value="<?php echo esc_attr( $saved_tip_amount ); ?>">
                         <input type="hidden" name="amount" id="etb-pay-amount" value="<?php echo esc_attr( $settled_amount ); ?>">
@@ -522,11 +543,7 @@ $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_s
                             </div>
                         </div>
 
-                        <!-- Nom du titulaire (Name on Card) en anglais -->
-                        <div class="etb-chk-field" style="margin-top: 16px;">
-                            <label for="etb-pay-cardholder" style="font-size: 13px; font-weight: 600;">Name on Card *</label>
-                            <input type="text" id="etb-pay-cardholder" name="cardholder_name" value="<?php echo esc_attr( $customer_name ); ?>" placeholder="Full Name" required>
-                        </div>
+                        
 
                         <!-- Pays ou région (Country or Region) en anglais -->
                         <div class="etb-chk-field" style="margin-top: 16px;">
