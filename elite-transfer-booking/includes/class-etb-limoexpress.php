@@ -540,14 +540,45 @@ class ETB_LimoExpress {
         $body        = json_decode( $raw_body, true );
 
         if ( $status_code >= 200 && $status_code < 300 ) {
-            $limo_id   = $body['data']['number'] ?? $body['data']['internal_number'] ?? $body['data']['id'] ?? 'OK';
+            // Priorité absolue au format officiel LimoExpress (ex: 203/2026)
+            $limo_id   = ! empty( $body['data']['internal_number'] ) ? sanitize_text_field( $body['data']['internal_number'] ) : ( $body['data']['number'] ?? $body['data']['id'] ?? 'OK' );
             $limo_uuid = ! empty( $body['data']['id'] ) ? sanitize_text_field( $body['data']['id'] ) : '';
+            $limo_hex  = ! empty( $body['data']['number'] ) ? sanitize_text_field( $body['data']['number'] ) : '';
 
             update_post_meta( $booking_id, '_etb_limo_status', 'synced' );
-            update_post_meta( $booking_id, '_etb_limo_booking_id', $limo_id );
+            update_post_meta( $booking_id, '_etb_limo_booking_id', $limo_id ); // Enregistre "203/2026"
+            if ( ! empty( $limo_hex ) ) {
+                update_post_meta( $booking_id, '_etb_limo_hex_id', $limo_hex );
+            }
             if ( ! empty( $limo_uuid ) ) {
                 update_post_meta( $booking_id, '_etb_limo_uuid', $limo_uuid );
             }
+
+            // Uniformisation de la note dans LimoExpress avec le numéro officiel généré (ex: #208/2026)
+            if ( ! empty( $limo_id ) && 'OK' !== $limo_id && ! empty( $limo_uuid ) ) {
+                $updated_driver_note     = str_replace( sprintf( 'DOSSIER #%d', $booking_id ), sprintf( 'MISSION #%s', $limo_id ), $note_for_driver );
+                $updated_dispatcher_note = str_replace( sprintf( 'DOSSIER #%d', $booking_id ), sprintf( 'MISSION #%s', $limo_id ), $dispatcher_note );
+
+                // Enregistrement local
+                update_post_meta( $booking_id, '_etb_note', $updated_dispatcher_note );
+
+                // Mise à jour complète avec tous les champs requis par l'API LimoExpress
+                $full_update_payload                     = $payload;
+                $full_update_payload['id']              = (string) $limo_uuid;
+                $full_update_payload['note']            = $updated_dispatcher_note;
+                $full_update_payload['note_for_driver'] = mb_substr( $updated_driver_note, 0, 500 );
+
+                wp_remote_post( 'https://api.limoexpress.me/api/integration/bookings', array(
+                    'headers' => array(
+                        'Content-Type'  => 'application/json',
+                        'Accept'        => 'application/json',
+                        'Authorization' => 'Bearer ' . $api_token,
+                    ),
+                    'body'    => wp_json_encode( $full_update_payload ),
+                    'timeout' => 15,
+                ) );
+            }
+            
             delete_post_meta( $booking_id, '_etb_limo_error' );
             return true;
         } else {
@@ -908,12 +939,13 @@ class ETB_LimoExpress {
             $wp_needle  = $wp_booking_id ? ( '#' . $wp_booking_id ) : '';
 
             foreach ( $items as $item ) {
-                $item_id   = $item['id'] ?? '';
-                $item_num  = $item['number'] ?? '';
-                $item_note = $item['note_for_driver'] ?? $item['note'] ?? '';
+                $item_id       = $item['id'] ?? '';
+                $item_num      = $item['number'] ?? '';
+                $item_internal = $item['internal_number'] ?? '';
+                $item_note     = $item['note_for_driver'] ?? $item['note'] ?? '';
 
-                // Matching par number LimoExpress OU par ID ou par tag WP #ID dans la note
-                $is_match = ( ! empty( $target_num ) && ( $item_num === $target_num || $item_id === $target_num ) )
+                // Matching par internal_number (ex: 203/2026), par number hexadécimal, par UUID, ou par tag WP #ID dans la note
+                $is_match = ( ! empty( $target_num ) && ( $item_internal === $target_num || $item_num === $target_num || $item_id === $target_num ) )
                          || ( ! empty( $wp_needle ) && false !== strpos( $item_note, $wp_needle ) );
 
                 if ( $is_match ) {

@@ -741,6 +741,33 @@
         const bookBtnLabel   = quickRoot.querySelector('#etb-quick-book-btn-label');
         const urgentNoticeEl = quickRoot.querySelector('#etb-quick-urgent-notice');
 
+        // Vérifie si la date et l'heure sélectionnées sont dans le passé
+        const isDateTimeInPast = (dateStr, timeStr) => {
+            if (!dateStr || !timeStr || timeStr === '-- : --') return false;
+            const cleanTime = timeStr.toUpperCase().trim();
+            let h = 9, m = 0;
+            if (cleanTime.includes('AM') || cleanTime.includes('PM')) {
+                const parts = cleanTime.split(/\s+/);
+                const hm = (parts[0] || '').split(':');
+                h = parseInt(hm[0], 10) || 0;
+                m = parseInt(hm[1], 10) || 0;
+                if (cleanTime.includes('PM') && h < 12) h += 12;
+                if (cleanTime.includes('AM') && h === 12) h = 0;
+            } else {
+                const hm = cleanTime.split(':');
+                h = parseInt(hm[0], 10) || 0;
+                m = parseInt(hm[1], 10) || 0;
+            }
+
+            const dParts = dateStr.split('-');
+            if (dParts.length !== 3) return false;
+
+            const selectedDate = new Date(parseInt(dParts[0], 10), parseInt(dParts[1], 10) - 1, parseInt(dParts[2], 10), h, m, 0);
+            const now = new Date();
+            // Marge de tolérance de 2 minutes
+            return selectedDate.getTime() < (now.getTime() - 120000);
+        };
+
         // Détection dynamique des courses urgentes (< 24h)
         const checkIsUrgent = () => {
             const rawDate = dateInput ? dateInput.value.trim() : '';
@@ -915,6 +942,53 @@
             timePopup.classList.remove('is-open');
             timePopup.style.setProperty('display', 'none', 'important');
 
+            // Fonction de grisement des heures passées si la date est Aujourd'hui
+            const refreshPastHoursRestrictions = () => {
+                const selectedDateStr = dateInput ? dateInput.value.trim() : '';
+                const now = new Date();
+                const todayFormatted = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+                const isToday = (selectedDateStr === todayFormatted);
+
+                const currentHour24 = now.getHours();
+                const activeAmpm    = timePopup.querySelector('.etb-ampm-btn.active')?.dataset.val || 'AM';
+
+                // 1. Bouton AM si on est déjà l'après-midi
+                const amBtn = timePopup.querySelector('.etb-ampm-btn[data-val="AM"]');
+                if (amBtn) {
+                    if (isToday && currentHour24 >= 12) {
+                        amBtn.style.opacity = '0.3';
+                        amBtn.style.pointerEvents = 'none';
+                        // Bascule auto sur PM si AM était actif
+                        if (amBtn.classList.contains('active')) {
+                            amBtn.classList.remove('active');
+                            const pmBtn = timePopup.querySelector('.etb-ampm-btn[data-val="PM"]');
+                            if (pmBtn) pmBtn.classList.add('active');
+                        }
+                    } else {
+                        amBtn.style.opacity = '1';
+                        amBtn.style.pointerEvents = 'auto';
+                    }
+                }
+
+                // 2. Grisement des heures individuelles
+                timePopup.querySelectorAll('.etb-hour-opt').forEach(opt => {
+                    const hVal12 = parseInt(opt.dataset.val, 10) || 0;
+                    let hVal24 = hVal12;
+                    const currentAmpm = timePopup.querySelector('.etb-ampm-btn.active')?.dataset.val || 'AM';
+                    if (currentAmpm === 'PM' && hVal12 < 12) hVal24 += 12;
+                    if (currentAmpm === 'AM' && hVal12 === 12) hVal24 = 0;
+
+                    if (isToday && hVal24 < currentHour24) {
+                        opt.style.opacity = '0.25';
+                        opt.style.pointerEvents = 'none';
+                        opt.classList.remove('active');
+                    } else {
+                        opt.style.opacity = '1';
+                        opt.style.pointerEvents = 'auto';
+                    }
+                });
+            };
+
             // Ouvrir / Fermer le sélecteur au clic sur la colonne heure
             timeCol.addEventListener('click', function (e) {
                 if (e.target.closest('#etb-quick-time-popup')) return;
@@ -924,6 +998,7 @@
                     timePopup.classList.remove('is-open');
                     timePopup.style.setProperty('display', 'none', 'important');
                 } else {
+                    refreshPastHoursRestrictions();
                     timePopup.classList.add('is-open');
                     timePopup.style.setProperty('display', 'flex', 'important');
                 }
@@ -937,12 +1012,18 @@
                 timeInput.value   = `${activeH}:${activeM} ${activeAmpm}`;
             };
 
-            // 1. Bascule AM / PM
+            // 1. Bascule AM / PM avec rafraîchissement immédiat des heures disponibles
             timePopup.querySelectorAll('.etb-ampm-btn').forEach(btn => {
                 btn.addEventListener('click', function (e) {
                     e.stopPropagation();
                     timePopup.querySelectorAll('.etb-ampm-btn').forEach(b => b.classList.remove('active'));
                     this.classList.add('active');
+
+                    // Rafraîchissement immédiat de l'état des heures (AM vs PM)
+                    if (typeof refreshPastHoursRestrictions === 'function') {
+                        refreshPastHoursRestrictions();
+                    }
+
                     update12hTime();
                 });
             });
@@ -1324,6 +1405,118 @@
             }
         };
 
+
+        // Fonction de recalcul instantané des tarifs horaires
+        const recalculateHourlyFleet = () => {
+            // Désactivation formelle du mode devis pour le mode horaire
+            isQuoteMode = false;
+            if (quoteNoticeEl) quoteNoticeEl.classList.remove('is-visible');
+
+            const durationHours = parseFloat(durationSelect ? durationSelect.value : 4);
+            let availableCarsCount = 0;
+
+            carCards.forEach(card => {
+                const minHours    = parseFloat(card.getAttribute('data-min-hours')) || 4;
+                const hourlyRate  = parseFloat(card.getAttribute('data-hourly-rate')) || 0;
+                const pack10h     = parseFloat(card.getAttribute('data-pack-10h')) || 0;
+                const supHourRate = parseFloat(card.getAttribute('data-sup-hour-rate')) || 0;
+                const kmPerHour   = parseFloat(card.getAttribute('data-km-ph')) || 35;
+                const kmSupRate   = parseFloat(card.getAttribute('data-km-sup-rate')) || 0;
+
+                // Règle de durée minimale : masquage si insuffisant
+                if (durationHours < minHours) {
+                    card.style.display = 'none';
+                    card.classList.add('etb-hidden');
+                    card.classList.remove('selected');
+                    return;
+                } else {
+                    card.style.display = 'flex';
+                    card.classList.remove('etb-hidden');
+                }
+
+                let calculatedPrice = 0;
+                let priceDetailHtml = '';
+
+                if (durationHours < 10) {
+                    calculatedPrice = hourlyRate > 0 ? Math.round(durationHours * hourlyRate) : pack10h;
+                    if (hourlyRate > 0) {
+                        priceDetailHtml = `Price for ${durationHours} hours <br> <strong>${hourlyRate} ${currency}</strong> per hour`;
+                    }
+                } else if (durationHours === 10) {
+                    calculatedPrice = pack10h > 0 ? pack10h : Math.round(durationHours * hourlyRate);
+                    const hourlyEquivalent = pack10h > 0 ? Math.round(pack10h / 10) : hourlyRate;
+                    priceDetailHtml = `Price for 10 hours <br> <strong>${hourlyEquivalent} ${currency}</strong> per hour`;
+                } else {
+                    const extraHours = durationHours - 10;
+                    const basePack   = pack10h > 0 ? pack10h : Math.round(10 * hourlyRate);
+                    calculatedPrice  = Math.round(basePack + (extraHours * supHourRate));
+                    if (pack10h > 0 && supHourRate > 0) {
+                        priceDetailHtml = `10h Package + ${extraHours} extra hour(s) <br> <strong>${supHourRate} ${currency}</strong> per extra hour`;
+                    }
+                }
+
+                // Quota kilométrique
+                const totalKm = Math.round(durationHours * kmPerHour);
+                const kmInfoEl = card.querySelector('.etb-quick-km-info');
+                if (kmInfoEl) {
+                    let kmText = '' + totalKm + ' km included';
+                    if (kmSupRate > 0) {
+                        kmText += ' (' + kmSupRate.toFixed(2) + ' €/km sup.)';
+                    }
+                    kmInfoEl.textContent = kmText;
+                    kmInfoEl.classList.add('is-visible'); // <-- Activation via la classe CSS
+                }
+
+                // 1. Régénération complète du prix chiffré avec "All inclusive" à côté
+                const priceBox = card.querySelector('.etb-quick-price-display');
+                if (priceBox) {
+                    priceBox.innerHTML = '<span class="etb-quick-amount">' + calculatedPrice + '</span> <span class="etb-quick-currency">' + currency + '</span> <span class="etb-quick-all-inclusive">All inclusive</span>';
+                }
+
+                // 2. Mise à jour de la ligne d'explication horaire
+                const detailEl = card.querySelector('.etb-quick-price-detail');
+                if (detailEl) {
+                    if (priceDetailHtml) {
+                        detailEl.innerHTML = priceDetailHtml;
+                        detailEl.style.display = 'block';
+                    } else {
+                        detailEl.style.display = 'none';
+                    }
+                }
+
+                // 3. Remise du bouton sur Select
+                const selBtn = card.querySelector('.etb-quick-select-btn');
+                if (selBtn) {
+                    selBtn.textContent = 'Select';
+                }
+
+                card.dataset.calculatedPrice = calculatedPrice;
+                card.dataset.isQuote = '0';
+                card.style.display = 'flex';
+                card.classList.remove('etb-hidden');
+                availableCarsCount++;
+            });
+
+            // Si un véhicule est déjà sélectionné, on actualise la barre du bas
+            if (selectedCar && selectedCar.id) {
+                const activeCard = quickRoot.querySelector(`.etb-quick-car-item[data-id="${selectedCar.id}"]`);
+                if (activeCard && activeCard.style.display !== 'none') {
+                    const updatedPrice = activeCard.dataset.calculatedPrice || '0';
+                    selectedCar.price   = updatedPrice;
+                    selectedCar.isQuote = false;
+                    if (selectedTotEl) selectedTotEl.textContent = updatedPrice + ' ' + currency;
+                    if (bookBtnLabel) bookBtnLabel.textContent = 'Book this Trip';
+                    const activeBtn = activeCard.querySelector('.etb-quick-select-btn');
+                    if (activeBtn) activeBtn.textContent = '✓ Selected';
+                } else {
+                    selectedCar = null;
+                    if (bookingBar) bookingBar.classList.remove('is-visible');
+                }
+            }
+
+            return availableCarsCount;
+        };
+
       
         // Calcul et affichage dynamique des suppléments sièges enfants (Baby > 1 = 50€, Booster > 2 = 50€)
         const calculateChildSeatsFee = () => {
@@ -1507,10 +1700,13 @@
                 const dateVal    = dateInput ? dateInput.value.trim() : '';
                 const timeVal    = timeInput ? timeInput.value.trim() : '';
 
-                if (!pickupVal) return showError('Please enter a pickup location.');
+               if (!pickupVal) return showError('Please enter a pickup location.');
                 if (currentMode === 'transfer' && !dropoffVal) return showError('Please enter a drop-off location.');
                 if (!dateVal) return showError('Please select a date.');
                 if (!timeVal || timeVal === '-- : --') return showError('Please select a pickup time.');
+                if (isDateTimeInPast(dateVal, timeVal)) {
+                    return showError('The pickup time cannot be in the past. Please select a future time.');
+                }
 
                 // ─────────────────────────────────────────────────────────────
                 // MODE 1 : LOCATION À L'HEURE (By the hour)
@@ -2887,7 +3083,8 @@
 
             seatPlusBtn.addEventListener('click', function () {
                 let val = parseInt(seatInput.value, 10) || 0;
-                if (val < 10) {
+                // Plafonné à 2 sièges bébé maximum
+                if (val < 2) {
                     seatInput.value = val + 1;
                     const activePill = checkoutRoot.querySelector('.etb-tip-pill.active');
                     const tipPct = activePill ? (parseInt(activePill.dataset.tip, 10) || 0) : 0;
@@ -2909,7 +3106,8 @@
 
             boosterPlusBtn.addEventListener('click', function () {
                 let val = parseInt(boosterInput.value, 10) || 0;
-                if (val < 10) {
+                // Plafonné à 3 rehausseurs maximum
+                if (val < 3) {
                     boosterInput.value = val + 1;
                     const activePill = checkoutRoot.querySelector('.etb-tip-pill.active');
                     const tipPct = activePill ? (parseInt(activePill.dataset.tip, 10) || 0) : 0;
@@ -3079,21 +3277,22 @@
 
                     const leftCol = checkoutRoot.querySelector('.etb-checkout-left-col');
                     if (leftCol) {
+                        const finalDisplayRef = res.data.booking_ref || ('#' + res.data.booking_id);
                         let successTitle    = 'Reservation Registered (Payment Pending)';
-                        let successSubtitle = 'Your reservation <strong>#' + res.data.booking_id + '</strong> has been registered.';
+                        let successSubtitle = 'Your reservation <strong>#' + finalDisplayRef + '</strong> has been registered.';
                         let successDetails  = '<p style="margin: 6px 0;">An email with your secure payment link has been sent to <strong>' + emailVal + '</strong>.</p>'
                             + '<p style="margin: 6px 0;">You can complete your payment anytime before pickup to confirm your chauffeur.</p>';
 
-                        if (isQuoteRide) {
+                       if (isQuoteRide) {
                             successTitle    = 'Quote Request Successfully Submitted!';
-                            successSubtitle = 'Your quote request <strong>#' + res.data.booking_id + '</strong> has been sent to our dispatch team.';
+                            successSubtitle = 'Your quote request <strong>#' + finalDisplayRef + '</strong> has been sent to our dispatch team.';
                             successDetails  = '<p style="margin: 6px 0;">An acknowledgment has been sent to <strong>' + emailVal + '</strong>.</p>'
                                 + '<p style="margin: 6px 0;">Our dispatcher will send a tailored quotation within <strong>1 hour</strong>.</p>';
-                        } else if (isUrgentBooking) {
+                       } else if (isUrgentBooking) {
                             successTitle    = 'Urgent Booking Received!';
-                            successSubtitle = 'Your short-notice reservation <strong>#' + res.data.booking_id + '</strong> is being verified by dispatch.';
+                            successSubtitle = 'Your short-notice reservation <strong>#' + finalDisplayRef + '</strong> is being verified by dispatch.';
                             successDetails  = '<p style="margin: 6px 0;">Our team is immediately verifying chauffeur allocation for your pickup time.</p>'
-                                + '<p style="margin: 6px 0;">You will receive final confirmation and your payment link within <strong>15 minutes</strong>.</p>';
+                                + '<p style="margin: 6px 0;">You will receive final confirmation and your payment link within <strong>1 hour</strong>.</p>';
                         }
 
                         // Masquage propre de la colonne droite et centrage
@@ -3266,6 +3465,7 @@
         const feedbackEl    = payRoot.querySelector('#etb-standalone-pay-feedback');
         const cardholderEl  = payRoot.querySelector('#etb-pay-cardholder');
         const countryEl     = payRoot.querySelector('#etb-pay-card-country');
+        let paymentRequest = null;
 
         // Custom Select Pays sur la page de paiement
         const countrySelect = payRoot.querySelector('#etb-pay-country-select');
@@ -3295,6 +3495,49 @@
                 if (!countrySelect.contains(e.target)) countrySelect.classList.remove('is-open');
             });
         }
+
+        // ── 0. Navigation interactive entre les onglets de paiement ──
+        const tabButtons = payRoot.querySelectorAll('.etb-pay-tab-btn');
+        const panels     = payRoot.querySelectorAll('.etb-pay-panel');
+
+        const switchPaymentTab = function (targetTab) {
+            // Mise à jour visuelle des boutons d'onglets
+            tabButtons.forEach(btn => {
+                const isActive = (btn.dataset.tab === targetTab);
+                btn.classList.toggle('active', isActive);
+                if (isActive) {
+                    btn.style.border = '1.5px solid var(--etb-accent-gold, #fbac18)';
+                    btn.style.background = 'rgba(251, 172, 24, 0.1)';
+                    btn.style.color = 'var(--etb-text-primary, #ffffff)';
+                } else {
+                    btn.style.border = '1px solid var(--etb-border-light, rgba(255,255,255,0.12))';
+                    btn.style.background = 'rgba(255,255,255,0.03)';
+                    btn.style.color = 'var(--etb-text-secondary, #94a3b8)';
+                }
+            });
+
+            // Affichage du panneau correspondant
+            panels.forEach(p => p.style.display = 'none');
+            const activePanel = payRoot.querySelector('#etb-panel-' + targetTab);
+            if (activePanel) {
+                activePanel.style.display = 'block';
+            }
+        };
+
+        tabButtons.forEach(btn => {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                switchPaymentTab(this.dataset.tab);
+            });
+        });
+
+        // Boutons de repli : "Pay with Credit Card instead"
+        payRoot.querySelectorAll('.etb-switch-to-card-btn').forEach(btn => {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                switchPaymentTab('card');
+            });
+        });
 
         // ── Gestion dynamique du Pourboire Chauffeur sur la page de paiement ──
         const tipPills       = payRoot.querySelectorAll('.etb-tip-pill');
@@ -3345,6 +3588,16 @@
             if (displayTotalEl) displayTotalEl.textContent = formattedTotal;
             if (payText) payText.textContent = `Pay ${formattedTotal}`;
 
+            // Synchronisation du montant dans Apple Pay / Google Pay si actif
+            if (paymentRequest) {
+                paymentRequest.update({
+                    total: {
+                        label: 'Booking #' + (payRoot.querySelector('#etb-pay-booking-id')?.value || 'Total'),
+                        amount: Math.round(newTotal * 100),
+                    }
+                });
+            }
+
             if (tipLineEl) {
                 if (pct > 0) {
                     tipLineEl.style.setProperty('display', 'flex', 'important');
@@ -3388,6 +3641,46 @@
         const stripe = Stripe(etbAjax.stripe_pk);
         const elements = stripe.elements();
 
+        // ── 1. Montage du bouton Apple Pay / Google Pay (Payment Request) ──
+        const walletWrapper = payRoot.querySelector('#etb-wallet-payment-wrapper');
+        const initialAmount = parseMoneyValue(amountInput ? amountInput.value : 0);
+        const bookingIdVal  = payRoot.querySelector('#etb-pay-booking-id')?.value || '';
+
+        if (walletWrapper && initialAmount > 0) {
+            paymentRequest = stripe.paymentRequest({
+                country: (countryEl && countryEl.value) ? countryEl.value : 'FR',
+                currency: 'eur',
+                total: {
+                    label: 'Booking #' + bookingIdVal,
+                    amount: Math.round(initialAmount * 100),
+                },
+                requestPayerName: true,
+                requestPayerEmail: true,
+            });
+
+            const isDark = document.documentElement.getAttribute('data-etb-theme') !== 'light' 
+                        && localStorage.getItem('etb_theme_mode') !== 'light';
+
+            const prButton = elements.create('paymentRequestButton', {
+                paymentRequest: paymentRequest,
+                style: {
+                    paymentRequestButton: {
+                        type: 'default',
+                        theme: isDark ? 'dark' : 'light',
+                        height: '46px',
+                    },
+                },
+            });
+
+            // Affichage conditionnel : uniquement si le wallet est supporté sur l'appareil
+            paymentRequest.canMakePayment().then(function (result) {
+                if (result) {
+                    prButton.mount('#etb-payment-request-button');
+                    walletWrapper.style.display = 'block';
+                }
+            });
+        }
+
         // Style adaptatif Dark / Light
         const getElementStyle = () => {
             const isLight = document.documentElement.getAttribute('data-etb-theme') === 'light' 
@@ -3422,176 +3715,156 @@
         if (document.querySelector('#etb-card-expiry-mount')) cardExpiry.mount('#etb-card-expiry-mount');
         if (document.querySelector('#etb-card-cvc-mount')) cardCvc.mount('#etb-card-cvc-mount');
 
-        // Écouteur pour adapter les styles Stripe si on change de thème
-        document.addEventListener('etb_theme_changed', function (e) {
-            const updated = getElementStyle();
-            cardNumber.update({ style: updated });
-            cardExpiry.update({ style: updated });
-            cardCvc.update({ style: updated });
-        });
+        // ── 2. Moteur Officiel Apple Pay & Google Pay (Sécurisé Stripe avec Référence Unifiée) ──
+        let walletPaymentRequest = null;
+        const currentAmountVal   = parseMoneyValue(amountInput ? amountInput.value : 0);
+        const bookingIdValue     = payRoot.querySelector('#etb-pay-booking-id')?.value || '';
+        
+        // Récupération de la référence officielle LimoExpress (ex: 205/2026) avec repli sécurisé
+        const limoRefVal         = payRoot.querySelector('#etb-pay-limo-id')?.value;
+        const missionDisplayRef  = (limoRefVal && limoRefVal !== 'OK') ? ('#' + limoRefVal) : ('#' + bookingIdValue);
 
-        // Gestion des erreurs en direct
-        [cardNumber, cardExpiry, cardCvc].forEach(element => {
-            element.on('change', function (event) {
-                if (event.error) {
-                    showPayFeedback(event.error.message, 'error');
-                } else if (feedbackEl) {
-                    feedbackEl.style.display = 'none';
+        if (currentAmountVal > 0) {
+            walletPaymentRequest = stripe.paymentRequest({
+                country: (countryEl && countryEl.value) ? countryEl.value : 'FR',
+                currency: 'eur',
+                total: {
+                    label: 'Mission ' + missionDisplayRef, // Affiché dans la fenêtre Apple Pay / GPay
+                    amount: Math.round(currentAmountVal * 100),
+                },
+                requestPayerName: true,
+                requestPayerEmail: true,
+            });
+
+            const isDarkTheme = document.documentElement.getAttribute('data-etb-theme') !== 'light' 
+                             && localStorage.getItem('etb_theme_mode') !== 'light';
+
+            // Détection matérielle et montage des boutons officiels
+            walletPaymentRequest.canMakePayment().then(function (result) {
+                if (!result) return;
+
+                // A. Apple Pay disponible UNIQUEMENT
+                if (result.applePay) {
+                    const appleMount    = payRoot.querySelector('#etb-apple-pay-mount');
+                    const appleFallback = payRoot.querySelector('#etb-apple-pay-fallback');
+                    if (appleMount) {
+                        const appleBtn = elements.create('paymentRequestButton', {
+                            paymentRequest: walletPaymentRequest,
+                            style: { paymentRequestButton: { theme: isDarkTheme ? 'dark' : 'light', height: '48px', type: 'default' } }
+                        });
+                        appleBtn.mount('#etb-apple-pay-mount');
+                        appleMount.style.display = 'block';
+                        if (appleFallback) appleFallback.style.display = 'none';
+                    }
+                }
+
+                // B. Google Pay disponible UNIQUEMENT (exclut Stripe Link sur Edge/Firefox)
+                if (result.googlePay) {
+                    const googleMount    = payRoot.querySelector('#etb-google-pay-mount');
+                    const googleFallback = payRoot.querySelector('#etb-google-pay-fallback');
+                    if (googleMount) {
+                        const googleBtn = elements.create('paymentRequestButton', {
+                            paymentRequest: walletPaymentRequest,
+                            style: { paymentRequestButton: { theme: isDarkTheme ? 'dark' : 'light', height: '48px', type: 'default' } }
+                        });
+                        googleBtn.mount('#etb-google-pay-mount');
+                        googleMount.style.display = 'block';
+                        if (googleFallback) googleFallback.style.display = 'none';
+                    }
                 }
             });
-        });
 
-        // Clic sur le bouton de paiement Payer
-        if (payBtn) {
-            payBtn.addEventListener('click', function (e) {
-                e.preventDefault();
-                if (feedbackEl) feedbackEl.style.display = 'none';
-
-                const cardholderVal = cardholderEl ? cardholderEl.value.trim() : '';
-                const emailVal      = payRoot.querySelector('#etb-pay-email')?.value.trim() || '';
+            // C. Traitement réel et sécurisé de la transaction bancaire
+            walletPaymentRequest.on('paymentmethod', async function (ev) {
                 const bookingIdVal  = payRoot.querySelector('#etb-pay-booking-id')?.value || '0';
                 const amountVal     = parseFloat(payRoot.querySelector('#etb-pay-amount')?.value || 0);
+                const emailVal      = ev.payerEmail || payRoot.querySelector('#etb-pay-email')?.value.trim() || '';
+                const cardholderVal = ev.payerName || payRoot.querySelector('#etb-pay-cardholder')?.value.trim() || 'Wallet Client';
 
-                if (!emailVal || !emailVal.includes('@')) {
-                    return showPayFeedback('Please enter a valid email address for receipt.', 'error');
-                }
-                if (!cardholderVal) {
-                    return showPayFeedback('Please enter the name on the card.', 'error');
-                }
-                if (amountVal <= 0) {
-                    return showPayFeedback('Invalid settlement amount.', 'error');
-                }
+                // 1. Création de l'intention de paiement Stripe
+                const intentData = new FormData();
+                intentData.append('action', 'etb_create_payment_intent');
+                intentData.append('nonce', etbAjax.nonce);
+                intentData.append('amount', amountVal);
+                intentData.append('currency', 'eur');
+                intentData.append('name', cardholderVal);
+                intentData.append('email', emailVal);
+                intentData.append('route', 'Settlement Mission ' + missionDisplayRef);
 
-                const originalBtnText = payText ? payText.textContent : 'Pay';
-                payBtn.disabled = true;
-                if (payText) payText.textContent = 'Securing & Authorizing...';
-
-                // 1. Création du PaymentMethod pour extraire les vrais 4 chiffres et l'expiration
-                stripe.createPaymentMethod({
-                    type: 'card',
-                    card: cardNumber,
-                    billing_details: {
-                        name: cardholderVal,
-                        email: emailVal
-                    }
-                }).then(function (pmRes) {
-                    if (pmRes.error) {
-                        payBtn.disabled = false;
-                        if (payText) payText.textContent = originalBtnText;
-                        return showPayFeedback(pmRes.error.message, 'error');
+                try {
+                    const intentRes = await fetch(etbAjax.ajax_url, { method: 'POST', body: intentData }).then(r => r.json());
+                    if (!intentRes.success) {
+                        ev.complete('fail');
+                        showPayFeedback(intentRes.data.message || 'Payment initialization failed.', 'error');
+                        return;
                     }
 
-                    const pm = pmRes.paymentMethod;
-                    const realLast4 = pm.card ? pm.card.last4 : '4242';
-                    const realBrand = pm.card ? pm.card.brand : 'card';
-                    const realExp   = (pm.card && pm.card.exp_month && pm.card.exp_year) 
-                        ? (String(pm.card.exp_month).padStart(2, '0') + '/' + String(pm.card.exp_year).slice(-2)) 
-                        : '12/28';
+                    // 2. Débit sécurisé via Stripe
+                    const confirmRes = await stripe.confirmCardPayment(
+                        intentRes.data.client_secret,
+                        { payment_method: ev.paymentMethod.id },
+                        { handleActions: false }
+                    );
 
-                    // 2. Création de l'intention Stripe côté serveur
-                    const intentData = new FormData();
-                    intentData.append('action', 'etb_create_payment_intent');
-                    intentData.append('nonce', etbAjax.nonce);
-                    intentData.append('amount', amountVal);
-                    intentData.append('currency', 'eur');
-                    intentData.append('name', cardholderVal);
-                    intentData.append('email', emailVal);
-                    intentData.append('route', 'Settlement Dossier #' + bookingIdVal);
+                    if (confirmRes.error) {
+                        ev.complete('fail');
+                        showPayFeedback(confirmRes.error.message, 'error');
+                        return;
+                    }
 
-                    fetch(etbAjax.ajax_url, { method: 'POST', body: intentData })
-                    .then(r => r.json())
-                    .then(intentRes => {
-                        if (!intentRes.success) {
-                            payBtn.disabled = false;
-                            if (payText) payText.textContent = originalBtnText;
-                            return showPayFeedback(intentRes.data.message || 'Payment initialization failed.', 'error');
+                    ev.complete('success');
+
+                    // 3. Clôture de la mission dans WordPress & LimoExpress
+                    const pm = ev.paymentMethod;
+                    const walletBrand = (pm.card && pm.card.wallet && pm.card.wallet.type) 
+                        ? ( 'apple_pay' === pm.card.wallet.type ? 'Apple Pay' : 'Google Pay' )
+                        : ( pm.card ? pm.card.brand : 'Wallet' );
+
+                    const updateData = new FormData();
+                    updateData.append('action', 'etb_settle_quote_payment');
+                    updateData.append('nonce', etbAjax.nonce);
+                    updateData.append('booking_id', bookingIdVal);
+                    updateData.append('amount', amountVal);
+                    updateData.append('payment_intent_id', confirmRes.paymentIntent.id);
+                    updateData.append('card_last4', pm.card ? pm.card.last4 : 'Wallet');
+                    updateData.append('card_brand', walletBrand);
+                    updateData.append('card_exp', (pm.card && pm.card.exp_month) ? (pm.card.exp_month + '/' + pm.card.exp_year) : '');
+                    updateData.append('tip_amount', payRoot.querySelector('#etb-pay-tip-amount')?.value || '0');
+                    updateData.append('tip_percentage', payRoot.querySelector('#etb-pay-tip-percent')?.value || '0');
+
+                    const settleRes = await fetch(etbAjax.ajax_url, { method: 'POST', body: updateData }).then(u => u.json());
+                    if (settleRes.success) {
+                        // Écran de confirmation de paiement réussi unifié avec Mission #205/2026
+                        const layoutEl = payRoot.querySelector('.etb-checkout-layout');
+                        if (layoutEl) {
+                            layoutEl.style.setProperty('display', 'block', 'important');
+                            layoutEl.innerHTML = '<div class="etb-checkout-card" style="text-align: center; padding: 50px 35px; border-color: #16a34a; max-width: 650px; margin: 0 auto; box-shadow: 0 10px 40px rgba(0,0,0,0.1);">'
+                                + '<div style="display: inline-flex; align-items: center; justify-content: center; width: 68px; height: 68px; background: rgba(34, 197, 94, 0.15); border: 2px solid #22c55e; border-radius: 50%; margin-bottom: 20px; color: #4ade80;">'
+                                + '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>'
+                                + '</div>'
+                                + '<h2 style="color: #4ade80; font-size: 24px; font-weight: 800; margin: 0 0 10px 0;">Payment Authorized Successfully!</h2>'
+                                + '<p style="font-size: 15px; margin-bottom: 25px; line-height: 1.55;">'
+                                + 'Your payment of <strong>' + amountVal.toFixed(2) + ' €</strong> for Mission <strong>' + missionDisplayRef + '</strong> via <strong>' + walletBrand + '</strong> has been processed.'
+                                + '</p>'
+                                + '<div style="background: rgba(255,255,255,0.04); border: 1px solid var(--etb-border-light, rgba(255,255,255,0.1)); border-radius: 12px; padding: 18px 22px; margin-bottom: 30px; text-align: left; font-size: 13.5px; line-height: 1.6;">'
+                                + '<p style="margin: 6px 0;">An official paid confirmation receipt has been sent to <strong>' + (emailVal || 'your email') + '</strong>.</p>'
+                                + '<p style="margin: 6px 0;">Your chauffeur will send an SMS update prior to pickup.</p>'
+                                + '</div>'
+                                + '<a href="' + (etbAjax.home_url || '/') + '" class="etb-chk-submit-btn" style="text-decoration: none; display: inline-flex; width: auto; padding: 14px 35px;">Return to Home</a>'
+                                + '</div>';
+                            payRoot.scrollIntoView({ behavior: 'smooth', block: 'start' });
                         }
-
-                        // 3. Validation bancaire 3D Secure
-                        const selectedCountry = countryEl ? countryEl.value : 'FR';
-                        stripe.confirmCardPayment(intentRes.data.client_secret, {
-                            payment_method: {
-                                card: cardNumber,
-                                billing_details: {
-                                    name: cardholderVal,
-                                    email: emailVal,
-                                    address: { country: selectedCountry }
-                                }
-                            }
-                        }).then(function (stripeResult) {
-                            if (stripeResult.error) {
-                                payBtn.disabled = false;
-                                if (payText) payText.textContent = originalBtnText;
-                                return showPayFeedback(stripeResult.error.message, 'error');
-                            }
-
-                            // 4. Transmission finale à WordPress et LimoExpress pour passer en PAID
-                            if (payText) payText.textContent = 'Updating Dispatch...';
-
-                            const updateData = new FormData();
-                            updateData.append('action', 'etb_settle_quote_payment');
-                            updateData.append('nonce', etbAjax.nonce);
-                            updateData.append('booking_id', bookingIdVal);
-                            updateData.append('amount', amountVal);
-                            updateData.append('payment_intent_id', stripeResult.paymentIntent.id);
-                            updateData.append('card_last4', realLast4);
-                            updateData.append('card_brand', realBrand);
-                            updateData.append('card_exp', realExp);
-
-                             // Transmission du pourboire chauffeur ajusté
-                            const finalTipAmt = tipAmtInput ? tipAmtInput.value : '0';
-                            const finalTipPct = tipPctInput ? tipPctInput.value : '0';
-                            updateData.append('tip_amount', finalTipAmt);
-                            updateData.append('tip_percentage', finalTipPct);
-
-                            fetch(etbAjax.ajax_url, { method: 'POST', body: updateData })
-                            .then(u => u.json())
-                            .then(settleRes => {
-                                payBtn.disabled = false;
-                                if (payText) payText.textContent = originalBtnText;
-
-                                if (settleRes.success) {
-                                    // Centrage parfait du reçu de paiement
-                                    const layoutEl = payRoot.querySelector('.etb-checkout-layout');
-                                    if (layoutEl) {
-                                        layoutEl.style.setProperty('display', 'block', 'important');
-                                        layoutEl.innerHTML = '<div class="etb-checkout-card" style="text-align: center; padding: 50px 35px; border-color: #16a34a; max-width: 650px; margin: 0 auto; box-shadow: 0 10px 40px rgba(0,0,0,0.1);">'
-                                            + '<div style="display: inline-flex; align-items: center; justify-content: center; width: 68px; height: 68px; background: rgba(34, 197, 94, 0.15); border: 2px solid #22c55e; border-radius: 50%; margin-bottom: 20px; color: #4ade80;">'
-                                            + '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>'
-                                            + '</div>'
-                                            + '<h2 style="color: #4ade80; font-size: 24px; font-weight: 800; margin: 0 0 10px 0;">Payment Authorized Successfully!</h2>'
-                                            + '<p style="font-size: 15px; margin-bottom: 25px; line-height: 1.55;">'
-                                            + 'Your payment of <strong>' + amountVal.toFixed(2) + ' €</strong> for Dossier <strong>#' + bookingIdVal + '</strong> has been processed.'
-                                            + '</p>'
-                                            + '<div style="background: rgba(255,255,255,0.04); border: 1px solid var(--etb-border-light, rgba(255,255,255,0.1)); border-radius: 12px; padding: 18px 22px; margin-bottom: 30px; text-align: left; font-size: 13.5px; line-height: 1.6;">'
-                                            + '<p style="margin: 6px 0;">An official paid confirmation receipt has been sent to your email.</p>'
-                                            .replace('your email', '<strong>' + emailVal + '</strong>')
-                                            + '<p style="margin: 6px 0;">Your chauffeur will send an SMS update prior to pickup.</p>'
-                                            + '</div>'
-                                            + '<a href="' + (etbAjax.home_url || '/') + '" class="etb-chk-submit-btn" style="text-decoration: none; display: inline-flex; width: auto; padding: 14px 35px;">Return to Home</a>'
-                                            + '</div>';
-
-                                        payRoot.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                    }
-                                }else {
-                                    showPayFeedback(settleRes.data.message || 'Payment registered but dispatch update failed.', 'error');
-                                }
-                            })
-                            .catch(err => {
-                                console.error('Settle error:', err);
-                                showPayFeedback('Communication error with dispatch.', 'error');
-                            });
-                        });
-                    })
-                    .catch(err => {
-                        console.error('Intent error:', err);
-                        payBtn.disabled = false;
-                        if (payText) payText.textContent = originalBtnText;
-                        showPayFeedback('Communication error. Please try again.', 'error');
-                    });
-                });
+                    } else {
+                        showPayFeedback(settleRes.data.message || 'Payment registered but dispatch update failed.', 'error');
+                    }
+                } catch (err) {
+                    console.error('Wallet error:', err);
+                    ev.complete('fail');
+                    showPayFeedback('Communication error during wallet processing.', 'error');
+                }
             });
         }
+        
 
         const showPayFeedback = (msg, type) => {
             if (!feedbackEl) return;

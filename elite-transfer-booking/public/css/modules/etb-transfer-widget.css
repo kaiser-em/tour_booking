@@ -862,6 +862,15 @@
     display: inline-flex !important;
 }
 
+/* QUICK NOTICE */
+.etb-notice-wrapper{
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+
+
 
 
 /* 4. Barre de Confirmation finale : Caisson sombre VIP & Espacement net */
@@ -1661,6 +1670,10 @@
         right: 12px !important;
     }
 
+
+   #etb-quick-urgent-notice{
+    width: 100% !important;
+   }
 
 }
 

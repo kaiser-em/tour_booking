@@ -633,7 +633,7 @@ if ( ! empty( $date_val ) ) {
                     <div class="etb-chk-feedback" id="etb-chk-feedback" style="display: none;"></div>
 
                     <!-- Bandeau de réservation urgente (< 24h) pilotable en PHP & JS -->
-                    <div id="etb-chk-urgent-notice-box" style="<?php echo $is_urgent_booking ? 'display: block;' : 'display: none;'; ?> background: rgba(251, 172, 24, 0.1); border: 1px solid rgba(251, 172, 24, 0.35); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; font-size: 12px; color: var(--etb-text-primary, #ffffff); line-height: 1.45;">
+                    <div id="etb-chk-urgent-notice-box" style="<?php echo $is_urgent_booking ? 'display: block;' : 'display: none;'; ?> background: rgb(161 9 0 / 44%); border: 1px solid  rgb(227 0 0 / 35%); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; font-size: 12px; color: var(--etb-text-primary, #ffffff); line-height: 1.45; text-align:center;">
                         <strong style="color: #fbac18; display: block; margin-bottom: 2px;">⏱️ Short-Notice Pickup (&lt; 24h)</strong>
                         For bookings scheduled within 24 hours, 
                         our dispatch team will confirm chauffeur 
