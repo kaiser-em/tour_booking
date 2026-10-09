@@ -54,12 +54,14 @@ class ETB_CPT_Manager {
         register_post_type( 'circuit', $args );
     }
 
+   
     private function register_vehicle_cpt() {
         register_post_type( 'tour_vehicle', array(
             'labels'       => array( 'name' => 'Véhicules', 'singular_name' => 'Véhicule' ),
             'public'       => true,
             'menu_icon'    => 'dashicons-car',
-            'supports'     => array( 'title', 'thumbnail' ),
+            // L'ajout de 'page-attributes' active la case "Ordre" dans l'éditeur WP
+            'supports'     => array( 'title', 'thumbnail', 'page-attributes' ),
             'has_archive'  => false,
             'show_in_menu' => 'edit.php?post_type=tour_booking',
         ));
