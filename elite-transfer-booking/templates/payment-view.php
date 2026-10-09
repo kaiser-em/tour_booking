@@ -143,6 +143,10 @@ if ( $has_valid_booking && ! $is_tampered ) {
     $saved_tip_amount  = floatval( get_post_meta( $booking_id, '_etb_tip_amount', true ) ?: 0.0 );
     $saved_base_price  = floatval( get_post_meta( $booking_id, '_etb_base_price', true ) );
 
+    // Définition anticipée de l'émoji persistant de pourboire (pour Apple Pay, Google Pay et Carte)
+    $noto_initial_codes = array( 10 => '1f64f', 15 => '1f929', 20 => '1f60d' );
+    $initial_code       = $noto_initial_codes[ $saved_tip_percent ] ?? '';
+
     if ( $saved_base_price <= 0 ) {
         $saved_base_price = ( $settled_amount > ( $saved_tip_amount + $child_seat_fee ) ) 
             ? ( $settled_amount - $saved_tip_amount - $child_seat_fee ) 
@@ -522,12 +526,62 @@ $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_s
                             </button>
                         </div>
 
-                        <!-- 2. VOLET APPLE PAY -->
+                       <!-- 2. VOLET APPLE PAY -->
                         <div id="etb-panel-apple-pay" class="etb-pay-panel" style="display: none; margin-bottom: 20px;">
-                            <div id="etb-apple-pay-mount" style="min-height: 48px; display: none;"></div>
+                            <!-- Bloc actif Apple Pay avec pourboire (affiché UNIQUEMENT si Apple Pay est supporté) -->
+                            <div id="etb-apple-pay-active-wrap" style="display: none;">
+                                <div class="etb-chk-tip-section" style="margin-bottom: 12px;">
+                                    <label class="etb-chk-tip-title" style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.05em; margin-bottom: 8px; display: block;">Driver Tip (Optional)</label>
+                                    <div class="etb-chk-tip-pills">
+                                        <label class="etb-tip-pill <?php echo ( 0 === $saved_tip_percent ) ? 'active' : ''; ?>" data-tip="0">
+                                            <input type="radio" name="etb_apple_tip" value="0" <?php checked( $saved_tip_percent, 0 ); ?>>
+                                            <span>None</span>
+                                        </label>
+                                        <label class="etb-tip-pill <?php echo ( 10 === $saved_tip_percent ) ? 'active' : ''; ?>" data-tip="10">
+                                            <input type="radio" name="etb_apple_tip" value="10" <?php checked( $saved_tip_percent, 10 ); ?>>
+                                            <span>10%</span>
+                                        </label>
+                                        <label class="etb-tip-pill <?php echo ( 15 === $saved_tip_percent ) ? 'active' : ''; ?>" data-tip="15">
+                                            <input type="radio" name="etb_apple_tip" value="15" <?php checked( $saved_tip_percent, 15 ); ?>>
+                                            <span>15%</span>
+                                        </label>
+                                        <label class="etb-tip-pill <?php echo ( 20 === $saved_tip_percent ) ? 'active' : ''; ?>" data-tip="20">
+                                            <input type="radio" name="etb_apple_tip" value="20" <?php checked( $saved_tip_percent, 20 ); ?>>
+                                            <span>20%</span>
+                                        </label>
+                                    </div>
+
+                                    <!-- Émoji persistant Apple Pay (s'anime puis se fige, réactif au survol) -->
+                                    <div class="etb-tip-persistent-badge" style="display: <?php echo ( $saved_tip_percent > 0 && $initial_code ) ? 'flex' : 'none'; ?>; cursor: pointer;" title="Hover to animate">
+                                        <img class="etb-tip-badge-img" src="<?php echo $initial_code ? esc_url( 'https://fonts.gstatic.com/s/e/notoemoji/latest/' . $initial_code . '/512.webp' ) : ''; ?>" alt="tip-emoji">
+                                    </div>
+
+                                </div>
+
+                                <!-- Micro-récapitulatif dynamique sous les pourboires -->
+                                <div class="etb-wallet-live-total" style="margin-bottom: 14px; padding: 10px 14px; background: rgba(255,255,255,0.02); border: 1px solid var(--etb-border-light, rgba(255,255,255,0.08)); border-radius: 8px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                                        <span style="font-size: 11.5px; color: var(--etb-text-secondary, #94a3b8); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Total to authorize</span>
+                                        <strong class="etb-wallet-display-amount" style="font-size: 18px; font-weight: 800; color: var(--etb-accent-gold, #fbac18);"><?php echo esc_html( $formatted_amount ); ?></strong>
+                                    </div>
+                                    <div class="etb-wallet-tip-detail" style="display: <?php echo ( $saved_tip_amount > 0 ) ? 'block' : 'none'; ?>; font-size: 11.5px; color: #4ade80; margin-top: 3px;">
+                                        • Includes <span class="etb-wallet-tip-text">+<?php echo number_format_i18n( $saved_tip_amount, 2 ); ?> <?php echo esc_html( $currency_symbol ); ?></span> driver tip (<span class="etb-wallet-tip-pct"><?php echo esc_html( $saved_tip_percent ); ?>%</span>)
+                                    </div>
+                                </div>
+
+                                <div id="etb-apple-pay-mount" style="min-height: 48px;"></div>
+
+                                <!-- Mention légale & sécurité discrète -->
+                                <p class="etb-wallet-legal-notice" style="margin: 12px 0 0 0; text-align: center; font-size: 11px; color: var(--etb-text-secondary, #94a3b8); line-height: 1.4;">
+                                    <span class="dashicons dashicons-shield" style="font-size: 13px; width: 13px; height: 13px; vertical-align: middle;"></span>
+                                    256-Bit SSL Encrypted · By paying, you agree to <?php echo esc_html( $legal_name ); ?>'s Terms & Conditions.
+                                </p>
+                            </div>
+
+                            <!-- Repli si Apple Pay n'est pas disponible -->
                             <div id="etb-apple-pay-fallback" style="display: block; padding: 26px 20px; border-radius: 10px; background: rgba(255,255,255,0.03); border: 1px solid var(--etb-border-light, rgba(255,255,255,0.08)); text-align: center;">
-                                <div style="display: flex; justify-content: center;">
-                                    <svg fill="currentColor" viewBox="0 -6 36 36" style="height: 80px; width: auto; max-width: 65px; display: block;">
+                                <div style="display: flex; justify-content: center; margin-bottom: 14px;">
+                                    <svg fill="currentColor" viewBox="0 -6 36 36" style="height: 48px; width: auto; max-width: 80px; display: block;">
                                         <path d="m33.6 24h-31.2c-1.325 0-2.4-1.075-2.4-2.4v-19.2c0-1.325 1.075-2.4 2.4-2.4h31.2c1.325 0 2.4 1.075 2.4 2.4v19.2c0 1.325-1.075 2.4-2.4 2.4zm-5.807-7.11v1.11c.159.022.342.035.528.035h.016-.001c1.394 0 2.056-.542 2.626-2.147l2.514-7.05h-1.454l-1.686 5.446h-.03l-1.686-5.446h-1.496l2.425 6.713-.13.408c-.088.549-.559.963-1.125.963-.028 0-.056-.001-.084-.003h.004c-.112-.005-.332-.018-.42-.029zm-22.08-8.836h-.026c-.886.025-1.651.519-2.058 1.241l-.006.012c-.844 1.452-.307 3.674.627 5.027.438.64.918 1.266 1.551 1.266h.034c.265-.017.51-.086.731-.197l-.011.005c.267-.134.581-.213.913-.216h.001c.321.002.624.08.891.216l-.011-.005c.215.112.468.18.737.186h.002.027c.705-.013 1.147-.66 1.538-1.23.279-.404.51-.869.672-1.366l.011-.038v-.01l-.018-.008c-.78-.355-1.313-1.125-1.318-2.021v-.001c.008-.796.427-1.492 1.055-1.887l.009-.005.018-.012c-.409-.588-1.074-.974-1.83-.994h-.003c-.035 0-.071 0-.106 0-.446.024-.862.131-1.239.307l.021-.009c-.172.084-.372.145-.583.171l-.009.001c-.228-.025-.436-.087-.626-.181l.011.005c-.293-.142-.636-.235-.997-.259h-.008zm18.113 1.816c.88 0 1.366.412 1.366 1.159v.509l-1.786.106c-1.675.101-2.56.78-2.56 1.963.012 1.108.912 2.001 2.022 2.001.084 0 .166-.005.247-.015l-.01.001c.019.001.042.001.065.001.869 0 1.629-.468 2.041-1.167l.006-.011h.03v1.102h1.325v-4.586c0-1.33-1.061-2.188-2.703-2.188-1.514 0-2.64.868-2.685 2.063h1.29c.144-.549.635-.947 1.219-.947.047 0 .094.003.14.008l-.006-.001zm-9.826-3.566v9.216h1.431v-3.152h1.977c.046.003.101.004.155.004 1.618 0 2.929-1.311 2.929-2.929 0-.041-.001-.081-.002-.121v.006c.002-.038.003-.082.003-.127 0-1.602-1.298-2.9-2.9-2.9-.048 0-.096.001-.143.003h.007zm-4.747-.704c-.594.058-1.112.34-1.477.76l-.002.003c-.333.373-.536.868-.536 1.41 0 .047.002.094.005.14v-.006c.034 0 .07.004.11.004.56-.032 1.051-.3 1.378-.707l.003-.004c.327-.387.526-.891.526-1.443 0-.055-.002-.11-.006-.165v.007zm14.236 8.901c-.758 0-1.249-.365-1.249-.929 0-.582.47-.917 1.36-.97l1.59-.1v.521c-.035.828-.715 1.485-1.548 1.485-.054 0-.107-.003-.16-.008zm-6.418-3.33h-1.644v-3.661h1.65c.07-.01.151-.016.234-.016.951 0 1.722.771 1.722 1.722 0 .042-.002.085-.005.126v-.006c.003.036.004.079.004.122 0 .954-.774 1.728-1.728 1.728-.082 0-.164-.006-.243-.017l.009.001z"/>
                                     </svg>
                                 </div>
@@ -543,7 +597,58 @@ $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_s
 
                         <!-- 3. VOLET GOOGLE PAY -->
                         <div id="etb-panel-google-pay" class="etb-pay-panel" style="display: none; margin-bottom: 20px;">
-                            <div id="etb-google-pay-mount" style="min-height: 48px; display: none;"></div>
+                            <!-- Bloc actif Google Pay avec pourboire (affiché UNIQUEMENT si Google Pay est supporté) -->
+                            <div id="etb-google-pay-active-wrap" style="display: none;">
+                                <div class="etb-chk-tip-section" style="margin-bottom: 12px;">
+                                    <label class="etb-chk-tip-title" style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.05em; margin-bottom: 8px; display: block;">Driver Tip (Optional)</label>
+                                    <div class="etb-chk-tip-pills">
+                                        <label class="etb-tip-pill <?php echo ( 0 === $saved_tip_percent ) ? 'active' : ''; ?>" data-tip="0">
+                                            <input type="radio" name="etb_google_tip" value="0" <?php checked( $saved_tip_percent, 0 ); ?>>
+                                            <span>None</span>
+                                        </label>
+                                        <label class="etb-tip-pill <?php echo ( 10 === $saved_tip_percent ) ? 'active' : ''; ?>" data-tip="10">
+                                            <input type="radio" name="etb_google_tip" value="10" <?php checked( $saved_tip_percent, 10 ); ?>>
+                                            <span>10%</span>
+                                        </label>
+                                        <label class="etb-tip-pill <?php echo ( 15 === $saved_tip_percent ) ? 'active' : ''; ?>" data-tip="15">
+                                            <input type="radio" name="etb_google_tip" value="15" <?php checked( $saved_tip_percent, 15 ); ?>>
+                                            <span>15%</span>
+                                        </label>
+                                        <label class="etb-tip-pill <?php echo ( 20 === $saved_tip_percent ) ? 'active' : ''; ?>" data-tip="20">
+                                            <input type="radio" name="etb_google_tip" value="20" <?php checked( $saved_tip_percent, 20 ); ?>>
+                                            <span>20%</span>
+                                        </label>
+                                    </div>
+
+                                    <!-- Émoji persistant Google Pay (s'anime puis se fige, réactif au survol) -->
+                                    <div class="etb-tip-persistent-badge" style="display: <?php echo ( $saved_tip_percent > 0 && $initial_code ) ? 'flex' : 'none'; ?>; cursor: pointer;" title="Hover to animate">
+                                        <img class="etb-tip-badge-img" src="<?php echo $initial_code ? esc_url( 'https://fonts.gstatic.com/s/e/notoemoji/latest/' . $initial_code . '/512.webp' ) : ''; ?>" alt="tip-emoji">
+                                    </div>
+                                    
+                                </div>
+
+                                <!-- Micro-récapitulatif dynamique sous les pourboires -->
+                                <div class="etb-wallet-live-total" style="margin-bottom: 14px; padding: 10px 14px; background: rgba(255,255,255,0.02); border: 1px solid var(--etb-border-light, rgba(255,255,255,0.08)); border-radius: 8px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                                        <span style="font-size: 11.5px; color: var(--etb-text-secondary, #94a3b8); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Total to authorize</span>
+                                        <strong class="etb-wallet-display-amount" style="font-size: 18px; font-weight: 800; color: var(--etb-accent-gold, #fbac18);"><?php echo esc_html( $formatted_amount ); ?></strong>
+                                    </div>
+                                    <div class="etb-wallet-tip-detail" style="display: <?php echo ( $saved_tip_amount > 0 ) ? 'block' : 'none'; ?>; font-size: 11.5px; color: #4ade80; margin-top: 3px;">
+                                        • Includes <span class="etb-wallet-tip-text">+<?php echo number_format_i18n( $saved_tip_amount, 2 ); ?> <?php echo esc_html( $currency_symbol ); ?></span> driver tip (<span class="etb-wallet-tip-pct"><?php echo esc_html( $saved_tip_percent ); ?>%</span>)
+                                    </div>
+                                </div>
+
+                                <div id="etb-google-pay-mount" style="min-height: 48px;"></div>
+
+                                <!-- Mention légale & sécurité discrète -->
+                                <p class="etb-wallet-legal-notice" style="margin: 12px 0 0 0; text-align: center; font-size: 11px; color: var(--etb-text-secondary, #94a3b8); line-height: 1.4;">
+                                    <span class="dashicons dashicons-shield" style="font-size: 13px; width: 13px; height: 13px; vertical-align: middle;"></span>
+                                    256-Bit SSL Encrypted · By paying, you agree to <?php echo esc_html( $legal_name ); ?>'s Terms & Conditions.
+                                </p>
+                            </div>
+
+
+                            <!-- Repli si Google Pay n'est pas disponible -->
                             <div id="etb-google-pay-fallback" style="display: block; padding: 26px 20px; border-radius: 10px; background: rgba(255,255,255,0.03); border: 1px solid var(--etb-border-light, rgba(255,255,255,0.08)); text-align: center;">
                                 <div style="display: flex; justify-content: center; margin-bottom: 14px;">
                                     <svg viewBox="0 0 512 110" style="height: 38px; width: auto; max-width: 170px; display: block;" preserveAspectRatio="xMidYMid">
@@ -635,28 +740,95 @@ $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_s
                         </div>
 
                         
+                        
+                        <!-- Pays ou région (Country or Region) - Liste mondiale exhaustive ISO -->
+                        <?php
+                        // Liste exhaustive des pays pour la facturation Stripe
+                        $world_countries = array(
+                            // 1. Pays prioritaires fréquents (Top VIP)
+                            'FR' => 'France',
+                            'MC' => 'Monaco',
+                            'GB' => 'United Kingdom',
+                            'US' => 'United States',
+                            'CH' => 'Switzerland',
+                            'AE' => 'United Arab Emirates',
+                            'SA' => 'Saudi Arabia',
+                            'QA' => 'Qatar',
+                            'KW' => 'Kuwait',
+                            'DE' => 'Germany',
+                            'IT' => 'Italy',
+                            'ES' => 'Spain',
+                            'BE' => 'Belgium',
+                            'LU' => 'Luxembourg',
+                            'NL' => 'Netherlands',
+                            'AT' => 'Austria',
+                            'CA' => 'Canada',
+                            'AU' => 'Australia',
+                            'SG' => 'Singapore',
+                            'HK' => 'Hong Kong',
+                            'JP' => 'Japan',
+                            'IL' => 'Israel',
+                            'MG' => 'Madagascar',
 
-                        <!-- Pays ou région (Country or Region) en anglais -->
+                            // 2. Reste du monde par ordre alphabétique
+                            'AF' => 'Afghanistan', 'AL' => 'Albania', 'DZ' => 'Algeria', 'AD' => 'Andorra',
+                            'AO' => 'Angola', 'AG' => 'Antigua & Barbuda', 'AR' => 'Argentina', 'AM' => 'Armenia',
+                            'AW' => 'Aruba', 'AZ' => 'Azerbaijan', 'BS' => 'Bahamas', 'BH' => 'Bahrain',
+                            'BD' => 'Bangladesh', 'BB' => 'Barbados', 'BY' => 'Belarus', 'BZ' => 'Belize',
+                            'BJ' => 'Benin', 'BM' => 'Bermuda', 'BT' => 'Bhutan', 'BO' => 'Bolivia',
+                            'BA' => 'Bosnia & Herzegovina', 'BW' => 'Botswana', 'BR' => 'Brazil', 'BN' => 'Brunei',
+                            'BG' => 'Bulgaria', 'BF' => 'Burkina Faso', 'BI' => 'Burundi', 'KH' => 'Cambodia',
+                            'CM' => 'Cameroon', 'CV' => 'Cape Verde', 'KY' => 'Cayman Islands', 'CF' => 'Central African Republic',
+                            'TD' => 'Chad', 'CL' => 'Chile', 'CN' => 'China', 'CO' => 'Colombia',
+                            'KM' => 'Comoros', 'CG' => 'Congo - Brazzaville', 'CD' => 'Congo - Kinshasa', 'CR' => 'Costa Rica',
+                            'CI' => 'Côte d’Ivoire', 'HR' => 'Croatia', 'CY' => 'Cyprus', 'CZ' => 'Czech Republic',
+                            'DK' => 'Denmark', 'DJ' => 'Djibouti', 'DM' => 'Dominica', 'DO' => 'Dominican Republic',
+                            'EC' => 'Ecuador', 'EG' => 'Egypt', 'SV' => 'El Salvador', 'GQ' => 'Equatorial Guinea',
+                            'EE' => 'Estonia', 'SZ' => 'Eswatini', 'ET' => 'Ethiopia', 'FJ' => 'Fiji',
+                            'FI' => 'Finland', 'GA' => 'Gabon', 'GM' => 'Gambia', 'GE' => 'Georgia',
+                            'GH' => 'Ghana', 'GI' => 'Gibraltar', 'GR' => 'Greece', 'GL' => 'Greenland',
+                            'GD' => 'Grenada', 'GT' => 'Guatemala', 'GN' => 'Guinea', 'GY' => 'Guyana',
+                            'HT' => 'Haiti', 'HN' => 'Honduras', 'HU' => 'Hungary', 'IS' => 'Iceland',
+                            'IN' => 'India', 'ID' => 'Indonesia', 'IQ' => 'Iraq', 'IE' => 'Ireland',
+                            'JM' => 'Jamaica', 'JO' => 'Jordan', 'KZ' => 'Kazakhstan', 'KE' => 'Kenya',
+                            'KR' => 'South Korea', 'KG' => 'Kyrgyzstan', 'LA' => 'Laos', 'LV' => 'Latvia',
+                            'LB' => 'Lebanon', 'LS' => 'Lesotho', 'LR' => 'Liberia', 'LY' => 'Libya',
+                            'LI' => 'Liechtenstein', 'LT' => 'Lithuania', 'MO' => 'Macao', 'MW' => 'Malawi',
+                            'MY' => 'Malaysia', 'MV' => 'Maldives', 'ML' => 'Mali', 'MT' => 'Malta',
+                            'MH' => 'Marshall Islands', 'MR' => 'Mauritania', 'MU' => 'Mauritius', 'MX' => 'Mexico',
+                            'MD' => 'Moldova', 'MN' => 'Mongolia', 'ME' => 'Montenegro', 'MA' => 'Morocco',
+                            'MZ' => 'Mozambique', 'MM' => 'Myanmar', 'NA' => 'Namibia', 'NP' => 'Nepal',
+                            'NZ' => 'New Zealand', 'NI' => 'Nicaragua', 'NE' => 'Niger', 'NG' => 'Nigeria',
+                            'MK' => 'North Macedonia', 'NO' => 'Norway', 'OM' => 'Oman', 'PK' => 'Pakistan',
+                            'PA' => 'Panama', 'PG' => 'Papua New Guinea', 'PY' => 'Paraguay', 'PE' => 'Peru',
+                            'PH' => 'Philippines', 'PL' => 'Poland', 'PT' => 'Portugal', 'RO' => 'Romania',
+                            'RW' => 'Rwanda', 'KN' => 'Saint Kitts & Nevis', 'LC' => 'Saint Lucia', 'VC' => 'Saint Vincent',
+                            'WS' => 'Samoa', 'SM' => 'San Marino', 'ST' => 'São Tomé & Príncipe', 'SN' => 'Senegal',
+                            'RS' => 'Serbia', 'SC' => 'Seychelles', 'SL' => 'Sierra Leone', 'SK' => 'Slovakia',
+                            'SI' => 'Slovenia', 'SB' => 'Solomon Islands', 'SO' => 'Somalia', 'ZA' => 'South Africa',
+                            'LK' => 'Sri Lanka', 'SR' => 'Suriname', 'SE' => 'Sweden', 'TW' => 'Taiwan',
+                            'TJ' => 'Tajikistan', 'TZ' => 'Tanzania', 'TH' => 'Thailand', 'TG' => 'Togo',
+                            'TO' => 'Tonga', 'TT' => 'Trinidad & Tobago', 'TN' => 'Tunisia', 'TR' => 'Turkey',
+                            'TM' => 'Turkmenistan', 'UG' => 'Uganda', 'UA' => 'Ukraine', 'UY' => 'Uruguay',
+                            'UZ' => 'Uzbekistan', 'VU' => 'Vanuatu', 'VE' => 'Venezuela', 'VN' => 'Vietnam',
+                            'YE' => 'Yemen', 'ZM' => 'Zambia', 'ZW' => 'Zimbabwe'
+                        );
+                        ?>
                         <div class="etb-chk-field" style="margin-top: 16px;">
                             <label style="font-size: 13px; font-weight: 600;">Country or Region *</label>
                             <input type="hidden" name="card_country" id="etb-pay-card-country" value="FR">
+                        
                             <div class="etb-custom-select" id="etb-pay-country-select">
-                                <div class="etb-custom-select-trigger">
+                                <div class="etb-custom-select-trigger" tabindex="0" role="combobox" aria-haspopup="listbox">
                                     <span id="etb-pay-country-label">France</span>
                                     <span class="dashicons dashicons-arrow-down-alt2"></span>
                                 </div>
                                 <div class="etb-custom-select-options">
-                                    <div class="etb-custom-option selected" data-val="FR">France</div>
-                                    <div class="etb-custom-option" data-val="MC">Monaco</div>
-                                    <div class="etb-custom-option" data-val="US">United States</div>
-                                    <div class="etb-custom-option" data-val="GB">United Kingdom</div>
-                                    <div class="etb-custom-option" data-val="CH">Switzerland</div>
-                                    <div class="etb-custom-option" data-val="DE">Germany</div>
-                                    <div class="etb-custom-option" data-val="IT">Italy</div>
-                                    <div class="etb-custom-option" data-val="BE">Belgium</div>
-                                    <div class="etb-custom-option" data-val="AE">United Arab Emirates</div>
-                                    <div class="etb-custom-option" data-val="CA">Canada</div>
-                                    <div class="etb-custom-option" data-val="MG">Madagascar</div>
+                                    <?php foreach ( $world_countries as $code => $name ) : ?>
+                                        <div class="etb-custom-option <?php echo ( 'FR' === $code ) ? 'selected' : ''; ?>" data-val="<?php echo esc_attr( $code ); ?>">
+                                            <?php echo esc_html( $name ); ?>
+                                        </div>
+                                    <?php endforeach; ?>
                                 </div>
                             </div>
                         </div>
@@ -682,6 +854,17 @@ $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_s
                                     <span>20%</span>
                                 </label>
                             </div>
+
+
+                            <!-- Émoji persistant sous les pilules (dynamique et interactif au survol) -->
+                            <?php
+                            $noto_initial_codes = array( 10 => '1f64f', 15 => '1f929', 20 => '1f60d' );
+                            $initial_code       = $noto_initial_codes[ $saved_tip_percent ] ?? '';
+                            ?>
+                            <div class="etb-tip-persistent-badge" style="display: <?php echo ( $saved_tip_percent > 0 && $initial_code ) ? 'flex' : 'none'; ?>; cursor: pointer;" title="Hover to animate">
+                                <img class="etb-tip-badge-img" src="<?php echo $initial_code ? esc_url( 'https://fonts.gstatic.com/s/e/notoemoji/latest/' . $initial_code . '/512.webp' ) : ''; ?>" alt="tip-emoji">
+                            </div>
+
                         </div>
 
                         <!-- Mandat légal en anglais avec nom légal dynamique (Point 3) -->

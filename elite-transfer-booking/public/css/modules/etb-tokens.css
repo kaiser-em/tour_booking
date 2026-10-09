@@ -103,10 +103,10 @@
 /* ── THÈME SOMBRE VIP (PAR DÉFAUT) ── */
 [data-etb-theme="dark"] {
     --etb-bg-app: transparent;
-    --etb-bg-card: #0f1420;
-    --etb-bg-card-hover: #141b2b;
-    --etb-bg-input: #151b29;
-    --etb-bg-glass: rgba(11, 15, 25, 0.88);
+    --etb-bg-card: #000000/*#0f1420*/;
+    --etb-bg-card-hover: #000000 /*#141b2b*/;
+    --etb-bg-input: #000000 /*#151b29*/;
+    --etb-bg-glass: #000000 /*rgba(11, 15, 25, 0.88)*/;
     
     --etb-border-main: #232a3b;
     --etb-border-input: #28334b;

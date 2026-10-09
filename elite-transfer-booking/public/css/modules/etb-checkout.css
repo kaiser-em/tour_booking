@@ -85,7 +85,7 @@
 
 /* 3. Cartes de formulaire (Colonne Gauche) */
 .etb-checkout-card {
-    background: #0f1420 !important;
+    background: #000000 !important;
     border: 1.5px solid #232a3b !important;
     border-radius: 18px !important;
     padding: 24px 26px !important;
@@ -361,7 +361,7 @@
 .etb-chk-qty-control {
     display: inline-flex !important;
     align-items: center !important;
-    background: #1e2638 !important;
+    background: transparent !important;
     border: 1px solid #333f57 !important;
     border-radius: 50px !important;
     padding: 3px 4px !important;
@@ -414,6 +414,7 @@
     border: 1px solid rgba(255, 255, 255, 0.08) !important;
     border-radius: 12px !important;
     padding: 14px 18px !important;
+    margin-bottom: 20px !important;
 }
 
 .etb-chk-cap-item {
@@ -1346,7 +1347,7 @@
     display: flex !important;
     justify-content: space-between !important;
     align-items: center !important;
-    background: #151b29 !important;
+    background: transparent !important;
     border: 1.5px solid #28334b !important;
     border-radius: 10px !important;
     height: 44px !important;
@@ -1790,4 +1791,50 @@
     -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
     -webkit-text-fill-color: #0f172a !important;
     caret-color: #0f172a !important;
+}
+
+
+
+
+/* ==========================================================================
+   ANIMATION ÉMOJI JAILLISSANT AU CLIC DU POURBOIRE (CHECKOUT)
+   ========================================================================== */
+.etb-animated-burst-emoji {
+    position: fixed !important;
+    pointer-events: none !important;
+    z-index: 999999 !important;
+    width: 44px !important;
+    height: 44px !important;
+    user-select: none !important;
+    will-change: transform, opacity !important;
+    animation: etbSingleEmojiFloat 1.2s cubic-bezier(0.2, 0.9, 0.3, 1) forwards !important;
+}
+
+.etb-animated-burst-emoji img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important;
+    filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.25)) !important;
+}
+
+@keyframes etbSingleEmojiFloat {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -10%) scale(0.4);
+    }
+    18% {
+        opacity: 1;
+        transform: translate(-50%, -45%) scale(1.15);
+    }
+    35% {
+        transform: translate(-50%, -75%) scale(1.0);
+    }
+    70% {
+        opacity: 1;
+        transform: translate(-50%, -125%) scale(1.0);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -170%) scale(0.85);
+    }
 }

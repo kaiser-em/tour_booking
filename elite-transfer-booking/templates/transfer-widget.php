@@ -361,13 +361,14 @@ $now_time = '';
         </div>
 
 
-        <!-- 4. BARRE DE CONFIRMATION / RÉSERVATION HYBRIDE (Option C) -->
+       
+        <!-- 4. BARRE DE CONFIRMATION / RÉSERVATION EN 3 COLONNES -->
         <div class="etb-quick-confirm-bar" id="etb-quick-booking-bar" style="display: none;">
-            <div class="etb-quick-summary-info">
-                <span>Selected Vehicle: <strong id="etb-quick-selected-name">—</strong></span>
-                <span>Estimated Rate: <strong id="etb-quick-selected-total" style="color: #fbac18;">0 <?php echo esc_html( $currency ); ?></strong></span>
-            </div>
             
+            <!-- Injection JS dynamique des Colonnes 1 (Véhicule) et 2 (Prix) -->
+            <div id="etb-quick-dynamic-bar-content" class="etb-bar-dynamic-wrapper"></div>
+            
+            <!-- Colonne 3 : Boutons d'action -->
             <div class="etb-quick-actions-row" style="display: flex; align-items: center; gap: 12px;">
 
                 <!-- Bouton Email Inquiry direct (mailto) -->

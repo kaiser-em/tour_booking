@@ -822,7 +822,7 @@
 
 /* État carte sélectionnée : Bouton Or éclatant */
 .etb-quick-car-item.selected .etb-quick-select-btn {
-    background: #fbac18 !important;
+    background: #fbac18  !important;
     border-color: #fbac18 !important;
     color: #0f172a !important;
     font-weight: 800 !important;
@@ -1036,9 +1036,9 @@
     display: inline-flex !important;
     align-items: center !important;
     gap: 8px !important;
-    background: #1e2638 !important;
+    background: transparent !important;
     border: 1px solid #333f57 !important;
-    color: #ffffff !important;
+    color: var(--etb-text-primary, #ffffff) !important;
     padding: 13px 22px !important;
     border-radius: 50px !important;
     font-size: 14px !important;
@@ -1051,15 +1051,19 @@
 .etb-quick-email-btn:hover {
     background: #28334b !important;
     border-color: #475569 !important;
+    color: #ffffff !important;
     /*transform: translateY(-2px) !important;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35) !important;*/
 }
+.eb-qtuick-email-btn:hover .dashicons{
+    color: var(--etb-text-primary, #cbd5e1) !important;
+}
 
-.etb-quick-email-btn .dashicons {
+.eb-qtuick-email-btn .dashicons {
     font-size: 17px !important;
     width: 17px !important;
     height: 17px !important;
-    color: #cbd5e1 !important;
+   color: #ffffff !important;
 }
 
 
@@ -1068,9 +1072,9 @@
     display: inline-flex !important;
     align-items: center !important;
     gap: 8px !important;
-    background: #1e2638 !important;
+    background: transparent !important;
     border: 1px solid #333f57 !important;
-    color: #ffffff !important;
+    color: var(--etb-text-primary, #ffffff) !important;
     text-decoration: none !important;
     padding: 13px 22px !important;
     border-radius: 50px !important;
@@ -1680,169 +1684,187 @@
 
 
 /* ==========================================================================
-   AFFICHAGE 2 COLONNES DE CARTES SUR SMARTPHONE (MOBILE VIP COMPACT)
-   ========================================================================== 
-@media (max-width: 640px) {
-    /* 1. Réduction des marges et paddings du conteneur extérieur 
-    #etb-quick-widget-app {
-        padding: 12px 6px !important;
-        margin: 15px auto !important;
-        border-radius: 14px !important;
-    }
+   BARRE DE CONFIRMATION EN 3 COLONNES (STYLE HAUTE COUTURE)
+   ========================================================================== */
+.etb-bar-dynamic-wrapper {
+    display: flex !important;
+    gap: 20px !important;
+    flex: 1 !important;
+    align-items: center !important;
+}
 
-    .etb-quick-fleet-wrapper {
-        margin-top: 5px !important;
-    }
+/* ── Colonne Optionnelle : Image ── */
+.etb-bar-col-img {
+    width: 100px !important;
+    height: 100px !important;
+    flex-shrink: 0 !important;
+    border-radius: 6px !important;
+    overflow: hidden !important;
+    background: var(--etb-bg-input, rgba(255,255,255,0.03)) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 5px !important;
+}
 
-    .etb-quick-fleet-heading {
-        font-size: 15px !important;
-        margin-bottom: 14px !important;
-    }
+.etb-bar-col-img img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important;
+}
 
-    /* 2. Grille en 2 colonnes avec espacement optimisé de 8px 
-    .etb-quick-cars-grid {
-        grid-template-columns: repeat(2, 1fr) !important;
-        gap: 8px !important;
+/* ── Colonne 1 : Véhicule & Équipements ── */
+.etb-bar-col1 {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+}
+
+.etb-bar-v-title {
+    font-size: 16px !important;
+    color: var(--etb-text-primary, #ffffff) !important;
+    position: relative !important;
+    display: inline-block !important;
+    width: fit-content !important;
+}
+
+.etb-bar-v-title strong {
+    font-weight: 800 !important;
+    
+}
+
+/* Petit trait jaune sous le titre pour matcher la maquette */
+.etb-bar-v-title::after {
+    content: '' !important;
+    display: block !important;
+    width: 25px !important;
+    height: 3px !important;
+    background: var(--etb-accent-gold, #fbac18) !important;
+    border-radius: 2px !important;
+    margin-top: 4px !important;
+    
+}
+
+.etb-bar-pax-bag {
+    display: flex !important;
+    align-items: center !important;
+    font-size: 12px !important;
+    color: var(--etb-text-secondary, #94a3b8) !important;
+    font-weight: 600 !important;
+    gap: 12px !important;
+    margin-left: 5px !important;
+}
+
+.etb-pax-bag-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+}
+
+.etb-bar-pax-bag .etb-sep {
+    height: 12px !important;
+    width: 1px !important;
+    background: var(--etb-border-light, rgba(255,255,255,0.15)) !important;
+}
+
+/* Neutralisation du style des icônes dans la barre */
+.etb-bar-dynamic-wrapper .etb-quick-amenities {
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    justify-content: flex-start !important;
+    gap: 15px !important;
+}
+
+.etb-bar-dynamic-wrapper .etb-amenity-col svg,
+.etb-bar-dynamic-wrapper .etb-amenity-svg {
+    width: 16px !important;
+    height: 16px !important;
+    max-width: 16px !important;
+    max-height: 16px !important;
+    margin: 0 auto 3px auto !important;
+}
+
+.etb-bar-dynamic-wrapper .etb-amenity-col small {
+    font-size: 9px !important;
+    color: var(--etb-text-secondary, #94a3b8) !important;
+}
+
+/* ── Colonne 2 : Tarification ── */
+.etb-bar-col2 {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    border-left: 1px solid var(--etb-border-light, rgba(255, 255, 255, 0.1)) !important;
+    padding-left: 25px !important;
+    min-width: 200px !important;
+}
+
+.etb-bar-price {
+    line-height: 1.1 !important;
+    margin-bottom: 4px !important;
+}
+
+.etb-bar-sub {
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    color: var(--etb-text-secondary, #cbd5e1) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    line-height: 1.4 !important;
+}
+
+.etb-bar-km {
+    font-size: 11px !important;
+    color: var(--etb-success, #4ade80) !important;
+    margin-top: 4px !important;
+    font-weight: 600 !important;
+    background: rgba(74, 222, 128, 0.15) !important;
+    padding: 3px 8px !important;
+    border-radius: 4px !important;
+    display: inline-block !important;
+    width: fit-content !important;
+}
+
+/* ── RESPONSIVE MOBILE : Empilement propre ── */
+@media (max-width: 992px) {
+    .etb-bar-dynamic-wrapper {
+        flex-direction: column !important;
+        gap:5px !important;
+        align-items: center !important;
         width: 100% !important;
     }
-
-    /* 3. Carte compacte 
-    .etb-quick-car-item {
-        min-width: 0 !important;
-        max-width: 100% !important;
-        min-height: auto !important;
-        border-radius: 14px !important;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2) !important;
-    }
-
-    /* 4. Hauteur photo adaptée 
-    .etb-quick-card-hero {
-        height: 110px !important;
-        border-radius: 14px 14px 0 0 !important;
-    }
-
-    .etb-quick-img-box .etb-img-static {
-        padding: 8px 10px !important;
-    }
-
-    .etb-quick-badge-vip {
-        font-size: 8.5px !important;
-        padding: 2px 8px !important;
-        top: 6px !important;
-        left: 6px !important;
-    }
-
-    .etb-quick-card-check {
-        width: 18px !important;
-        height: 18px !important;
-        top: 8px !important;
-        right: 8px !important;
-    }
-
-    .etb-quick-card-check .dashicons {
-        font-size: 13px !important;
-        width: 13px !important;
-        height: 13px !important;
-    }
-
-    /* 5. Corps de la carte et typographies 
-    .etb-quick-card-body {
-        padding: 10px 8px 12px 8px !important;
-    }
-
-    .etb-quick-car-title {
-        font-size: 10px !important;
-        margin-bottom: 4px !important;
-        line-height: 1.25 !important;
-    }
-
-    .etb-quick-specs {
-        font-size: 10.5px !important;
-        gap: 6px !important;
-        margin-bottom: 8px !important;
-    }
-
-    .etb-spec-item .dashicons {
-        font-size: 13px !important;
-        width: 13px !important;
-        height: 13px !important;
-    }
-
-    /* 6. Rangée des 6 équipements compacte 
-    .etb-quick-amenities {
-        padding: 5px 0 !important;
-        margin-bottom: 10px !important;
-        gap: 1px !important;
-    }
-
-    .etb-amenity-col svg,
-    .etb-amenity-svg {
-        width: 16px !important;
-        height: 16px !important;
-        max-width: 16px !important;
-        max-height: 16px !important;
-        margin: 0 auto 3px auto !important;
-    }
-
-    .etb-amenity-col small {
-        font-size: 7.5px !important;
-        letter-spacing: -0.02em !important;
-    }
-
-    /* 7. Pied de carte : Prix et bouton Select empilés en pleine largeur 
-    .etb-quick-card-footer {
-        flex-direction: column !important;
-        align-items: stretch !important;
-        gap: 6px !important;
-    }
-
-    .etb-quick-price-box {
+    
+   
+    
+    .etb-bar-col1 {
+        align-items: center !important;
         text-align: center !important;
     }
 
-    .etb-quick-price-display {
-        font-size: 16px !important;
+    .etb-bar-v-title::after {
+        margin: 4px auto 0 auto !important; /* Centre le trait jaune sur mobile */
+    }
+    
+    .etb-bar-dynamic-wrapper .etb-quick-amenities {
         justify-content: center !important;
+        flex-wrap: wrap !important;
+        gap: 15px !important;
+        max-width: 300px !important;
     }
 
-    .etb-quick-amount {
-        font-size: 17px !important;
-    }
-
-    .etb-quick-currency {
-        font-size: 13px !important;
-    }
-
-    .etb-quick-all-inclusive {
-        font-size: 9px !important;
-        justify-content: center !important;
-    }
-
-    .etb-quick-select-btn {
-        width: 100% !important;
-        padding: 7px 0 !important;
-        font-size: 11.5px !important;
-        border-radius: 50px !important;
-        justify-content: center !important;
-        display: none !important;
-    }
-
-    .etb-spec-item svg{
-        width: 15px !important;
-        height: 15px !important;
-    }
-    .etb-spec-item span{
-        font-size: 10px !important;
-    }
-
-    /* Bascule "Passengers" en "Pax" sur les écrans < 640px 
-    .etb-lbl-desktop {
-        display: none !important;
-    }
-
-    .etb-lbl-mobile {
-        display: inline !important;
+    .etb-bar-col2 {
+        border-left: none !important;
+        border-top: 1px dashed var(--etb-border-light, rgba(255, 255, 255, 0.15)) !important;
+        padding-left: 0 !important;
+        padding-top: 15px !important;
+        align-items: center !important;
+        text-align: center !important;
     }
 }
 
-*/
+
+.etb-bar-v-title strong{
+    color: var(--etb-text-primary) !important;
+}

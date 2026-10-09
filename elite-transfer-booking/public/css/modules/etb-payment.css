@@ -6,18 +6,28 @@
    BOÎTIER STRIPE OFFICIEL : DÉCOUPE EN 2 RANGÉES (NUMÉRO / MM-AA / CVC)
    ========================================================================== */
 .etb-stripe-split-card-box {
-    background: #fbfcfd !important;
+    background: transparent !important;
     border: 1px solid #a4a4a4 !important;
     border-radius: 10px !important;
     overflow: hidden !important;
     transition: all 0.2s ease !important;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+    color: var(--etb-text-primary,#5b5b5b) !important;
+ 
+}
+/*
+
+[data-etb-theme="dark"] .etb-stripe-split-card-box .InputContainer input {
+    background: transparent !important;
+    border-color: #9d9d9d  !important;
+    color: #ffffff !important;
 }
 
-[data-etb-theme="dark"] .etb-stripe-split-card-box {
-    background: #151b29 !important;
-    border-color: #28334b !important;
-}
+[data-etb-theme="light"] .etb-stripe-split-card-box .InputContainer input {
+    background: transparent !important;
+    border-color: #9d9d9d  !important;
+    color: #000000 !important;
+}*/
 
 .etb-stripe-split-card-box:focus-within {
     border-color: var(--etb-accent-gold, #fbac18) !important;
@@ -194,4 +204,96 @@
     padding: 5px 12px;
     border-radius: 6px;
     display: inline-block;
+}
+
+
+/* ANIMATION EMOJI*/
+
+/* Animation d'un émoji animé plus subtil (44px) */
+.etb-animated-burst-emoji {
+    position: fixed;
+    pointer-events: none;
+    z-index: 999999;
+    width: 44px;
+    height: 44px;
+    user-select: none;
+    will-change: transform, opacity;
+    animation: etbSingleEmojiFloat 1.2s cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+}
+
+.etb-animated-burst-emoji img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.25));
+}
+
+@keyframes etbSingleEmojiFloat {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -10%) scale(0.4);
+    }
+    18% {
+        opacity: 1;
+        transform: translate(-50%, -45%) scale(1.15);
+    }
+    35% {
+        transform: translate(-50%, -75%) scale(1.0);
+    }
+    70% {
+        opacity: 1;
+        transform: translate(-50%, -125%) scale(1.0);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -170%) scale(0.85);
+    }
+}
+
+/* Badge de l'émoji persistant sous les pilules */
+.etb-tip-persistent-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 10px;
+    min-height: 32px;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.etb-tip-persistent-badge img {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+}
+
+
+
+/* Surbrillance active lors de la recherche au clavier dans le sélecteur de pays */
+.etb-chk-field .etb-custom-option.highlighted {
+    background: #1e2638 !important;
+    color: #fbac18 !important;
+    font-weight: 700 !important;
+    border-left: 3px solid #fbac18 !important;
+}
+
+[data-etb-theme="light"] .etb-chk-field .etb-custom-option.highlighted {
+    background: #f1f5f9 !important;
+    color: #e65a15 !important;
+    font-weight: 700 !important;
+    border-left: 3px solid #e65a15 !important;
+}
+
+
+.GooglePayButton {
+    border: 0;
+    cursor: pointer;
+    max-height: 64px;
+    min-height: 32px;
+    position: relative;
+}
+
+.GooglePayButton--light, .GooglePayButton--lightOutline
+ {
+    background-color: #ffffff00;
 }

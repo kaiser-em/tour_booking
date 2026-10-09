@@ -1518,118 +1518,7 @@
         };
 
       
-        // Calcul et affichage dynamique des suppléments sièges enfants (Baby > 1 = 50€, Booster > 2 = 50€)
-        const calculateChildSeatsFee = () => {
-            const babyInput    = document.getElementById('etb-chk-baby-seats');
-            const boosterInput = document.getElementById('etb-chk-booster-seats');
-
-            const babyCount    = parseInt(babyInput ? babyInput.value : 0, 10) || 0;
-            const boosterCount = parseInt(boosterInput ? boosterInput.value : 0, 10) || 0;
-
-            const paidBaby    = Math.max(0, babyCount - 1);
-            const paidBooster = Math.max(0, boosterCount - 2);
-
-            const feeBaby    = paidBaby * 50;
-            const feeBooster = paidBooster * 50;
-
-            // 1. Mise à jour Baby Seat
-            const babyRow   = document.getElementById('etb-chk-baby-seats-row');
-            const babyLabel = document.getElementById('etb-chk-baby-seats-label');
-            const babyVal   = document.getElementById('etb-chk-breakdown-baby-seats');
-
-            if (babyRow) {
-                if (feeBaby > 0) {
-                    babyRow.style.setProperty('display', 'flex', 'important');
-                    if (babyLabel) babyLabel.textContent = `Extra Baby Seat (${paidBaby})`;
-                    if (babyVal) babyVal.textContent = `+ ${feeBaby} ${currency}`;
-                } else {
-                    babyRow.style.setProperty('display', 'none', 'important');
-                }
-            }
-
-            // 2. Mise à jour Booster Seat
-            const boosterRow   = document.getElementById('etb-chk-booster-seats-row');
-            const boosterLabel = document.getElementById('etb-chk-booster-seats-label');
-            const boosterVal   = document.getElementById('etb-chk-breakdown-booster-seats');
-
-            if (boosterRow) {
-                if (feeBooster > 0) {
-                    boosterRow.style.setProperty('display', 'flex', 'important');
-                    if (boosterLabel) boosterLabel.textContent = `Extra Booster Seat (${paidBooster})`;
-                    if (boosterVal) boosterVal.textContent = `+ ${feeBooster} ${currency}`;
-                } else {
-                    boosterRow.style.setProperty('display', 'none', 'important');
-                }
-            }
-
-            return feeBaby + feeBooster;
-        };
-        // 2. Fonction de recalcul du total incluant sièges enfants et pourboire
-        const recalculateTotalWithTip = (tipPercent) => {
-            if (isQuoteRide) {
-                if (tipRow) {
-                    tipRow.classList.remove('is-visible');
-                    tipRow.style.setProperty('display', 'none', 'important');
-                }
-                if (payTipRowEl) {
-                    payTipRowEl.classList.add('is-hidden');
-                    payTipRowEl.style.setProperty('display', 'none', 'important');
-                }
-                if (tipAmountInput) tipAmountInput.value = '0';
-                if (sumTotalPrice) sumTotalPrice.textContent = 'Custom Quote';
-                if (payGrandTotalEl) payGrandTotalEl.textContent = 'Custom Quote';
-                if (payTotalDueEl) payTotalDueEl.textContent = 'Custom Quote';
-                return;
-            }
-
-            // Prise en compte du supplément sièges
-            const seatsFee = calculateChildSeatsFee();
-            const subtotalBeforeTip = baseNumericPrice + seatsFee;
-
-            const tipVal = Math.round((subtotalBeforeTip * (tipPercent / 100)) * 100) / 100;
-            if (tipAmountInput) tipAmountInput.value = tipVal;
-
-            const totalWithTip   = subtotalBeforeTip + tipVal;
-            const formattedTotal = totalWithTip.toFixed(2) + ' ' + currency;
-
-            if (tipVal > 0) {
-                if (tipRow) {
-                    tipRow.classList.add('is-visible');
-                    tipRow.style.setProperty('display', 'flex', 'important');
-                }
-                if (tipPercentText) tipPercentText.textContent = `${tipPercent}%`;
-                if (tipBreakdown) tipBreakdown.textContent = `+ ${tipVal.toFixed(2)} ${currency}`;
-                if (sumTotalPrice) sumTotalPrice.textContent = formattedTotal;
-
-                if (payTipRowEl) {
-                    payTipRowEl.classList.remove('is-hidden');
-                    payTipRowEl.style.setProperty('display', 'flex', 'important');
-                }
-                if (payTipAmountEl) payTipAmountEl.textContent = `+ ${tipVal.toFixed(2)} ${currency}`;
-                if (payGrandTotalEl) payGrandTotalEl.textContent = formattedTotal;
-                if (payTotalDueEl) payTotalDueEl.textContent = formattedTotal;
-            } else {
-                const subtotalFormatted = subtotalBeforeTip.toFixed(0) + ' ' + currency;
-
-                if (tipRow) {
-                    tipRow.classList.remove('is-visible');
-                    tipRow.style.setProperty('display', 'none', 'important');
-                }
-                if (sumTotalPrice) sumTotalPrice.textContent = subtotalFormatted;
-
-                if (payTipRowEl) {
-                    payTipRowEl.classList.add('is-hidden');
-                    payTipRowEl.style.setProperty('display', 'none', 'important');
-                }
-                if (payGrandTotalEl) payGrandTotalEl.textContent = subtotalFormatted;
-                if (payTotalDueEl) payTotalDueEl.textContent = subtotalFormatted;
-            }
-
-            if (currentCheckoutStep === 2 && submitText) {
-                const finalBtnTotal = (tipVal > 0) ? formattedTotal : (subtotalBeforeTip.toFixed(0) + ' ' + currency);
-                submitText.textContent = `Pay ${finalBtnTotal} Now`;
-            }
-        };
+       
 
         // Fonction d'activation du mode Devis Sur Mesure (Custom Quote)
         const triggerCustomQuoteMode = () => {
@@ -1914,17 +1803,84 @@
                     isQuote: isCarQuote
                 };
 
-                // Affiche la barre de confirmation inférieure avec les 2 options (Option C)
+            
+                // Affiche la barre de confirmation inférieure en 3 colonnes
                 if (bookingBar) {
-                    if (selectedNameEl) selectedNameEl.textContent = carName;
+                    let priceMainHtml = '';
+                    let priceSubHtml  = '';
+                    let priceKmHtml   = '';
 
                     if (isCarQuote) {
-                        if (selectedTotEl) selectedTotEl.textContent = 'Custom Quote';
                         if (bookBtnLabel) bookBtnLabel.textContent = 'Request this Quote';
+                        priceMainHtml = '<span style="color: #fbac18; font-size: 20px; font-weight: 800;">Custom Quote</span>';
+                        priceSubHtml  = 'Pending dispatch review';
                     } else {
-                        if (selectedTotEl) selectedTotEl.textContent = carPrice + ' ' + currency;
                         if (bookBtnLabel) bookBtnLabel.textContent = 'Book this Trip';
+                        priceMainHtml = `<span style="color: #fbac18; font-size: 26px; font-weight: 900; letter-spacing: -0.5px;">${carPrice} <span style="font-size: 18px;">${currency}</span></span>`;
+                        
+                        // Condition de mode pour la ligne 2 et 3
+                        if (currentMode === 'hourly') {
+                            const detailEl = this.querySelector('.etb-quick-price-detail');
+                            // Extrait et nettoie le texte (ex: "10h Package + 2 extra hour(s) • 125 € per extra hour")
+                            priceSubHtml = detailEl ? detailEl.innerHTML.replace(/<br\s*[\/]?>/gi, ' • ').replace(/<\/?strong>/gi, '') : '';
+                            
+                            const kmInfoEl = this.querySelector('.etb-quick-km-info');
+                            priceKmHtml = kmInfoEl ? kmInfoEl.textContent : '';
+                        } else {
+                            priceSubHtml = 'All inclusive (Fixed rate)';
+                            priceKmHtml  = '';
+                        }
                     }
+
+                   
+                    // Extraction de l'image miniature du véhicule
+                    const carImgEl  = this.querySelector('.etb-img-static');
+                    const carImgSrc = carImgEl ? carImgEl.src : '';
+
+                    // Extraction des capacités et du HTML des icônes
+                    const maxPax = this.dataset.maxPax || '1';
+                    const maxBag = this.dataset.maxBag || '0';
+                    const amenitiesBox = this.querySelector('.etb-quick-amenities');
+                    const amenitiesHtml = amenitiesBox ? amenitiesBox.innerHTML : '';
+
+                    // Assemblage selon la maquette (Ligne 1: Titre | Ligne 2: Pax/Bag | Ligne 3: Amenities)
+                    const barContentHtml = `
+                        <!-- Colonne 0 : Miniature Image (Optionnelle, masquée sur mobile) -->
+                        ${carImgSrc ? `<div class="etb-bar-col-img"><img src="${carImgSrc}" alt="${carName}"></div>` : ''} 
+
+
+                        <!-- Colonne 1 : Véhicule, Pax & Équipements -->
+                        <div class="etb-bar-col1">
+                            <div class="etb-bar-v-title">
+                                <strong>${carName}</strong>
+                            </div>
+                            <div class="etb-bar-pax-bag">
+                                <span class="etb-pax-bag-item">
+                                    <svg viewBox="0 0 100 95" width="14" height="14" fill="var(--etb-accent-gold, #fbac18)"><path d="m88.484 31.117c0 8.0312-6.5117 14.539-14.539 14.539-8.0312 0-14.543-6.5078-14.543-14.539s6.5117-14.539 14.543-14.543c8.0273 0 14.539 6.5117 14.539 14.543z"/><path d="m0.90234 73.273c-3.0547 6.2812 2.0391 15.633 9.6914 17.562 16.133 3.6016 32.57 3.6016 48.703 0 7.6562-1.9336 12.75-11.281 9.6914-17.562-5.7109-11.867-18.844-22.293-34.047-22.391-15.203 0.10156-28.336 10.523-34.047 22.391z"/><path d="m54.445 25.965c0 10.77-8.7305 19.504-19.5 19.504-10.77 0-19.504-8.7344-19.504-19.504 0-10.77 8.7344-19.5 19.504-19.5 10.77-0.003906 19.5 8.7305 19.5 19.5z"/><path d="m99.328 66.391c-4.2578-8.8516-14.051-16.625-25.383-16.695-5.1719 0.03125-10.023 1.6719-14.176 4.2812 6.0273 4.4648 11.02 10.426 14.141 16.91 1.5391 3.1641 1.8438 6.8906 0.93359 10.605 5.7734-0.0625 11.539-0.73047 17.258-2.0078 5.707-1.4414 9.5078-8.4141 7.2266-13.094z"/></svg>
+                                    ${maxPax} Pax
+                                </span>
+                                <span class="etb-sep"></span> 
+                                <span class="etb-pax-bag-item">
+                                    <svg viewBox="20 15 60 88" width="14" height="14" fill="var(--etb-accent-gold, #fbac18)"><path d="M70.75,26.75H60.028l1.056,5.476c2.108-0.315,4.109,1.073,4.517,3.185l0.868,4.5c0.418,2.169-1.001,4.267-3.171,4.685 l-1.227,0.237c-2.169,0.418-4.268-1.001-4.686-3.17l-0.867-4.5c-0.408-2.113,0.936-4.146,3.01-4.637l-1.113-5.775H54.75v-14 c0-0.019-0.01-0.034-0.011-0.052c0.002-0.032,0.01-0.062,0.01-0.095c0-0.773-0.626-1.397-1.397-1.397h-6.705 c-0.771,0-1.397,0.624-1.397,1.397c0,0.034,0.008,0.065,0.01,0.098c0,0.017-0.01,0.031-0.01,0.049v14h-16c-2.209,0-4,1.791-4,4v59 c0,2.209,1.791,4,4,4h6V94c0,0.69,0.559,1.25,1.25,1.25c0.689,0,1.25-0.56,1.25-1.25v-0.25h24.5V94c0,0.69,0.559,1.25,1.25,1.25 c0.689,0,1.25-0.56,1.25-1.25v-0.25h6c2.209,0,4-1.791,4-4v-59C74.75,28.541,72.959,26.75,70.75,26.75z M47.75,14h4.5v12.75h-4.5V14 z M63.39,84.078h-26.78c-1.027,0-1.86-0.834-1.86-1.859c0-1.028,0.833-1.859,1.86-1.859h26.78c1.026,0,1.859,0.831,1.859,1.859 C65.249,83.244,64.416,84.078,63.39,84.078z"/></svg>
+                                    ${maxBag} Bag.
+                                </span>
+                            </div>
+                            <div class="etb-quick-amenities etb-bar-amenities">${amenitiesHtml}</div>
+                        </div>
+                        
+                        <!-- Colonne 2 : Lignes de Tarif -->
+                        <div class="etb-bar-col2">
+                            <div class="etb-bar-price">${priceMainHtml}</div>
+                            <div class="etb-bar-sub">${priceSubHtml}</div>
+                            ${priceKmHtml ? `<div class="etb-bar-km">${priceKmHtml}</div>` : ''}
+                        </div>
+                    `;
+
+                    const dynamicContentEl = quickRoot.querySelector('#etb-quick-dynamic-bar-content');
+                    if (dynamicContentEl) {
+                        dynamicContentEl.innerHTML = barContentHtml;
+                    }
+
 
                     // Données de la course pour WhatsApp et Mailto
                     const pVal      = pickupInput ? pickupInput.value.trim() : '';
@@ -2000,249 +1956,7 @@
         });
 
 
-        // ==========================================================================
-        // CONTRÔLEUR DU MICRO-MODAL VIP (EMAIL INQUIRY)
-        // ==========================================================================
-        const inquiryModal    = document.querySelector('#etb-quick-inquiry-modal');
-        const emailInquiryBtn = quickRoot.querySelector('#etb-quick-email-btn');
-
-        if (inquiryModal && emailInquiryBtn) {
-            const closeBtn      = inquiryModal.querySelector('#etb-inquiry-close');
-            const submitBtn     = inquiryModal.querySelector('#etb-inquiry-submit');
-            const submitText    = inquiryModal.querySelector('#etb-inquiry-btn-text');
-            const feedbackEl    = inquiryModal.querySelector('#etb-inquiry-feedback');
-            const carNameEl     = inquiryModal.querySelector('#etb-inquiry-car-name');
-            const carPriceEl    = inquiryModal.querySelector('#etb-inquiry-car-price');
-            const routeEl       = inquiryModal.querySelector('#etb-inquiry-route');
-            const datetimeEl    = inquiryModal.querySelector('#etb-inquiry-datetime');
-            const formEl        = inquiryModal.querySelector('#etb-inquiry-form');
-
-            // Variables de stockage du devis actif
-            let activeInquiry = {
-                vehicle: '',
-                route: '',
-                datetime: '',
-                price: ''
-            };
-
-            // 1. Ouvrir le modal et pré-remplir les informations verrouillées
-            emailInquiryBtn.addEventListener('click', function (e) {
-                e.preventDefault();
-
-                const vName = selectedCar ? selectedCar.name : 'Selected Vehicle';
-                const pVal  = pickupInput ? pickupInput.value.trim() : 'Pickup location';
-                const dVal  = (currentMode === 'transfer' && dropoffInput) ? dropoffInput.value.trim() : `By the hour (${durationSelect ? durationSelect.value : 4}h)`;
-                const dtVal = dateInput ? dateInput.value.trim() : '';
-                const tmVal = timeInput ? timeInput.value.trim() : '';
-
-                let priceDisplay = 'Custom Quote';
-                if (selectedCar && !selectedCar.isQuote && selectedCar.price && selectedCar.price !== 'Custom Quote') {
-                    priceDisplay = `${selectedCar.price} ${currency}`;
-                }
-
-                // Mémorisation des détails
-                activeInquiry.vehicle  = vName;
-                activeInquiry.route    = (currentMode === 'transfer') ? `${pVal} ➔ ${dVal}` : `${pVal} (${dVal})`;
-                activeInquiry.datetime = `${dtVal} at ${tmVal}`;
-                activeInquiry.price    = priceDisplay;
-
-                // Injection visuelle dans le récapitulatif du modal
-                if (carNameEl)  carNameEl.textContent  = activeInquiry.vehicle;
-                if (carPriceEl) carPriceEl.textContent = activeInquiry.price;
-                if (routeEl)    routeEl.textContent    = activeInquiry.route;
-                if (datetimeEl) datetimeEl.textContent = activeInquiry.datetime;
-
-                // Réinitialisation du feedback
-                if (feedbackEl) {
-                    feedbackEl.style.display = 'none';
-                    feedbackEl.className = 'etb-inquiry-feedback';
-                    feedbackEl.textContent = '';
-                }
-
-            // Affichage du modal avec animation fluide
-                inquiryModal.classList.add('is-open');
-                document.body.style.overflow = 'hidden';
-            });
-
-            // 2. Fonctions de fermeture fluide
-            const closeModal = () => {
-                inquiryModal.classList.remove('is-open');
-                document.body.style.overflow = '';
-            };
-
-            if (closeBtn) closeBtn.addEventListener('click', closeModal);
-
-            // Clic sur le fond flou extérieur pour fermer
-            inquiryModal.addEventListener('click', function (e) {
-                if (e.target === inquiryModal) {
-                    closeModal();
-                }
-            });
-
-            // Touche Échap pour fermer
-            document.addEventListener('keydown', function (e) {
-                if (e.key === 'Escape' && inquiryModal.classList.contains('is-open')) {
-                    closeModal();
-                }
-            });
-
-            // 3. Soumission du formulaire AJAX
-            if (submitBtn) {
-                submitBtn.addEventListener('click', function (e) {
-                    e.preventDefault();
-
-                    const nameInput  = inquiryModal.querySelector('#etb_inq_name');
-                    const emailInput = inquiryModal.querySelector('#etb_inq_email');
-                    const phoneInput = inquiryModal.querySelector('#etb_inq_phone');
-                    const notesInput = inquiryModal.querySelector('#etb_inq_notes');
-
-                    const nameVal  = nameInput ? nameInput.value.trim() : '';
-                    const emailVal = emailInput ? emailInput.value.trim() : '';
-                    const phoneVal = phoneInput ? phoneInput.value.trim() : '';
-                    const notesVal = notesInput ? notesInput.value.trim() : '';
-
-                    if (!nameVal) {
-                        showInquiryFeedback('Please enter your full name.', 'error');
-                        if (nameInput) nameInput.focus();
-                        return;
-                    }
-
-                    if (!emailVal || !emailInput.validity.valid) {
-                        showInquiryFeedback('Please enter a valid email address.', 'error');
-                        if (emailInput) emailInput.focus();
-                        return;
-                    }
-
-                    const originalText = submitText ? submitText.textContent : 'Send My Inquiry';
-                    submitBtn.disabled = true;
-                    if (submitText) submitText.textContent = 'Sending Inquiry...';
-
-                    const formData = new FormData();
-                    formData.append('action', 'etb_send_email_inquiry');
-                    formData.append('nonce', etbAjax.nonce);
-                    formData.append('inquiry_name', nameVal);
-                    formData.append('inquiry_email', emailVal);
-                    formData.append('inquiry_phone', phoneVal);
-                    formData.append('inquiry_notes', notesVal);
-                    formData.append('vehicle_name', activeInquiry.vehicle);
-                    formData.append('trip_route', activeInquiry.route);
-                    formData.append('trip_datetime', activeInquiry.datetime);
-                    formData.append('estimated_price', activeInquiry.price);
-
-                    fetch(etbAjax.ajax_url, {
-                        method: 'POST',
-                        body: formData
-                    })
-                    .then(response => response.json())
-                    .then(res => {
-                        submitBtn.disabled = false;
-                        if (submitText) submitText.textContent = originalText;
-
-                        if (res.success) {
-                            showInquiryFeedback('✓ ' + res.data.message, 'success');
-                            if (formEl) formEl.reset();
-
-                            // Fermeture soyeuse et remise à zéro progressive
-                            setTimeout(() => {
-                                // 1. Fermeture douce du modal
-                                closeModal();
-
-                                // 2. Défilement doux vers le haut du widget
-                                const widgetRect = quickRoot.getBoundingClientRect();
-                                const absoluteTop = widgetRect.top + window.pageYOffset - 40;
-                                window.scrollTo({
-                                    top: Math.max(0, absoluteTop),
-                                    behavior: 'smooth'
-                                });
-
-                                // 3. Réinitialisation des états après le départ du scroll
-                                setTimeout(() => {
-                                    // Retour automatique sur le mode One Way
-                                    currentMode = 'transfer';
-                                    modeBtns.forEach(btn => {
-                                        if (btn.dataset.mode === 'transfer') {
-                                            btn.classList.add('active');
-                                        } else {
-                                            btn.classList.remove('active');
-                                        }
-                                    });
-                                    if (dropoffCol) dropoffCol.style.display = 'flex';
-                                    if (durationCol) durationCol.style.display = 'none';
-
-                                    // Vidage des adresses, heure et coordonnées GPS
-                                    if (pickupInput) pickupInput.value = '';
-                                    if (dropoffInput) dropoffInput.value = '';
-                                    if (pickupLatEl) pickupLatEl.value = '';
-                                    if (pickupLngEl) pickupLngEl.value = '';
-                                    if (dropoffLatEl) dropoffLatEl.value = '';
-                                    if (dropoffLngEl) dropoffLngEl.value = '';
-                                    if (pickupClearBtn) pickupClearBtn.classList.remove('is-visible');
-                                    if (dropoffClearBtn) dropoffClearBtn.classList.remove('is-visible');
-
-                                    // Réinitialisation de l'heure à vide (-- : --)
-                                    if (timeInput) timeInput.value = '';
-                                    if (timePopup) {
-                                        timePopup.classList.remove('is-open');
-                                        timePopup.querySelectorAll('.etb-time-opt').forEach(o => o.classList.remove('active'));
-                                    }
-
-                                    // Réinitialisation de la durée par défaut (4 Hours)
-                                    if (durationSelect) durationSelect.value = '4';
-                                    const durLabel = customDurationWrapper ? customDurationWrapper.querySelector('.etb-custom-select-trigger span') : null;
-                                    if (durLabel) durLabel.textContent = '4 Hours';
-                                    if (customDurationWrapper) {
-                                        customDurationWrapper.querySelectorAll('.etb-custom-option').forEach(opt => {
-                                            opt.classList.toggle('selected', opt.dataset.val === '4');
-                                        });
-                                    }
-
-                                    // Désélection et repli de la flotte
-                                    selectedCar = null;
-                                    carCards.forEach(c => {
-                                        c.classList.remove('selected');
-                                        const b = c.querySelector('.etb-quick-select-btn');
-                                        if (b) b.textContent = 'Select';
-                                        const km = c.querySelector('.etb-quick-km-info');
-                                        if (km) {
-                                            km.textContent = '';
-                                            km.classList.remove('is-visible');
-                                        }
-                                    });
-
-                                    if (bookingBar) bookingBar.classList.remove('is-visible');
-                                    if (fleetSection) fleetSection.style.display = 'none';
-                                    if (quoteNoticeEl) quoteNoticeEl.classList.remove('is-visible');
-                                    isQuoteMode = false;
-
-                                    // Rallumage de la bordure animée bicolore
-                                    const glassBar = quickRoot.querySelector('.etb-quick-glass-bar');
-                                    if (glassBar) {
-                                        glassBar.classList.add('etb-initial-border');
-                                    }
-                                }, 350);
-
-                            }, 2000);
-                        } else {
-                            showInquiryFeedback('⚠ ' + (res.data.message || 'An error occurred.'), 'error');
-                        }
-                    })
-                    .catch(err => {
-                        console.error('Inquiry AJAX error:', err);
-                        submitBtn.disabled = false;
-                        if (submitText) submitText.textContent = originalText;
-                        showInquiryFeedback('⚠ Network communication error. Please try again.', 'error');
-                    });
-                });
-            }
-
-            // Fonction utilitaire de feedback
-            const showInquiryFeedback = (msg, type) => {
-                if (!feedbackEl) return;
-                feedbackEl.textContent = msg;
-                feedbackEl.className = 'etb-inquiry-feedback is-' + type;
-                feedbackEl.style.display = 'block';
-            };
-        }
+        
         
 
         // 5. Clic sur "Book this Trip" : Génération du Quote Token sécurisé et redirection
@@ -2417,56 +2131,73 @@
                 }
             });
 
-            // Formateur universel d'espacement par pays
+            // Formateur universel certifié par Google libphonenumber (couvre les 245 pays)
             const formatPhoneDigitsByCountry = function (digits, iso2) {
                 if (!digits) return '';
                 iso2 = (iso2 || 'fr').toLowerCase();
 
-                // France (+33) et Monaco (+377) : 1 chiffre puis groupes de 2 (ex: 6 12 34 56 78)
+                // 1. Si libphonenumber (utils.js) est disponible, formatage officiel au standard national
+                if (typeof window.intlTelInputUtils !== 'undefined') {
+                    try {
+                        const countryData = phoneIti ? phoneIti.getSelectedCountryData() : null;
+                        const dialCode    = countryData ? ('+' + countryData.dialCode) : '';
+                        const formatted   = window.intlTelInputUtils.formatNumber(
+                            dialCode + digits,
+                            iso2,
+                            window.intlTelInputUtils.numberFormat.NATIONAL
+                        );
+                        // Retrait du 0 initial si l'indicatif est séparé visuellement
+                        return formatted.replace(/^0/, '').trim();
+                    } catch (e) {}
+                }
+
+                // 2. Règles de repli soignées en attendant le chargement de utils.js
                 if (iso2 === 'fr' || iso2 === 'mc') {
-                    if (digits.length <= 1) return digits;
                     const first = digits.charAt(0);
                     const rest  = digits.substring(1);
                     const parts = rest.match(/.{1,2}/g) || [];
                     return (first + ' ' + parts.join(' ')).trim();
                 }
-
-                // USA (+1) et Canada (+1) : 3 - 3 - 4 (ex: 202 555 0123)
                 if (iso2 === 'us' || iso2 === 'ca') {
-                    const p1 = digits.substring(0, 3);
-                    const p2 = digits.substring(3, 6);
-                    const p3 = digits.substring(6, 10);
-                    if (digits.length <= 3) return p1;
-                    if (digits.length <= 6) return p1 + ' ' + p2;
-                    return (p1 + ' ' + p2 + ' ' + p3).trim();
+                    if (digits.length <= 3) return digits;
+                    if (digits.length <= 6) return digits.slice(0, 3) + ' ' + digits.slice(3);
+                    return digits.slice(0, 3) + ' ' + digits.slice(3, 6) + ' ' + digits.slice(6, 10);
                 }
-
-                // Royaume-Uni (+44) : 4 - 3 - 3 (ex: 7911 123 456)
                 if (iso2 === 'gb') {
-                    const p1 = digits.substring(0, 4);
-                    const p2 = digits.substring(4, 7);
-                    const p3 = digits.substring(7, 11);
-                    if (digits.length <= 4) return p1;
-                    if (digits.length <= 7) return p1 + ' ' + p2;
-                    return (p1 + ' ' + p2 + ' ' + p3).trim();
+                    if (digits.length <= 4) return digits;
+                    if (digits.length <= 7) return digits.slice(0, 4) + ' ' + digits.slice(4);
+                    return digits.slice(0, 4) + ' ' + digits.slice(4, 7) + ' ' + digits.slice(7, 11);
+                }
+                if (iso2 === 'de' || iso2 === 'ch' || iso2 === 'at') {
+                    if (digits.length <= 3) return digits;
+                    if (digits.length <= 7) return digits.slice(0, 3) + ' ' + digits.slice(3);
+                    return digits.slice(0, 3) + ' ' + digits.slice(3, 7) + ' ' + digits.slice(7);
+                }
+                if (iso2 === 'es') {
+                    if (digits.length <= 3) return digits;
+                    return digits.slice(0, 3) + ' ' + digits.slice(3).replace(/(\d{2})(?=\d)/g, '$1 ');
                 }
 
-                // Madagascar (+261) : 2 - 2 - 3 - 2 (ex: 34 12 345 67)
-                if (iso2 === 'mg') {
-                    const p1 = digits.substring(0, 2);
-                    const p2 = digits.substring(2, 4);
-                    const p3 = digits.substring(4, 7);
-                    const p4 = digits.substring(7, 9);
-                    return [p1, p2, p3, p4].filter(Boolean).join(' ');
+                // Espacement fluide par blocs naturels de 3 ou 4 pour les autres pays
+                if (digits.length > 6) {
+                    return digits.slice(0, 3) + ' ' + digits.slice(3, 6) + ' ' + digits.slice(6);
                 }
-
-                // Règle par défaut : groupes de 2 chiffres
-                return digits.replace(/(\d{2})(?=\d)/g, '$1 ').trim();
+                return digits.replace(/(\d{3})(?=\d)/g, '$1 ').trim();
             };
 
+            
+
             // Écouteur en direct sur la frappe et le copier-coller
-            const handlePhoneInputLive = function () {
-                let val = phoneInputEl.value;
+            const handlePhoneInputLive = function (e) {
+                // 0. NE PAS interférer si l'utilisateur efface sur mobile (Retour arrière)
+                if (e && (e.inputType === 'deleteContentBackward' || e.inputType === 'deleteContentForward')) {
+                    return;
+                }
+
+                // Mémorisation de la position du curseur sur mobile
+                let cursorPosition = this.selectionStart;
+                let oldLength      = this.value.length;
+                let val            = this.value;
 
                 // 1. Si le client colle un numéro international complet avec + ou 00
                 if (val.includes('+') || val.startsWith('00')) {
@@ -2495,7 +2226,7 @@
                     if (nationalDigits.startsWith('0')) {
                         nationalDigits = nationalDigits.substring(1);
                     }
-                    phoneInputEl.value = formatPhoneDigitsByCountry(nationalDigits, countryData ? countryData.iso2 : 'fr');
+                    this.value = formatPhoneDigitsByCountry(nationalDigits, countryData ? countryData.iso2 : 'fr');
                     return;
                 }
 
@@ -2525,7 +2256,14 @@
                 }
 
                 // 7. Formatage dynamique en direct
-                phoneInputEl.value = formatPhoneDigitsByCountry(digits, iso2);
+                let formatted = formatPhoneDigitsByCountry(digits, iso2);
+                this.value = formatted;
+
+                // 8. Restauration fluide du curseur
+                if (cursorPosition !== null) {
+                    let newCursor = cursorPosition + (formatted.length - oldLength);
+                    this.setSelectionRange(newCursor, newCursor);
+                }
             };
 
             phoneInputEl.addEventListener('input', handlePhoneInputLive);
@@ -2639,11 +2377,12 @@
 
             // Prise en compte du supplément sièges
             const seatsFee = calculateChildSeatsFee();
-            const subtotalBeforeTip = baseNumericPrice + seatsFee;
-
-            const tipVal = Math.round((subtotalBeforeTip * (tipPercent / 100)) * 100) / 100;
+            
+            // Le pourboire se calcule STRICTEMENT sur le tarif de transport (Base Fare), jamais sur les sièges enfants
+            const tipVal = Math.round((baseNumericPrice * (tipPercent / 100)) * 100) / 100;
             if (tipAmountInput) tipAmountInput.value = tipVal.toFixed(2);
 
+            const subtotalBeforeTip = baseNumericPrice + seatsFee;
             const totalWithTip   = subtotalBeforeTip + tipVal;
             const formattedTotal = totalWithTip.toFixed(2) + ' ' + currency;
 
@@ -2933,9 +2672,13 @@
 
         hydrateFromHandoff();
 
-        // 4. Écouteurs des pilules de pourboire
+        // 4. Écouteurs des pilules de pourboire avec animation d'émoji jaillissant
         tipPills.forEach(pill => {
-            pill.addEventListener('click', function () {
+            pill.addEventListener('click', function (e) {
+                if (e.target.tagName && e.target.tagName.toLowerCase() === 'input') {
+                    return;
+                }
+
                 tipPills.forEach(p => p.classList.remove('active'));
                 this.classList.add('active');
 
@@ -2943,6 +2686,40 @@
                 if (radio) radio.checked = true;
 
                 const percent = parseInt(this.dataset.tip, 10) || 0;
+
+                // ── Émoji Animé Google Noto (Jaillit, s'élève et s'évapore) ──
+                if (percent > 0) {
+                    const notoCodeMap = {
+                        10: '1f64f', // 🙏 Merci (Folded Hands)
+                        15: '1f929', // 🤩 Star-Struck
+                        20: '1f60d'  // 😍 Heart Eyes
+                    };
+
+                    const emojiCode = notoCodeMap[percent];
+                    if (emojiCode) {
+                        const rect   = this.getBoundingClientRect();
+                        const startX = rect.left + rect.width / 2;
+                        const startY = rect.top; // Part du sommet de la pilule
+
+                        const burstContainer = document.createElement('div');
+                        burstContainer.className = 'etb-animated-burst-emoji';
+                        burstContainer.style.left = startX + 'px';
+                        burstContainer.style.top  = startY + 'px';
+
+                        burstContainer.innerHTML = `
+                            <picture>
+                                <source srcset="https://fonts.gstatic.com/s/e/notoemoji/latest/${emojiCode}/512.webp" type="image/webp">
+                                <img src="https://fonts.gstatic.com/s/e/notoemoji/latest/${emojiCode}/512.gif" alt="tip-reaction">
+                            </picture>
+                        `;
+
+                        document.body.appendChild(burstContainer);
+
+                        // Nettoyage automatique du DOM après 1.3 seconde
+                        setTimeout(() => burstContainer.remove(), 1300);
+                    }
+                }
+
                 recalculateTotalWithTip(percent);
             });
         });
@@ -3465,31 +3242,113 @@
         const feedbackEl    = payRoot.querySelector('#etb-standalone-pay-feedback');
         const cardholderEl  = payRoot.querySelector('#etb-pay-cardholder');
         const countryEl     = payRoot.querySelector('#etb-pay-card-country');
-        let paymentRequest = null;
+        let walletPaymentRequest = null;
 
-        // Custom Select Pays sur la page de paiement
+        
+        // Custom Select Pays sur la page de paiement avec détection clavier & saut par lettre (Typeahead)
         const countrySelect = payRoot.querySelector('#etb-pay-country-select');
         if (countrySelect) {
-            const trigger = countrySelect.querySelector('.etb-custom-select-trigger');
-            const label   = countrySelect.querySelector('#etb-pay-country-label');
-            const options = countrySelect.querySelectorAll('.etb-custom-option');
+            const trigger    = countrySelect.querySelector('.etb-custom-select-trigger');
+            const label      = countrySelect.querySelector('#etb-pay-country-label');
+            const optionsBox = countrySelect.querySelector('.etb-custom-select-options');
+            const options    = countrySelect.querySelectorAll('.etb-custom-option');
 
             trigger.addEventListener('click', function (e) {
                 e.stopPropagation();
                 countrySelect.classList.toggle('is-open');
             });
 
+            const selectOption = function (opt) {
+                options.forEach(o => o.classList.remove('selected', 'highlighted'));
+                opt.classList.add('selected');
+                const val = opt.dataset.val;
+                if (label) label.textContent = opt.textContent.trim();
+                if (countryEl) countryEl.value = val;
+                countrySelect.classList.remove('is-open');
+                trigger.focus();
+            };
+
             options.forEach(opt => {
                 opt.addEventListener('click', function (e) {
                     e.stopPropagation();
-                    options.forEach(o => o.classList.remove('selected'));
-                    this.classList.add('selected');
-                    const val = this.dataset.val;
-                    if (label) label.textContent = this.textContent.trim();
-                    if (countryEl) countryEl.value = val;
-                    countrySelect.classList.remove('is-open');
+                    selectOption(this);
                 });
             });
+
+            // ── Navigation au clavier (Saut de lettre A-Z, Cycle & Touche Entrée) ──
+            let keyBuffer   = '';
+            let keyTimer    = null;
+            let lastKeyChar = '';
+            let cycleIndex  = 0;
+
+            const handleKeyboardSearch = function (e) {
+                if (e.key === 'Escape') {
+                    countrySelect.classList.remove('is-open');
+                    return;
+                }
+
+                if (e.key === 'Enter') {
+                    if (countrySelect.classList.contains('is-open')) {
+                        const highlighted = countrySelect.querySelector('.etb-custom-option.highlighted') 
+                                         || countrySelect.querySelector('.etb-custom-option.selected');
+                        if (highlighted) {
+                            e.preventDefault();
+                            selectOption(highlighted);
+                            return;
+                        }
+                    }
+                }
+
+                // Détection de toute touche alphabétique (A-Z)
+                if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                    e.preventDefault();
+
+                    // Ouvre automatiquement la liste si elle est fermée
+                    if (!countrySelect.classList.contains('is-open')) {
+                        countrySelect.classList.add('is-open');
+                    }
+
+                    const pressedChar = e.key.toLowerCase();
+                    clearTimeout(keyTimer);
+
+                    // Cas 1 : Répétition de la même lettre (ex: F, puis F, puis F ➔ France ➔ Fiji ➔ Finland)
+                    if (pressedChar === lastKeyChar && keyBuffer.length === 1) {
+                        const letterMatches = Array.from(options).filter(opt => 
+                            opt.textContent.trim().toLowerCase().startsWith(pressedChar)
+                        );
+
+                        if (letterMatches.length > 0) {
+                            cycleIndex = (cycleIndex + 1) % letterMatches.length;
+                            const targetOpt = letterMatches[cycleIndex];
+                            options.forEach(o => o.classList.remove('highlighted'));
+                            targetOpt.classList.add('highlighted');
+                            targetOpt.scrollIntoView({ block: 'nearest' });
+                        }
+                    } else {
+                        // Cas 2 : Recherche continue (ex: "sp" ➔ Spain)
+                        keyBuffer += pressedChar;
+                        cycleIndex = 0;
+
+                        const matchedOpt = Array.from(options).find(opt => 
+                            opt.textContent.trim().toLowerCase().startsWith(keyBuffer)
+                        );
+
+                        if (matchedOpt) {
+                            options.forEach(o => o.classList.remove('highlighted'));
+                            matchedOpt.classList.add('highlighted');
+                            matchedOpt.scrollIntoView({ block: 'nearest' });
+                        }
+                    }
+
+                    lastKeyChar = pressedChar;
+                    keyTimer = setTimeout(() => {
+                        keyBuffer = '';
+                        lastKeyChar = '';
+                    }, 700);
+                }
+            };
+
+            countrySelect.addEventListener('keydown', handleKeyboardSearch);
 
             document.addEventListener('click', function (e) {
                 if (!countrySelect.contains(e.target)) countrySelect.classList.remove('is-open');
@@ -3582,18 +3441,40 @@
             if (tipAmtInput) tipAmtInput.value = tipVal.toFixed(2);
             if (amountInput) amountInput.value = newTotal.toFixed(2);
 
-            const formattedTotal = newTotal.toFixed(2) + ' ' + currencySym;
+           const formattedTotal = newTotal.toFixed(2) + ' ' + currencySym;
             const formattedTip   = tipVal.toFixed(2) + ' ' + currencySym;
 
-            if (displayTotalEl) displayTotalEl.textContent = formattedTotal;
-            if (payText) payText.textContent = `Pay ${formattedTotal}`;
+            // Micro-transition fluide des montants (fondu doux)
+            const smoothFadeUpdate = function (element, text) {
+                if (!element || element.textContent === text) return;
+                element.style.transition = 'opacity 0.16s ease, transform 0.16s ease';
+                element.style.opacity   = '0.35';
+                element.style.transform = 'translateY(-2px)';
+                setTimeout(() => {
+                    element.textContent     = text;
+                    element.style.opacity   = '1';
+                    element.style.transform = 'translateY(0)';
+                }, 85);
+            };
 
-            // Synchronisation du montant dans Apple Pay / Google Pay si actif
-            if (paymentRequest) {
-                paymentRequest.update({
+            // Application de la transition fluide
+            smoothFadeUpdate(displayTotalEl, formattedTotal);
+            if (payText) smoothFadeUpdate(payText, `Pay ${formattedTotal}`);
+
+            payRoot.querySelectorAll('.etb-wallet-display-amount').forEach(el => {
+                smoothFadeUpdate(el, formattedTotal);
+            });
+
+            // Synchronisation en temps réel du montant dans Google Pay & Apple Pay avec pourboire
+            if (walletPaymentRequest) {
+                const limoRefVal        = payRoot.querySelector('#etb-pay-limo-id')?.value;
+                const bookingIdVal      = payRoot.querySelector('#etb-pay-booking-id')?.value || '0';
+                const missionDisplayRef = (limoRefVal && limoRefVal !== 'OK') ? ('#' + limoRefVal) : ('#' + bookingIdVal);
+
+                walletPaymentRequest.update({
                     total: {
-                        label: 'Booking #' + (payRoot.querySelector('#etb-pay-booking-id')?.value || 'Total'),
-                        amount: Math.round(newTotal * 100),
+                        label: 'Mission ' + missionDisplayRef,
+                        amount: Math.round(newTotal * 100), // Montant en centimes incluant le pourboire
                     }
                 });
             }
@@ -3607,26 +3488,140 @@
                     tipLineEl.style.setProperty('display', 'none', 'important');
                 }
             }
+
+            // Mise à jour instantanée du micro-récapitulatif dans les volets Apple Pay et Google Pay
+            payRoot.querySelectorAll('.etb-wallet-display-amount').forEach(el => {
+                el.textContent = formattedTotal;
+            });
+            payRoot.querySelectorAll('.etb-wallet-tip-detail').forEach(el => {
+                el.style.display = (pct > 0) ? 'block' : 'none';
+            });
+            payRoot.querySelectorAll('.etb-wallet-tip-text').forEach(el => {
+                el.textContent = '+' + formattedTip;
+            });
+            payRoot.querySelectorAll('.etb-wallet-tip-pct').forEach(el => {
+                el.textContent = pct + '%';
+            });
+// ── Émoji persistant : s'anime 2.5s, se fige, et se réveille au survol ──
+            const notoMap = {
+                10: '1f64f', // 🙏 Merci
+                15: '1f929', // 🤩 Étoiles
+                20: '1f60d'  // 😍 Cœurs
+            };
+
+            payRoot.querySelectorAll('.etb-tip-persistent-badge').forEach(badge => {
+                if (pct > 0 && notoMap[pct]) {
+                    const code       = notoMap[pct];
+                    const img        = badge.querySelector('.etb-tip-badge-img');
+                    const animUrl    = `https://fonts.gstatic.com/s/e/notoemoji/latest/${code}/512.webp`;
+                    const staticUrl  = `https://fonts.gstatic.com/s/e/notoemoji/latest/${code}/512.png`;
+
+                    badge.dataset.animUrl   = animUrl;
+                    badge.dataset.staticUrl = staticUrl;
+
+                    if (img) {
+                        // 1. Lance l'animation en WebP
+                        img.src = animUrl;
+                        badge.style.display = 'flex';
+
+                        // 2. Fige l'animation en PNG statique après 2.5 secondes
+                        clearTimeout(badge._stopTimer);
+                        badge._stopTimer = setTimeout(() => {
+                            if (badge.dataset.staticUrl) {
+                                img.src = badge.dataset.staticUrl;
+                            }
+                        }, 2500);
+                    }
+                } else {
+                    clearTimeout(badge._stopTimer);
+                    badge.style.display = 'none';
+                }
+            });
         };
 
-        // Écouteur de clic avec protection contre le double-déclenchement du label
-        tipPills.forEach(pill => {
+        // Écouteur de clic synchronisé sur TOUTES les pilules de pourboire (Carte, Apple Pay, Google Pay)
+        payRoot.querySelectorAll('.etb-tip-pill').forEach(pill => {
             pill.addEventListener('click', function (e) {
-                // Ignore le clic synthétique venant de l'input radio enfant
                 if (e.target.tagName && e.target.tagName.toLowerCase() === 'input') {
                     return;
                 }
 
-                tipPills.forEach(p => p.classList.remove('active'));
-                this.classList.add('active');
-
-                const radio = this.querySelector('input[type="radio"]');
-                if (radio) radio.checked = true;
-
                 const pct = parseInt(this.dataset.tip, 10) || 0;
+
+                // ── Émoji Animé Google Noto unique (Jaillit, s'anime et s'évapore) ──
+                if (pct > 0) {
+                    const notoCodeMap = {
+                        10: '1f64f', // 🙏 Folded Hands (Merci)
+                        15: '1f929', // 🤩 Star-Struck
+                        20: '1f60d'  // 😍 Heart Eyes (Votre exemple)
+                    };
+
+                    const emojiCode = notoCodeMap[pct];
+                    if (emojiCode) {
+                        const rect   = this.getBoundingClientRect();
+                        const startX = rect.left + rect.width / 2;
+                        const startY = rect.top; // Part du haut de la pilule
+
+                        // Création du conteneur picture / webp animé haute performance
+                        const burstContainer = document.createElement('div');
+                        burstContainer.className = 'etb-animated-burst-emoji';
+                        burstContainer.style.left = startX + 'px';
+                        burstContainer.style.top  = startY + 'px';
+
+                        burstContainer.innerHTML = `
+                            <picture>
+                                <source srcset="https://fonts.gstatic.com/s/e/notoemoji/latest/${emojiCode}/512.webp" type="image/webp">
+                                <img src="https://fonts.gstatic.com/s/e/notoemoji/latest/${emojiCode}/512.gif" alt="tip-reaction">
+                            </picture>
+                        `;
+
+                        document.body.appendChild(burstContainer);
+
+                        // Nettoyage automatique du DOM après 1.3 seconde
+                        setTimeout(() => burstContainer.remove(), 1300);
+                    }
+                }
+
+                // Synchronisation visuelle de toutes les pilules du formulaire avec le même pourcentage
+                payRoot.querySelectorAll('.etb-tip-pill').forEach(p => {
+                    const isSameTip = (parseInt(p.dataset.tip, 10) || 0) === pct;
+                    p.classList.toggle('active', isSameTip);
+                    const radio = p.querySelector('input[type="radio"]');
+                    if (radio) radio.checked = isSameTip;
+                });
+
                 updateStandaloneTip(pct);
             });
         });
+
+        // ── Écouteur de survol pour réveiller l'animation de l'émoji au passage de la souris ──
+        payRoot.querySelectorAll('.etb-tip-persistent-badge').forEach(badge => {
+            badge.addEventListener('mouseenter', function () {
+                const img     = this.querySelector('.etb-tip-badge-img');
+                const animUrl = this.dataset.animUrl;
+                if (img && animUrl) {
+                    img.src = animUrl; // Relance l'animation
+
+                    clearTimeout(this._stopTimer);
+                    this._stopTimer = setTimeout(() => {
+                        if (this.dataset.staticUrl) {
+                            img.src = this.dataset.staticUrl; // Se fige à nouveau
+                        }
+                    }, 2200);
+                }
+            });
+        });
+
+        // ── Initialisation sécurisée au chargement initial si un pourboire est pré-sélectionné ──
+        const activeInitialPill = payRoot.querySelector('.etb-tip-pill.active');
+        if (activeInitialPill) {
+            const initialPct = parseInt(activeInitialPill.dataset.tip, 10) || 0;
+            if (initialPct > 0) {
+                updateStandaloneTip(initialPct);
+            }
+        }
+
+
 
         // Vérification de Stripe
         if (typeof Stripe === 'undefined' || typeof etbAjax === 'undefined' || etbAjax.stripe_enabled !== '1' || !etbAjax.stripe_pk) {
@@ -3715,8 +3710,21 @@
         if (document.querySelector('#etb-card-expiry-mount')) cardExpiry.mount('#etb-card-expiry-mount');
         if (document.querySelector('#etb-card-cvc-mount')) cardCvc.mount('#etb-card-cvc-mount');
 
+        // Écoute de la bascule Dark/Light mode pour mettre à jour la couleur du texte DANS les iframes Stripe
+        document.addEventListener('etb_theme_changed', function(e) {
+            const isLight = (e.detail.theme === 'light');
+            const newStyle = {
+                base: {
+                    color: isLight ? '#1e293b' : '#ffffff',
+                    '::placeholder': { color: isLight ? '#94a3b8' : 'rgba(148, 163, 184, 0.6)' }
+                }
+            };
+            if (cardNumber) cardNumber.update({ style: newStyle });
+            if (cardExpiry) cardExpiry.update({ style: newStyle });
+            if (cardCvc)    cardCvc.update({ style: newStyle });
+        });
+
         // ── 2. Moteur Officiel Apple Pay & Google Pay (Sécurisé Stripe avec Référence Unifiée) ──
-        let walletPaymentRequest = null;
         const currentAmountVal   = parseMoneyValue(amountInput ? amountInput.value : 0);
         const bookingIdValue     = payRoot.querySelector('#etb-pay-booking-id')?.value || '';
         
@@ -3743,32 +3751,32 @@
             walletPaymentRequest.canMakePayment().then(function (result) {
                 if (!result) return;
 
-                // A. Apple Pay disponible UNIQUEMENT
+                // A. Apple Pay disponible UNIQUEMENT (Affiche le pourboire + le bouton)
                 if (result.applePay) {
-                    const appleMount    = payRoot.querySelector('#etb-apple-pay-mount');
+                    const appleWrap     = payRoot.querySelector('#etb-apple-pay-active-wrap');
                     const appleFallback = payRoot.querySelector('#etb-apple-pay-fallback');
-                    if (appleMount) {
+                    if (appleWrap) {
                         const appleBtn = elements.create('paymentRequestButton', {
                             paymentRequest: walletPaymentRequest,
                             style: { paymentRequestButton: { theme: isDarkTheme ? 'dark' : 'light', height: '48px', type: 'default' } }
                         });
                         appleBtn.mount('#etb-apple-pay-mount');
-                        appleMount.style.display = 'block';
+                        appleWrap.style.display = 'block';
                         if (appleFallback) appleFallback.style.display = 'none';
                     }
                 }
 
-                // B. Google Pay disponible UNIQUEMENT (exclut Stripe Link sur Edge/Firefox)
+                // B. Google Pay disponible UNIQUEMENT (Affiche le pourboire + le bouton)
                 if (result.googlePay) {
-                    const googleMount    = payRoot.querySelector('#etb-google-pay-mount');
+                    const googleWrap     = payRoot.querySelector('#etb-google-pay-active-wrap');
                     const googleFallback = payRoot.querySelector('#etb-google-pay-fallback');
-                    if (googleMount) {
+                    if (googleWrap) {
                         const googleBtn = elements.create('paymentRequestButton', {
                             paymentRequest: walletPaymentRequest,
                             style: { paymentRequestButton: { theme: isDarkTheme ? 'dark' : 'light', height: '48px', type: 'default' } }
                         });
                         googleBtn.mount('#etb-google-pay-mount');
-                        googleMount.style.display = 'block';
+                        googleWrap.style.display = 'block';
                         if (googleFallback) googleFallback.style.display = 'none';
                     }
                 }
@@ -3865,6 +3873,150 @@
             });
         }
         
+        // ── 3. Traitement officiel du paiement par Carte Bancaire au clic sur le bouton ──
+        if (payBtn) {
+            payBtn.addEventListener('click', async function (e) {
+                e.preventDefault();
+                if (feedbackEl) feedbackEl.style.display = 'none';
+
+                const bookingIdVal  = payRoot.querySelector('#etb-pay-booking-id')?.value || '0';
+                const amountVal     = parseFloat(payRoot.querySelector('#etb-pay-amount')?.value || 0);
+                const emailVal      = payRoot.querySelector('#etb-pay-email')?.value.trim() || '';
+                const cardholderVal = payRoot.querySelector('#etb-pay-cardholder')?.value.trim() || '';
+                const countryVal    = payRoot.querySelector('#etb-pay-card-country')?.value || 'FR';
+                const limoRefVal    = payRoot.querySelector('#etb-pay-limo-id')?.value;
+                const missionRef    = (limoRefVal && limoRefVal !== 'OK') ? ('#' + limoRefVal) : ('#' + bookingIdVal);
+
+                // Validations obligatoires
+                if (!emailVal || !emailVal.includes('@')) {
+                    showPayFeedback('Please enter a valid email address to receive your receipt.', 'error');
+                    payRoot.querySelector('#etb-pay-email')?.focus();
+                    return;
+                }
+                if (!cardholderVal) {
+                    showPayFeedback('Please enter the name on the card.', 'error');
+                    payRoot.querySelector('#etb-pay-cardholder')?.focus();
+                    return;
+                }
+                if (amountVal <= 0) {
+                    showPayFeedback('Invalid payment amount.', 'error');
+                    return;
+                }
+
+                // Verrouillage du bouton pendant l'autorisation bancaire
+                const originalBtnText = payText ? payText.textContent : 'Pay Now';
+                payBtn.disabled = true;
+                if (payText) payText.textContent = 'Authorizing payment...';
+
+                try {
+                  
+                    // ÉTAPE A : Création de l'intention de paiement Stripe
+                    const intentData = new FormData();
+                    intentData.append('action', 'etb_create_payment_intent');
+                    intentData.append('nonce', etbAjax.nonce);
+                    intentData.append('amount', amountVal);
+                    intentData.append('currency', 'eur');
+                    intentData.append('name', cardholderVal);
+                    intentData.append('email', emailVal);
+                    intentData.append('phone', payRoot.querySelector('#etb-pay-client-phone')?.value || '');
+                    intentData.append('country', countryVal);
+                    intentData.append('route', 'Online Settlement Mission ' + missionRef);
+
+                    const intentRes = await fetch(etbAjax.ajax_url, { method: 'POST', body: intentData }).then(r => r.json());
+
+                    if (!intentRes.success) {
+                        payBtn.disabled = false;
+                        if (payText) payText.textContent = originalBtnText;
+                        showPayFeedback(intentRes.data.message || 'Payment initialization failed.', 'error');
+                        return;
+                    }
+
+                    // ÉTAPE B : Sécurisation 3D Secure et confirmation bancaire via Stripe.js
+                    const confirmRes = await stripe.confirmCardPayment(intentRes.data.client_secret, {
+                        payment_method: {
+                            card: cardNumber,
+                            billing_details: {
+                                name: cardholderVal,
+                                email: emailVal,
+                                address: { country: countryVal }
+                            }
+                        }
+                    });
+
+                    if (confirmRes.error) {
+                        payBtn.disabled = false;
+                        if (payText) payText.textContent = originalBtnText;
+                        showPayFeedback(confirmRes.error.message || 'Payment authorization failed.', 'error');
+                        return;
+                    }
+
+                    // ÉTAPE C : Clôture officielle de la mission dans WordPress & LimoExpress
+                    if (payText) payText.textContent = 'Confirming mission...';
+
+                    const paymentIntent = confirmRes.paymentIntent;
+                    let last4 = '4242';
+                    let brand = 'card';
+                    let exp   = '';
+
+                    if (paymentIntent.charges && paymentIntent.charges.data && paymentIntent.charges.data.length > 0) {
+                        const cardDetails = paymentIntent.charges.data[0].payment_method_details?.card;
+                        if (cardDetails) {
+                            last4 = cardDetails.last4 || last4;
+                            brand = cardDetails.brand || brand;
+                            exp   = (cardDetails.exp_month && cardDetails.exp_year) 
+                                ? `${cardDetails.exp_month}/${String(cardDetails.exp_year).slice(-2)}` 
+                                : '';
+                        }
+                    }
+
+                    const settleData = new FormData();
+                    settleData.append('action', 'etb_settle_quote_payment');
+                    settleData.append('nonce', etbAjax.nonce);
+                    settleData.append('booking_id', bookingIdVal);
+                    settleData.append('amount', amountVal);
+                    settleData.append('payment_intent_id', paymentIntent.id);
+                    settleData.append('card_last4', last4);
+                    settleData.append('card_brand', brand);
+                    settleData.append('card_exp', exp);
+                    settleData.append('tip_amount', payRoot.querySelector('#etb-pay-tip-amount')?.value || '0');
+                    settleData.append('tip_percentage', payRoot.querySelector('#etb-pay-tip-percent')?.value || '0');
+
+                    const settleRes = await fetch(etbAjax.ajax_url, { method: 'POST', body: settleData }).then(u => u.json());
+
+                    if (settleRes.success) {
+                        // Écran de confirmation de paiement réussi
+                        const layoutEl = payRoot.querySelector('.etb-checkout-layout');
+                        if (layoutEl) {
+                            layoutEl.style.setProperty('display', 'block', 'important');
+                            layoutEl.innerHTML = '<div class="etb-checkout-card" style="text-align: center; padding: 50px 35px; border-color: #16a34a; max-width: 650px; margin: 0 auto; box-shadow: 0 10px 40px rgba(0,0,0,0.1);">'
+                                + '<div style="display: inline-flex; align-items: center; justify-content: center; width: 68px; height: 68px; background: rgba(34, 197, 94, 0.15); border: 2px solid #22c55e; border-radius: 50%; margin-bottom: 20px; color: #4ade80;">'
+                                + '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>'
+                                + '</div>'
+                                + '<h2 style="color: #4ade80; font-size: 24px; font-weight: 800; margin: 0 0 10px 0;">Payment Authorized Successfully!</h2>'
+                                + '<p style="font-size: 15px; margin-bottom: 25px; line-height: 1.55;">'
+                                + 'Your payment of <strong>' + amountVal.toFixed(2) + ' €</strong> for Mission <strong>' + missionRef + '</strong> has been processed.'
+                                + '</p>'
+                                + '<div style="background: rgba(255,255,255,0.04); border: 1px solid var(--etb-border-light, rgba(255,255,255,0.1)); border-radius: 12px; padding: 18px 22px; margin-bottom: 30px; text-align: left; font-size: 13.5px; line-height: 1.6;">'
+                                + '<p style="margin: 6px 0;">An official paid confirmation receipt has been sent to <strong>' + emailVal + '</strong>.</p>'
+                                + '<p style="margin: 6px 0;">Your chauffeur has received the mission in dispatch.</p>'
+                                + '</div>'
+                                + '<a href="' + (etbAjax.home_url || '/') + '" class="etb-chk-submit-btn" style="text-decoration: none; display: inline-flex; width: auto; padding: 14px 35px;">Return to Home</a>'
+                                + '</div>';
+                            payRoot.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                    } else {
+                        payBtn.disabled = false;
+                        if (payText) payText.textContent = originalBtnText;
+                        showPayFeedback(settleRes.data?.message || 'Payment registered, but dispatch status update failed.', 'error');
+                    }
+                } catch (err) {
+                    console.error('Credit card payment error:', err);
+                    payBtn.disabled = false;
+                    if (payText) payText.textContent = originalBtnText;
+                    showPayFeedback('Communication error during payment. Please try again.', 'error');
+                }
+            });
+        }
 
         const showPayFeedback = (msg, type) => {
             if (!feedbackEl) return;
@@ -3908,25 +4060,13 @@
             // Applique au conteneur racine <html> pour que les popups globales comme .pac-container en profitent
             document.documentElement.setAttribute('data-etb-theme', themeName);
 
+           
             const targets = document.querySelectorAll('#etb-quick-widget-app, #etb-checkout-app, .co-circuit-wrapper');
             targets.forEach(el => {
                 el.setAttribute('data-etb-theme', themeName);
             });
 
-            // Mise à jour en direct de la couleur du texte Stripe Elements si présent sur la page
-            const mountBox = document.querySelector('#etb-stripe-card-mount');
-            if (mountBox && typeof stripeCardElement !== 'undefined' && stripeCardElement) {
-                const isLight = (themeName === 'light');
-                stripeCardElement.update({
-                    style: {
-                        base: {
-                            color: isLight ? '#1e293b' : '#ffffff',
-                            '::placeholder': { color: isLight ? '#94a3b8' : 'rgba(148, 163, 184, 0.6)' }
-                        }
-                    }
-                });
-            }
-
+            // Déclenche un événement global pour avertir tous les modules (y compris Stripe) du changement de thème
             document.dispatchEvent(new CustomEvent('etb_theme_changed', { detail: { theme: themeName } }));
                 console.log("🌟 Thème appliqué :", themeName);
  

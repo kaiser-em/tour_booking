@@ -222,6 +222,47 @@ $invoice_date   = get_the_date( 'd/m/Y', $booking_id );
                     $price_type = get_post_meta( $e_id, '_etb_price_type', true );
                     $line_total = ( $price_type === 'fixed' ) ? $e_price : ( $e_price * $qty );
                 ?>
+                <?php
+                // 5. Ligne Sièges Enfants (Si suppléments payants applicables)
+                $child_seat_fee = floatval( get_post_meta( $booking_id, '_etb_child_seat_fee', true ) );
+                $baby_seats     = absint( get_post_meta( $booking_id, '_etb_baby_seat_count', true ) );
+                $booster_seats  = absint( get_post_meta( $booking_id, '_etb_booster_seat_count', true ) );
+
+                if ( $child_seat_fee > 0 ) :
+                    $seats_details = array();
+                    if ( $baby_seats > 1 ) $seats_details[] = sprintf( '%d Siège(s) Bébé extra', $baby_seats - 1 );
+                    if ( $booster_seats > 2 ) $seats_details[] = sprintf( '%d Rehausseur(s) extra', $booster_seats - 2 );
+                    $seats_desc = ! empty( $seats_details ) ? implode( ' + ', $seats_details ) : 'Mise à disposition sièges homologués';
+                ?>
+                    <tr>
+                        <td>
+                            <strong>Sièges Enfants & Rehausseurs additionnels</strong><br>
+                            <small style="color: #64748b;"><?php echo esc_html( $seats_desc ); ?></small>
+                        </td>
+                        <td class="qty">1</td>
+                        <td class="price"><?php echo number_format_i18n( $child_seat_fee, 2 ); ?> <?php echo esc_html( $currency ); ?></td>
+                        <td class="total"><?php echo number_format_i18n( $child_seat_fee, 2 ); ?> <?php echo esc_html( $currency ); ?></td>
+                    </tr>
+                <?php endif; ?>
+
+                <?php
+                // 6. Ligne Pourboire Chauffeur (Driver Tip)
+                $tip_amount     = floatval( get_post_meta( $booking_id, '_etb_tip_amount', true ) );
+                $tip_percentage = absint( get_post_meta( $booking_id, '_etb_tip_percentage', true ) );
+
+                if ( $tip_amount > 0 ) :
+                    $tip_label = ( $tip_percentage > 0 ) ? sprintf( 'Pourboire Chauffeur (%d%%)', $tip_percentage ) : 'Pourboire Chauffeur';
+                ?>
+                    <tr>
+                        <td>
+                            <strong><?php echo esc_html( $tip_label ); ?></strong><br>
+                            <small style="color: #64748b;">Gratification volontaire reversée intégralement au chauffeur</small>
+                        </td>
+                        <td class="qty">1</td>
+                        <td class="price"><?php echo number_format_i18n( $tip_amount, 2 ); ?> <?php echo esc_html( $currency ); ?></td>
+                        <td class="total"><?php echo number_format_i18n( $tip_amount, 2 ); ?> <?php echo esc_html( $currency ); ?></td>
+                    </tr>
+                <?php endif; ?>
                     <tr>
                         <td>
                             <strong>Option : <?php echo esc_html( $e_title ); ?></strong><br>

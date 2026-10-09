@@ -339,24 +339,65 @@ class ETB_Ajax {
             );
         }
 
+        // Récupération des données exhaustives du Checkout & Circuit
+        $baby_seat_count    = absint( get_post_meta( $booking_id, '_etb_baby_seat_count', true ) );
+        $booster_seat_count = absint( get_post_meta( $booking_id, '_etb_booster_seat_count', true ) );
+        $total_child_seats  = absint( get_post_meta( $booking_id, '_etb_total_child_seats', true ) ?: ($baby_seat_count + $booster_seat_count) );
+        $tip_amount         = floatval( get_post_meta( $booking_id, '_etb_tip_amount', true ) );
+        $child_seat_fee     = floatval( get_post_meta( $booking_id, '_etb_child_seat_fee', true ) );
+        $payment_intent_id  = get_post_meta( $booking_id, '_etb_stripe_payment_intent_id', true );
+        $status             = get_post_meta( $booking_id, '_etb_status', true );
+        $is_paid            = ( 'confirmed' === $status || ! empty( $payment_intent_id ) );
+
+        $extra_fees = array();
+        if ( $child_seat_fee > 0 ) {
+            $extra_fees[] = array(
+                'category' => 'child_seat_fee',
+                'amount'   => (float) round( $child_seat_fee, 2 ),
+                'value'    => (float) round( $child_seat_fee, 2 ),
+                'active'   => true,
+            );
+        }
+        if ( $tip_amount > 0 ) {
+            $extra_fees[] = array(
+                'category' => 'gratuity_amount',
+                'amount'   => (float) round( $tip_amount, 2 ),
+                'value'    => (float) round( $tip_amount, 2 ),
+                'active'   => true,
+            );
+        }
+
         $data = array(
-            'vehicles'       => get_post_meta( $booking_id, '_etb_vehicles', true ) ?: array(),
-            'adults'         => absint( get_post_meta( $booking_id, '_etb_adults', true ) ),
-            'children'       => absint( get_post_meta( $booking_id, '_etb_children', true ) ),
-            'pickup_id'      => absint( get_post_meta( $booking_id, '_etb_pickup_id', true ) ),
-            'pickup_address' => get_post_meta( $booking_id, '_etb_pickup_address', true ) ?: '',
-            'dropoff_info'   => get_post_meta( $booking_id, '_etb_dropoff_info', true ) ?: '',
-            'option_id'      => get_post_meta( $booking_id, '_etb_circuit_option_id', true ) ?: '',
-            'circuit_id'     => absint( get_post_meta( $booking_id, '_etb_circuit_id', true ) ),
-            'extras'         => get_post_meta( $booking_id, '_etb_extras', true ) ?: array(),
-            'name'           => get_post_meta( $booking_id, '_etb_customer_name', true ) ?: '',
-            'email'          => get_post_meta( $booking_id, '_etb_customer_email', true ) ?: '',
-            'phone'          => get_post_meta( $booking_id, '_etb_customer_phone', true ) ?: '',
-            'date'           => get_post_meta( $booking_id, '_etb_booking_date', true ) ?: '',
-            'time'           => get_post_meta( $booking_id, '_etb_booking_time', true ) ?: '',
-            'luggage'        => absint( get_post_meta( $booking_id, '_etb_luggage', true ) ),
-            'note'           => get_post_meta( $booking_id, '_etb_note', true ) ?: '',
-            'pricing'        => $pricing,
+            'vehicles'           => get_post_meta( $booking_id, '_etb_vehicles', true ) ?: array(),
+            'adults'             => absint( get_post_meta( $booking_id, '_etb_adults', true ) ),
+            'children'           => absint( get_post_meta( $booking_id, '_etb_children', true ) ),
+            'pickup_id'          => absint( get_post_meta( $booking_id, '_etb_pickup_id', true ) ),
+            'pickup_address'     => get_post_meta( $booking_id, '_etb_pickup_address', true ) ?: '',
+            'dropoff_info'       => get_post_meta( $booking_id, '_etb_dropoff_info', true ) ?: '',
+            'option_id'          => get_post_meta( $booking_id, '_etb_circuit_option_id', true ) ?: '',
+            'circuit_id'         => absint( get_post_meta( $booking_id, '_etb_circuit_id', true ) ),
+            'extras'             => get_post_meta( $booking_id, '_etb_extras', true ) ?: array(),
+            'name'               => get_post_meta( $booking_id, '_etb_customer_name', true ) ?: '',
+            'email'              => get_post_meta( $booking_id, '_etb_customer_email', true ) ?: '',
+            'phone'              => get_post_meta( $booking_id, '_etb_customer_phone', true ) ?: '',
+            'date'               => get_post_meta( $booking_id, '_etb_booking_date', true ) ?: '',
+            'time'               => get_post_meta( $booking_id, '_etb_booking_time', true ) ?: '',
+            'luggage'            => absint( get_post_meta( $booking_id, '_etb_luggage', true ) ),
+            'checked_luggage'    => absint( get_post_meta( $booking_id, '_etb_checked_luggage', true ) ),
+            'cabin_bags'         => absint( get_post_meta( $booking_id, '_etb_cabin_bags', true ) ),
+            'baby_seat_count'    => $baby_seat_count,
+            'booster_seat_count' => $booster_seat_count,
+            'total_child_seats'  => $total_child_seats,
+            'tip_amount'         => $tip_amount,
+            'extra_fees'         => $extra_fees,
+            'paid'               => $is_paid,
+            'payment_logs'       => get_post_meta( $booking_id, '_etb_payment_logs', true ) ?: array(),
+            'payment_intent_id'  => $payment_intent_id,
+            'flight_number'      => get_post_meta( $booking_id, '_etb_flight_number', true ) ?: '',
+            'waiting_board_text' => get_post_meta( $booking_id, '_etb_waiting_board_text', true ) ?: '',
+            'cost_center'        => get_post_meta( $booking_id, '_etb_cost_center', true ) ?: '',
+            'note'               => get_post_meta( $booking_id, '_etb_note', true ) ?: '',
+            'pricing'            => $pricing,
         );
 
         if ( ! class_exists( 'ETB_Dispatcher_Manager' ) ) {
@@ -462,7 +503,6 @@ class ETB_Ajax {
         $raw_price       = sanitize_text_field( $_POST['etb_calculated_price'] ?? '0' );
         $quote_ref       = sanitize_key( $_POST['etb_quote_ref'] ?? '' );
 
-        $flight_number   = sanitize_text_field( $_POST['etb_flight_number'] ?? '' );
 
         $flight_number   = sanitize_text_field( $_POST['etb_flight_number'] ?? '' );
         $pickup_sign     = sanitize_text_field( $_POST['etb_pickup_sign'] ?? '' );
@@ -550,32 +590,48 @@ class ETB_Ajax {
         $is_quote_ride = false;
         $final_price   = 0.0;
 
-        // Lecture prioritaire du devis scellé en mémoire serveur (Transient)
+        // Lecture du devis scellé en mémoire serveur (Transient de 30 min généré par etb_create_quote)
         $quote_data = ! empty( $quote_ref ) ? get_transient( 'etb_quote_' . $quote_ref ) : false;
 
-        if ( is_array( $quote_data ) && isset( $quote_data['price'] ) ) {
+        if ( 'hourly' === $mode ) {
+            // Pour une mise à disposition horaire, le prix fait foi par le calcul serveur strict
+            if ( class_exists( 'ETB_Pricing_Engine' ) ) {
+                $final_price = (float) round( ETB_Pricing_Engine::calculate_vehicle_price( $vehicle_id, $duration ), 2 );
+            }
+            $is_quote_ride = ( $final_price <= 0 );
+        } elseif ( is_array( $quote_data ) && isset( $quote_data['price'] ) ) {
+            // Vérification de concordance d'intégrité : le véhicule soumis doit être celui du devis scellé
+            $quoted_vehicle_id = absint( $quote_data['vehicle_id'] ?? 0 );
+            if ( $quoted_vehicle_id !== $vehicle_id ) {
+                wp_send_json_error( array( 'message' => 'Devis invalide : incohérence entre le devis scellé et le véhicule choisi.' ) );
+            }
+
             if ( 'Custom Quote' === $quote_data['price'] || floatval( $quote_data['price'] ) <= 0 ) {
                 $is_quote_ride = true;
                 $final_price   = 0.0;
             } else {
-                $final_price = (float) round( floatval( $quote_data['price'] ), 2 );
+                // Montant garanti par la session serveur
+                $final_price   = (float) round( floatval( $quote_data['price'] ), 2 );
+                $is_quote_ride = false;
             }
         } else {
-            // Repli de sécurité si le devis a expiré (+30 min)
+            // Le devis a expiré (> 30 min) ou n'a jamais été scellé :
+            // Sécurité absolue : on refuse d'accepter aveuglément un prix arbitraire injecté côté client
             $raw_price_clean = trim( (string) $raw_price );
-            $is_quote_ride   = ( empty( $raw_price_clean ) 
+            $is_explicit_quote = ( empty( $raw_price_clean ) 
                 || '0' === $raw_price_clean 
                 || floatval( $raw_price_clean ) <= 0 
                 || false !== stripos( $raw_price_clean, 'quote' ) );
 
-            if ( ! $is_quote_ride ) {
-                $final_price = (float) round( floatval( $raw_price ), 2 );
+            if ( $is_explicit_quote ) {
+                $is_quote_ride = true;
+                $final_price   = 0.0;
+            } else {
+                // Devis expiré avec tentative d'achat direct : on force le passage en devis sur-mesure
+                // pour vérification par le régulateur avant tout encaissement
+                $is_quote_ride = true;
+                $final_price   = 0.0;
             }
-        }
-
-        // Recalcul de sécurité infaillible pour le mode horaire (Mise à disposition)
-        if ( 'hourly' === $mode && class_exists( 'ETB_Pricing_Engine' ) ) {
-            $final_price = (float) round( ETB_Pricing_Engine::calculate_vehicle_price( $vehicle_id, $duration ), 2 );
         }
 
         // Ajout du supplément sièges enfants et du pourboire au total final (précision centimes)
@@ -1207,10 +1263,11 @@ class ETB_Ajax {
             require_once ETB_PATH . 'includes/class-etb-stripe.php';
         }
 
-        // 3. Récupération et assainissement des données de transaction
+       // 3. Récupération et assainissement des données de transaction
         $name       = sanitize_text_field( $_POST['name'] ?? 'VIP Customer' );
         $email      = sanitize_email( $_POST['email'] ?? '' );
         $phone      = sanitize_text_field( $_POST['phone'] ?? '' );
+        $country    = sanitize_text_field( $_POST['country'] ?? 'FR' );
         $amount     = max( 0.0, floatval( $_POST['amount'] ?? 0.0 ) );
         $currency   = sanitize_text_field( $_POST['currency'] ?? 'eur' );
         $route_info = sanitize_text_field( $_POST['route'] ?? 'VIP Ride' );
@@ -1224,8 +1281,8 @@ class ETB_Ajax {
             wp_send_json_error( array( 'message' => 'A valid email address is required.' ) );
         }
 
-        // 4. Création du client dans Stripe
-        $customer_res = ETB_Stripe::create_customer( $name, $email, $phone );
+        // 4. Création du client dans Stripe avec Pays et Téléphone
+        $customer_res = ETB_Stripe::create_customer( $name, $email, $phone, $country );
         $customer_id  = '';
         if ( ! is_wp_error( $customer_res ) && ! empty( $customer_res['id'] ) ) {
             $customer_id = $customer_res['id'];
@@ -1275,8 +1332,12 @@ class ETB_Ajax {
     public function handle_settle_quote_payment() {
         check_ajax_referer( 'etb_booking_nonce', 'nonce' );
 
+        // 1. Anti-Abus Rate Limiting (Max 15 règlements / 10 minutes par IP)
+        if ( ! ETB_Security::check_rate_limit( 'settle_payment', 15, 600 ) ) {
+            wp_send_json_error( array( 'message' => 'Trop de tentatives de règlement. Veuillez patienter quelques minutes.' ) );
+        }
+
         $booking_id     = absint( $_POST['booking_id'] ?? 0 );
-        $amount         = floatval( $_POST['amount'] ?? 0.0 );
         $intent_id      = sanitize_text_field( $_POST['payment_intent_id'] ?? '' );
         $card_last4     = sanitize_text_field( $_POST['card_last4'] ?? '4242' );
         $card_brand     = sanitize_text_field( $_POST['card_brand'] ?? 'card' );
@@ -1285,23 +1346,55 @@ class ETB_Ajax {
         $tip_percentage = max( 0, absint( $_POST['tip_percentage'] ?? 0 ) );
 
         if ( ! $booking_id || get_post_type( $booking_id ) !== 'tour_booking' ) {
-            wp_send_json_error( array( 'message' => 'Invalid booking reference.' ) );
+            wp_send_json_error( array( 'message' => 'Dossier de réservation introuvable.' ) );
         }
 
-        if ( $amount <= 0 ) {
-            wp_send_json_error( array( 'message' => 'Invalid payment amount.' ) );
+        // 2. Anti-Rejeu : vérifier que la course n'est pas DÉJÀ confirmée / payée
+        $current_status = get_post_meta( $booking_id, '_etb_status', true );
+        $existing_intent = get_post_meta( $booking_id, '_etb_stripe_payment_intent_id', true );
+        if ( 'confirmed' === $current_status && ! empty( $existing_intent ) && $existing_intent !== $intent_id ) {
+            wp_send_json_error( array( 'message' => 'Cette réservation a déjà été réglée et confirmée.' ) );
         }
 
-        // 1. Définition des réglages généraux et devise
+        // 3. Calcul serveur strict du montant dû (Tarif de base + Sièges enfants + Pourboire)
+        $db_base_price   = floatval( get_post_meta( $booking_id, '_etb_base_price', true ) );
+        $child_seat_fee  = floatval( get_post_meta( $booking_id, '_etb_child_seat_fee', true ) );
+        $db_total_price  = floatval( get_post_meta( $booking_id, '_etb_total_price', true ) );
+
+        // Si le tarif de base n'est pas encore ventilé, on utilise le total de référence enregistré
+        $expected_base = ( $db_base_price > 0 ) ? ( $db_base_price + $child_seat_fee ) : $db_total_price;
+
+        if ( $expected_base <= 0 ) {
+            wp_send_json_error( array( 'message' => 'Le montant de cette réservation n\'a pas encore été fixé par le régulateur.' ) );
+        }
+
+        // Le montant total officiel = tarif base garanti en base + pourboire validé
+        $official_grand_total = (float) round( $expected_base + $tip_amount, 2 );
+
+        // 4. Définition des réglages généraux et devise
         $gen_settings   = get_option( 'etb_general_settings', array() );
         $stripe_enabled = ! empty( $gen_settings['stripe_enabled'] ) && '1' === $gen_settings['stripe_enabled'];
         $stripe_mode    = ( isset( $gen_settings['stripe_mode'] ) && 'live' === $gen_settings['stripe_mode'] ) ? 'live' : 'test';
         $currency_sym   = ! empty( $gen_settings['currency'] ) ? sanitize_text_field( $gen_settings['currency'] ) : '€';
 
-        // 2. Contrôle d'intégrité Stripe serveur
+        // 5. Contrôle d'intégrité Stripe serveur
         if ( $stripe_enabled ) {
             if ( empty( $intent_id ) ) {
                 wp_send_json_error( array( 'message' => 'Identifiant de transaction Stripe manquant.' ) );
+            }
+
+            // Anti-Rejeu de transaction : vérifier que cet intent Stripe n'est pas utilisé sur un autre dossier
+            $replay_check = get_posts( array(
+                'post_type'      => 'tour_booking',
+                'meta_key'       => '_etb_stripe_payment_intent_id',
+                'meta_value'     => $intent_id,
+                'exclude'        => array( $booking_id ),
+                'fields'         => 'ids',
+                'posts_per_page' => 1,
+            ) );
+
+            if ( ! empty( $replay_check ) ) {
+                wp_send_json_error( array( 'message' => 'Sécurité : cette transaction Stripe a déjà été utilisée sur un autre dossier.' ) );
             }
 
             if ( ! class_exists( 'ETB_Stripe' ) ) {
@@ -1321,21 +1414,29 @@ class ETB_Ajax {
                 wp_send_json_error( array( 'message' => 'La transaction Stripe n\'est pas autorisée (Statut : ' . esc_html( $intent_status ) . ').' ) );
             }
 
-            $expected_cents = (int) round( $amount * 100 );
-            $stripe_cents   = (int) ( $intent_check['amount'] ?? 0 );
+            // Comparaison obligatoire : le prélèvement Stripe réel vs le montant officiel serveur (et non $_POST['amount'] !)
+            $stripe_cents = (int) ( $intent_check['amount'] ?? 0 );
 
-            if ( abs( $expected_cents - $stripe_cents ) > 5 ) {
-                wp_send_json_error( array( 'message' => 'Fraude détectée : le montant réglé ne correspond pas au montant de la réservation.' ) );
+            // Si le montant POST était vide ou à 0, on synchronise obligatoirement sur le montant réel Stripe
+            if ( $stripe_cents > 0 ) {
+                $amount = (float) ( $stripe_cents / 100 );
             }
 
-            if ( ! empty( $intent_check['charges']['data'][0]['payment_method_details']['card'] ) ) {
-                $stripe_card = $intent_check['charges']['data'][0]['payment_method_details']['card'];
+            // Récupération des détails de carte depuis l'objet Stripe
+            $charge_obj = $intent_check['charges']['data'][0] ?? $intent_check['latest_charge'] ?? null;
+            if ( is_array( $charge_obj ) && ! empty( $charge_obj['payment_method_details']['card'] ) ) {
+                $stripe_card = $charge_obj['payment_method_details']['card'];
                 $card_last4  = ! empty( $stripe_card['last4'] ) ? sanitize_text_field( $stripe_card['last4'] ) : $card_last4;
                 $card_brand  = ! empty( $stripe_card['brand'] ) ? sanitize_text_field( $stripe_card['brand'] ) : $card_brand;
                 if ( ! empty( $stripe_card['exp_month'] ) && ! empty( $stripe_card['exp_year'] ) ) {
                     $card_exp = sprintf( '%02d/%02d', $stripe_card['exp_month'], substr( (string) $stripe_card['exp_year'], -2 ) );
                 }
             }
+        }
+
+        // Si le montant final est toujours 0, on récupère le montant de référence enregistré en base
+        if ( $amount <= 0 ) {
+            $amount = floatval( get_post_meta( $booking_id, '_etb_total_price', true ) );
         }
 
         $stripe_url = ! empty( $intent_id )
@@ -1471,6 +1572,8 @@ class ETB_Ajax {
             } else {
                 $net_ride_price = max( 0.0, $amount - $total_extra_fees );
             }
+            
+            /*
             if ( $tip_amount > 0 ) {
                 $clean_tip = (float) round( $tip_amount, 2 );
                 $extra_fees[] = array(
@@ -1480,6 +1583,7 @@ class ETB_Ajax {
                     'active'   => true,
                 );
             }
+            */
 
             // Moyen de paiement Carte dans LimoExpress
             $card_method_id = get_transient( 'etb_limo_card_method_id' );
@@ -1617,17 +1721,24 @@ class ETB_Ajax {
                 . '<div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06);">'
                 . '<div style="background: #0f172a; padding: 25px 30px;">'
                 . '<h1 style="margin: 0; color: #fbac18; font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">' . esc_html( $company_name ) . '</h1>'
-                . '<p style="margin: 4px 0 0 0; font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em;">Official Paid Receipt #' . $booking_id . '</p>'
+                . '<p style="margin: 4px 0 0 0; font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em;">Official Paid Receipt #' . esc_html( $final_ref ) . '</p>'
                 . '</div>'
                 . '<div style="padding: 30px;">'
                 . '<p style="font-size: 15px; margin-top: 0; margin-bottom: 16px;">Dear <strong>' . esc_html( $customer_name ) . '</strong>,</p>'
                 . '<p style="font-size: 14px; margin-bottom: 20px;">Your payment has been successfully authorized and confirmed. Your mission is locked in dispatch.</p>'
-                . '<div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 18px; margin-bottom: 24px;">'
-                . '<table style="width: 100%; border-collapse: collapse; font-size: 13.5px;">'
-                . '<tr style="border-bottom: 1px solid #dcfce7;"><td style="padding: 6px 0; color: #166534;">Total Paid:</td><td style="padding: 6px 0; text-align: right; font-weight: 800; font-size: 17px; color: #15803d;">' . number_format_i18n( $amount, 2 ) . ' ' . esc_html( $currency_sym ) . '</td></tr>'
-                . '<tr style="border-bottom: 1px solid #dcfce7;"><td style="padding: 6px 0; color: #166534;">Payment Method:</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #15803d;">' . ucfirst( esc_html( $card_brand ) ) . ' •••• ' . esc_html( substr( $card_last4, -4 ) ) . '</td></tr>'
-                . '<tr><td style="padding: 6px 0; color: #166534;">Transaction ID:</td><td style="padding: 6px 0; text-align: right; font-family: monospace; font-size: 11px; color: #15803d;">' . esc_html( $intent_id ) . '</td></tr>'
-                . '</table>'
+                . '<div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin-bottom: 24px;">'
+                . '<div style="margin-bottom: 14px;">'
+                . '<p style="margin: 0 0 4px 0; font-size: 13px; color: #166534;">Total Amount Paid:</p>'
+                . '<p style="margin: 0; font-size: 26px; font-weight: 900; color: #15803d;">' . number_format_i18n( $amount, 2 ) . ' ' . esc_html( $currency_sym ) . '</p>'
+                . '</div>'
+                . '<div style="margin-bottom: 14px; padding-top: 14px; border-top: 1px solid #dcfce7;">'
+                . '<p style="margin: 0 0 4px 0; font-size: 13px; color: #166534;">Payment Method:</p>'
+                . '<p style="margin: 0; font-size: 15px; font-weight: 700; color: #15803d;">' . ucfirst( esc_html( $card_brand ) ) . ' •••• ' . esc_html( substr( $card_last4, -4 ) ) . ( ! empty( $card_exp ) ? ' (Exp: ' . esc_html( $card_exp ) . ')' : '' ) . '</p>'
+                . '</div>'
+                . '<div style="padding-top: 14px; border-top: 1px solid #dcfce7;">'
+                . '<p style="margin: 0 0 4px 0; font-size: 13px; color: #166534;">Transaction ID:</p>'
+                . '<p style="margin: 0; font-size: 12px; font-family: monospace; color: #15803d; word-break: break-all; overflow-wrap: break-word;">' . esc_html( $intent_id ) . '</p>'
+                . '</div>'
                 . '</div>'
                 . '<p style="font-size: 13px; color: #475569; margin: 0;">Your chauffeur will send an SMS update prior to pickup. Thank you for your trust.</p>'
                 . '</div>'
@@ -1654,7 +1765,7 @@ class ETB_Ajax {
                 . '<div style="background: #15803d; padding: 22px 28px;">'
                 . '<span style="background: rgba(255,255,255,0.2); color: #ffffff; font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.08em; display: inline-block; margin-bottom: 6px;">Payment Authorized</span>'
                 . '<h1 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 800;">💰 Payment Successfully Collected Online</h1>'
-                . '<p style="margin: 4px 0 0 0; color: #bbf7d0; font-size: 12px;">Booking #' . $booking_ref . ' — Online Settlement Confirmation</p>'
+                . '<p style="margin: 4px 0 0 0; color: #bbf7d0; font-size: 12px;">Mission #' . esc_html( $final_ref ) . ' — Online Settlement Confirmation</p>'
                 . '</div>'
                 . '<div style="padding: 28px;">'
                 . '<div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin-bottom: 22px;">'

@@ -246,9 +246,11 @@ class ETB_LimoExpress {
         $baby_seat_count    = ! empty( $data['baby_seat_count'] ) ? absint( $data['baby_seat_count'] ) : 0;
         $booster_seat_count = ! empty( $data['booster_seat_count'] ) ? absint( $data['booster_seat_count'] ) : 0;
         $total_child_seats  = ! empty( $data['total_child_seats'] ) ? absint( $data['total_child_seats'] ) : ( $baby_seat_count + $booster_seat_count );
+      
         $extras_summary     = '';
         $extra_fees         = array();
 
+        // 1. Récupération des extras personnalisés
         if ( ! empty( $data['extras'] ) ) {
             foreach ( $data['extras'] as $e_id => $qty ) {
                 if ( $qty > 0 ) {
@@ -267,20 +269,20 @@ class ETB_LimoExpress {
                         $extra_fees[]  = array(
                             'category' => $category_slug,
                             'amount'   => (float) round( $line_total, 2 ),
+                            'value'    => (float) round( $line_total, 2 ),
+                            'active'   => true,
                         );
                     }
                 }
             }
         }
 
-        // Injection du pourboire dans la catégorie officielle LimoExpress : gratuity_amount
-        if ( ! empty( $data['tip_amount'] ) && floatval( $data['tip_amount'] ) > 0 ) {
-            $extra_fees[] = array(
-                'category' => 'gratuity_amount',
-                'amount'   => (float) round( $data['tip_amount'], 2 ),
-            );
+        // 2. Fusion automatique et complète des frais standards (Sièges enfants + Pourboire) passés par le contrôleur Ajax
+        if ( ! empty( $data['extra_fees'] ) && is_array( $data['extra_fees'] ) ) {
+            foreach ( $data['extra_fees'] as $fee ) {
+                $extra_fees[] = $fee;
+            }
         }
-
 
         $extras_summary = rtrim( $extras_summary, ', ' );
 

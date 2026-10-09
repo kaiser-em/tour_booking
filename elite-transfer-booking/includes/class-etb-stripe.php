@@ -54,16 +54,20 @@ class ETB_Stripe {
         return new WP_Error( 'stripe_error', $error_msg, array( 'status' => $code ) );
     }
 
+
     /**
-     * Crée un profil client dans Stripe
+     * Crée un profil client dans Stripe avec Pays et Téléphone officiels
      */
-    public static function create_customer( $name, $email, $phone = '' ) {
+    public static function create_customer( $name, $email, $phone = '', $country = '' ) {
         $data = array(
             'name'  => $name,
             'email' => $email,
         );
         if ( ! empty( $phone ) ) {
             $data['phone'] = $phone;
+        }
+        if ( ! empty( $country ) ) {
+            $data['address[country]'] = strtoupper( trim( $country ) );
         }
 
         return self::request( 'customers', 'POST', $data );
