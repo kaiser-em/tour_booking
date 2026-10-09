@@ -42,7 +42,13 @@ class ETB_Shortcode {
     /**
      * Shortcode [circuit_view id="..."]
      */
+  
     public function render_circuit_view( $atts ) {
+        // Filet de sécurité : forcer la mise en file des styles du circuit
+        if ( class_exists( 'Elite_Transfer_Booking' ) ) {
+            Elite_Transfer_Booking::get_instance()->enqueue_public_assets();
+        }
+
         $atts = shortcode_atts( array( 'id' => 0 ), $atts, 'circuit_view' );
         $circuit_id = absint( $atts['id'] );
 

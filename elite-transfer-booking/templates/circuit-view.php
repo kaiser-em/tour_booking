@@ -28,16 +28,26 @@ $currency     = ! empty( $gen_settings['currency'] ) ? sanitize_text_field( $gen
         <h2 class="co-section-title"><span class="dashicons dashicons-car"></span> Choisissez votre véhicule</h2>
         
         <div class="co-vehicles-grid" id="co-vehicles-grid">
+            
             <?php foreach ( $vehicles as $vehicle ) : 
                 $base_price    = get_post_meta( $vehicle->ID, '_etb_base_price', true );
                 $hourly_rate   = get_post_meta( $vehicle->ID, '_etb_hourly_rate', true );
+                $pack_10h      = get_post_meta( $vehicle->ID, '_etb_pack_10h', true );
+                $sup_hour_rate = get_post_meta( $vehicle->ID, '_etb_sup_hour_rate', true );
                 $display_price = ( $hourly_rate > 0 ) ? $hourly_rate : $base_price;
                 $max_pax       = get_post_meta( $vehicle->ID, '_etb_max_pax', true ) ?: 1;
                 $max_bag       = get_post_meta( $vehicle->ID, '_etb_max_baggage', true ) ?: 0;
                 $img_url       = get_the_post_thumbnail_url( $vehicle->ID, 'full' ) ?: ( defined('ETB_URL') ? ETB_URL . 'public/images/default-car.png' : '' );
                 $hover_img     = get_post_meta( $vehicle->ID, '_etb_hover_image', true );
             ?>
-                <div class="etb-vehicle-card" data-id="<?php echo $vehicle->ID; ?>" data-max-pax="<?php echo esc_attr( $max_pax ); ?>" data-max-baggage="<?php echo esc_attr( $max_bag ); ?>">
+                <div class="etb-vehicle-card" 
+                     data-id="<?php echo $vehicle->ID; ?>" 
+                     data-hourly-rate="<?php echo esc_attr( $hourly_rate ); ?>"
+                     data-pack-10h="<?php echo esc_attr( $pack_10h ); ?>"
+                     data-sup-hour-rate="<?php echo esc_attr( $sup_hour_rate ); ?>"
+                     data-base-price="<?php echo esc_attr( $base_price ); ?>"
+                     data-max-pax="<?php echo esc_attr( $max_pax ); ?>" 
+                     data-max-baggage="<?php echo esc_attr( $max_bag ); ?>">
                     <span class="etb-selection-check"><i class="dashicons dashicons-yes"></i></span>
                     <?php if ( $img_url ) : ?>
                         <div class="etb-vehicle-image-wrapper">

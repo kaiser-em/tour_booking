@@ -92,21 +92,43 @@
             const duration = state.circuit.duration || 1;
             const allCards = Array.from(document.querySelectorAll('.etb-vehicle-card'));
 
-            // 1. Calcul des véhicules (Taux horaire × Durée × Quantité)
+          
+            // 1. Calcul des véhicules avec algorithme intelligent des paliers horaires (Pack 10h, Heures Sup)
             allCards.forEach(card => {
                 const qtyInput = card.querySelector('input[name^="etb_car_qty"]');
                 const qty = parseInt(qtyInput ? qtyInput.value : 0);
-                const price = parsePrice(card.querySelector('.etb-vehicle-price')?.textContent || '0');
                 const name = card.querySelector('h3')?.textContent.trim() || 'Véhicule';
                 const maxPax = parseInt(card.dataset.maxPax) || 0;
                 const maxBaggage = parseInt(card.dataset.maxBaggage) || 0;
 
-                // Met à jour la classe .etb-selected sur le DOM
                 card.classList.toggle('etb-selected', qty > 0);
 
                 if (qty > 0) {
                     hasSelectedVehicle = true;
-                    const subtotal = (price * duration) * qty;
+                    
+                    // Extraction stricte des tarifs depuis les attributs de la carte
+                    const hRate   = parseFloat(card.dataset.hourlyRate) || 0;
+                    const bPrice  = parseFloat(card.dataset.basePrice) || 0;
+                    const pack10h = parseFloat(card.dataset.pack10h) || 0;
+                    const supRate = parseFloat(card.dataset.supHourRate) || 0;
+                    
+                    const standardHourly = hRate > 0 ? hRate : bPrice;
+                    let vehicleUnitPrice = 0;
+
+                    // Application exacte du moteur de calcul PHP
+                    if (pack10h > 0 && duration >= 10.0) {
+                        if (duration === 10.0) {
+                            vehicleUnitPrice = pack10h;
+                        } else {
+                            const extraHours = duration - 10.0;
+                            const extraRate  = supRate > 0 ? supRate : standardHourly;
+                            vehicleUnitPrice = pack10h + (extraHours * extraRate);
+                        }
+                    } else {
+                        vehicleUnitPrice = standardHourly * duration;
+                    }
+
+                    const subtotal = vehicleUnitPrice * qty;
                     total += subtotal;
                     totalCapacityPax += maxPax * qty;
                     totalCapacityBaggage += maxBaggage * qty;

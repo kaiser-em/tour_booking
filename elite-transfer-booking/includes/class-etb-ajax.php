@@ -1674,11 +1674,11 @@ class ETB_Ajax {
                 'timeout' => 15,
             ) );
 
+           
             $up_code = ! is_wp_error( $update_res ) ? wp_remote_retrieve_response_code( $update_res ) : 500;
             $up_body = ! is_wp_error( $update_res ) ? wp_remote_retrieve_body( $update_res ) : $update_res->get_error_message();
             
-            // Log diagnostic précis dans debug.log et post_meta
-            error_log( "[ETB LIMO UPDATE] HTTP: " . $up_code . " | Réponse: " . $up_body );
+            // Enregistrement du diagnostic uniquement dans les métadonnées WP (sans polluer debug.log)
             update_post_meta( $booking_id, '_etb_limo_debug_response', 'HTTP ' . $up_code . ' : ' . $up_body );
 
             // ÉTAPE 2 : Déclenchement formel des statuts Payé et Confirmé
