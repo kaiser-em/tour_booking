@@ -911,7 +911,7 @@
     box-shadow: var(--etb-shadow-base, 0 10px 30px rgba(0, 0, 0, 0.1)) !important;
     border-radius: 16px !important;
     padding: 18px 26px !important;
-    margin-top: 40px !important; 
+    margin-top: 10px !important; 
     margin-bottom: 20px !important;
     opacity: 1 !important;
     border-color: var(--etb-border-main, #232a3b) !important;
@@ -1031,79 +1031,91 @@
 }
 
 
-/* Bouton Email Inquiry (Dark Mode VIP) */
-.etb-quick-email-btn {
+/* ── DUO CONTACT VIP (EMAIL & WHATSAPP) ── */
+.etb-quick-contact-duo {
     display: inline-flex !important;
     align-items: center !important;
     gap: 8px !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
+}
+
+/* Bouton Email VIP (Compact & Raffiné) */
+.etb-quick-email-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 7px !important;
     background: transparent !important;
     border: 1px solid #333f57 !important;
     color: var(--etb-text-primary, #ffffff) !important;
-    padding: 13px 22px !important;
+    padding: 10px 16px !important;
     border-radius: 50px !important;
-    font-size: 14px !important;
-    font-weight: 700 !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
     cursor: pointer !important;
     transition: all 0.25s ease !important;
     white-space: nowrap !important;
+    text-decoration: none !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
 }
 
 .etb-quick-email-btn:hover {
     background: #28334b !important;
     border-color: #475569 !important;
     color: #ffffff !important;
-    /*transform: translateY(-2px) !important;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35) !important;*/
-}
-.eb-qtuick-email-btn:hover .dashicons{
-    color: var(--etb-text-primary, #cbd5e1) !important;
 }
 
-.eb-qtuick-email-btn .dashicons {
-    font-size: 17px !important;
-    width: 17px !important;
-    height: 17px !important;
-   color: #ffffff !important;
+.etb-quick-email-btn .dashicons {
+    font-size: 15px !important;
+    width: 15px !important;
+    height: 15px !important;
+    color: #ffffff !important;
 }
 
-
-/* 3. Bouton WhatsApp Option C (affiché dans la barre de confirmation) */
+/* Bouton WhatsApp VIP (Compact & Raffiné) */
 .etb-quick-whatsapp-btn {
     display: inline-flex !important;
     align-items: center !important;
-    gap: 8px !important;
+    justify-content: center !important;
+    gap: 7px !important;
     background: transparent !important;
     border: 1px solid #333f57 !important;
     color: var(--etb-text-primary, #ffffff) !important;
     text-decoration: none !important;
-    padding: 13px 22px !important;
+    padding: 10px 16px !important;
     border-radius: 50px !important;
-    font-size: 14px !important;
-    font-weight: 700 !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
     transition: all 0.25s ease !important;
     white-space: nowrap !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
 }
 
 .etb-quick-whatsapp-btn:hover {
     background: #27D366 !important;
-    /*transform: translateY(-2px) !important;*/
-    /*box-shadow: 0 6px 18px rgba(37, 211, 102, 0.35) !important;*/
+    border-color: #27D366 !important;
     color: #ffffff !important;
 }
 
 .etb-quick-whatsapp-btn .dashicons {
-    font-size: 18px !important;
-    width: 18px !important;
-    height: 18px !important;
+    font-size: 16px !important;
+    width: 16px !important;
+    height: 16px !important;
+    color: #ffffff !important;
 }
 
+/* Rangée d'actions sur Desktop : alignement strict sur une seule ligne */
 .etb-quick-actions-row {
     display: flex !important;
     align-items: center !important;
-    gap: 12px !important;
-    flex-wrap: wrap !important;
+    justify-content: flex-end !important;
+    gap: 10px !important;
+    flex-wrap: nowrap !important;
+    flex-shrink: 0 !important;
 }
-
 
 /* Boîte de suggestions (Priorité absolue et capture totale des événements souris) */
 .etb-quick-suggestions-box {
@@ -1603,28 +1615,38 @@
         white-space: normal !important;
     }
 
-    /* Actions : rangée fluide et équilibrée */
+    /* Actions sur Mobile : hiérarchie et respirations parfaites */
     .etb-quick-actions-row {
         display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: wrap !important;
-        align-items: center !important;
-        justify-content: stretch !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
         width: 100% !important;
-        gap: 10px !important;
+        gap: 8px !important;
     }
 
-    .etb-quick-actions-row a,
-    .etb-quick-actions-row button {
-        flex: 1 1 auto !important;
-        min-width: 160px !important;
+    /* Le duo Email & WhatsApp : 50% / 50% sur la 1ère rangée */
+    .etb-quick-actions-row .etb-quick-contact-duo {
+        display: flex !important;
+        width: 100% !important;
+        gap: 8px !important;
+    }
+
+    .etb-quick-actions-row .etb-quick-contact-duo a {
+        flex: 1 1 50% !important;
+        min-width: 0 !important;
         justify-content: center !important;
         box-sizing: border-box !important;
+        padding: 10px 12px !important;
     }
 
-    /* Le bouton principal Book this Trip prend toute la largeur pour convertir au maximum */
+    /* Boutons de réservation en pleine largeur */
+    .etb-quick-actions-row .etb-quick-add-trip-btn,
+    .etb-quick-actions-row .etb-quick-book-trip-btn,
     .etb-quick-actions-row #etb-quick-book-now-btn {
+        width: 100% !important;
         flex: 1 1 100% !important;
+        justify-content: center !important;
+        box-sizing: border-box !important;
     }
 }
 
@@ -1681,7 +1703,47 @@
 
 }
 
+/* ── BOUTON DORÉ FLOTTANT AU-DESSUS DE LA BARRE (VIP DARK & LIGHT) ── */
+#etb-bridge-trip-wrap {
+    display: none;
+    justify-content: center;
+    margin: 16px 0 12px 0;
+    width: 100%;
+}
 
+#etb-bridge-trip-btn {
+    background: #000000 !important;
+    border: 1.5px solid var(--etb-accent-gold, #fbac18) !important;
+    color: var(--etb-accent-gold, #fbac18) !important;
+    padding: 10px 26px !important;
+    border-radius: 50px !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 7px !important;
+    transition: all 0.25s ease !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+}
+
+#etb-bridge-trip-btn:hover {
+    background:var(--etb-accent-gold, #fbac18) !important;
+    color: #000000 !important;
+    transform: translateY(-1px) !important;
+}
+
+/* Adaptation en Light Mode */
+[data-etb-theme="light"] #etb-bridge-trip-btn {
+    background: #ffffff !important;
+    border: 1.5px solid #d97706 !important;
+    color: #b45309 !important;
+    box-shadow: 0 4px 14px rgba(217, 119, 6, 0.15) !important;
+}
+
+[data-etb-theme="light"] #etb-bridge-trip-btn:hover {
+    background: #fffbeb !important;
+}
 
 /* ==========================================================================
    BARRE DE CONFIRMATION EN 3 COLONNES (STYLE HAUTE COUTURE)

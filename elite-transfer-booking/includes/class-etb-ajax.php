@@ -643,8 +643,15 @@ class ETB_Ajax {
         $max_pax       = absint( get_post_meta( $vehicle_id, '_etb_max_pax', true ) ?: 1 );
         $max_bag       = absint( get_post_meta( $vehicle_id, '_etb_max_baggage', true ) ?: 0 );
 
-        // 5. Création du dossier de réservation dans WordPress (tour_booking)
-        $post_title = sprintf( 'Réservation #%s - %s', $full_name, $date );
+        // 5. Détection du mode multi-trajets
+        $is_multi_trip_order = ( is_array( $quote_data ) && ! empty( $quote_data['is_multi_trip'] ) && ! empty( $quote_data['trips'] ) );
+        $order_trips         = $is_multi_trip_order ? $quote_data['trips'] : array();
+
+        // Création du dossier principal de commande dans WordPress (tour_booking)
+        $post_title = $is_multi_trip_order 
+            ? sprintf( 'Commande Multi-Trajets (%d) #%s - %s', count( $order_trips ), $full_name, $date )
+            : sprintf( 'Réservation #%s - %s', $full_name, $date );
+
         $booking_id = wp_insert_post( array(
             'post_title'  => $post_title,
             'post_type'   => 'tour_booking',
@@ -653,6 +660,11 @@ class ETB_Ajax {
 
         if ( is_wp_error( $booking_id ) || ! $booking_id ) {
             wp_send_json_error( array( 'message' => 'Could not save reservation in database.' ) );
+        }
+
+        update_post_meta( $booking_id, '_etb_is_multi_trip', $is_multi_trip_order ? '1' : '0' );
+        if ( $is_multi_trip_order ) {
+            update_post_meta( $booking_id, '_etb_order_trips', $order_trips );
         }
 
         // Enregistrement des métadonnées
@@ -870,18 +882,92 @@ class ETB_Ajax {
             require_once ETB_PATH . 'includes/class-etb-dispatcher-manager.php';
         }
 
-        $dispatch_result = ETB_Dispatcher_Manager::dispatch_booking( $booking_id, $dispatch_data );
+        $child_booking_ids = array();
+        $limo_ids_list     = array();
+        $limo_uuids_list   = array();
 
-        if ( $dispatch_result['success'] ) {
-            update_post_meta( $booking_id, '_etb_limo_status', 'synced' );
+        if ( $is_multi_trip_order && count( $order_trips ) > 1 ) {
+            // ── MULTI-TRAJETS : ENVOI D'UNE RÉSERVATION PAR TRAJET DANS LIMOEXPRESS ──
+            $total_legs = count( $order_trips );
+
+            foreach ( $order_trips as $leg_idx => $leg ) {
+                $leg_num = $leg_idx + 1;
+
+                // Création d'un sous-dossier enfant dans WordPress
+                $child_title = sprintf( 'Trajet %d/%d #%s (%s)', $leg_num, $total_legs, $full_name, $leg['date'] );
+                $child_id    = wp_insert_post( array(
+                    'post_title'  => $child_title,
+                    'post_type'   => 'tour_booking',
+                    'post_status' => 'pending',
+                ) );
+
+                if ( ! is_wp_error( $child_id ) && $child_id ) {
+                    update_post_meta( $child_id, '_etb_parent_booking_id', $booking_id );
+                    update_post_meta( $child_id, '_etb_leg_number', $leg_num );
+                    update_post_meta( $child_id, '_etb_customer_name', $full_name );
+                    update_post_meta( $child_id, '_etb_customer_email', $email );
+                    update_post_meta( $child_id, '_etb_customer_phone', $phone );
+                    update_post_meta( $child_id, '_etb_booking_date', $leg['date'] );
+                    update_post_meta( $child_id, '_etb_booking_time', $leg['time'] );
+                    update_post_meta( $child_id, '_etb_pickup_address', $leg['pickup'] );
+                    update_post_meta( $child_id, '_etb_dropoff_info', $leg['dropoff'] );
+                    update_post_meta( $child_id, '_etb_vehicles', array( $leg['vehicle_id'] => 1 ) );
+                    update_post_meta( $child_id, '_etb_total_price', floatval( $leg['price'] ) );
+
+                    // Données de dispatch propres à ce trajet précis
+                    $leg_dispatch_data = $dispatch_data;
+                    $leg_dispatch_data['date']           = $leg['date'];
+                    $leg_dispatch_data['time']           = $leg['time'];
+                    $leg_dispatch_data['pickup_address'] = $leg['pickup'];
+                    $leg_dispatch_data['dropoff_info']   = $leg['dropoff'];
+                    $leg_dispatch_data['trip_mode']      = $leg['mode'];
+                    $leg_dispatch_data['vehicles']       = array( $leg['vehicle_id'] => 1 );
+                    $leg_dispatch_data['pricing']        = array(
+                        'grand_total'    => floatval( $leg['price'] ),
+                        'base_fare'      => floatval( $leg['price'] ),
+                        'duration_hours' => floatval( $leg['duration'] ?? 1.0 ),
+                    );
+                    $leg_dispatch_data['dispatcher_alert'] = sprintf( "═ TRAJET %d/%d (COMMANDE GROUPÉE #%d) ═\n", $leg_num, $total_legs, $booking_id ) . $dispatcher_alert;
+                    $leg_dispatch_data['note']             = $leg_dispatch_data['dispatcher_alert'] . "\n" . $clean_driver_note;
+
+                    // Envoi individuel à LimoExpress
+                    $leg_result = ETB_Dispatcher_Manager::dispatch_booking( $child_id, $leg_dispatch_data );
+
+                    if ( $leg_result['success'] ) {
+                        $leg_limo_id   = get_post_meta( $child_id, '_etb_limo_booking_id', true );
+                        $leg_limo_uuid = get_post_meta( $child_id, '_etb_limo_uuid', true );
+                        if ( ! empty( $leg_limo_id ) )   $limo_ids_list[]   = $leg_limo_id;
+                        if ( ! empty( $leg_limo_uuid ) ) $limo_uuids_list[] = $leg_limo_uuid;
+                    }
+
+                    $child_booking_ids[] = $child_id;
+                }
+            }
+
+            // Mémorisation des liaisons sur le dossier maître
+            $combined_limo_ref = ! empty( $limo_ids_list ) ? implode( ' & ', $limo_ids_list ) : '';
+
+            update_post_meta( $booking_id, '_etb_child_booking_ids', $child_booking_ids );
+            update_post_meta( $booking_id, '_etb_limo_booking_ids', $limo_ids_list );
+            update_post_meta( $booking_id, '_etb_limo_booking_id', $combined_limo_ref );
+            update_post_meta( $booking_id, '_etb_limo_uuids', $limo_uuids_list );
+            update_post_meta( $booking_id, '_etb_limo_status', ! empty( $limo_ids_list ) ? 'synced' : 'failed' );
+
+            $booking_ref = ! empty( $combined_limo_ref ) ? $combined_limo_ref : (string) $booking_id;
         } else {
-            update_post_meta( $booking_id, '_etb_limo_status', 'failed' );
-            update_post_meta( $booking_id, '_etb_limo_error', $dispatch_result['message'] );
-        }
+            // ── MONO-TRAJET : DISPATCH CLASSIQUE INTACT (ZÉRO RÉGRESSION) ──
+            $dispatch_result = ETB_Dispatcher_Manager::dispatch_booking( $booking_id, $dispatch_data );
 
-        // Uniformisation : Récupération de la référence officielle LimoExpress (ex: 205/2026)
-        $limo_official_id = get_post_meta( $booking_id, '_etb_limo_booking_id', true );
-        $booking_ref      = ( ! empty( $limo_official_id ) && 'OK' !== $limo_official_id ) ? $limo_official_id : ( '#' . $booking_id );
+            if ( $dispatch_result['success'] ) {
+                update_post_meta( $booking_id, '_etb_limo_status', 'synced' );
+            } else {
+                update_post_meta( $booking_id, '_etb_limo_status', 'failed' );
+                update_post_meta( $booking_id, '_etb_limo_error', $dispatch_result['message'] );
+            }
+
+            $limo_official_id = get_post_meta( $booking_id, '_etb_limo_booking_id', true );
+            $booking_ref      = ( ! empty( $limo_official_id ) && 'OK' !== $limo_official_id ) ? $limo_official_id : ( '#' . $booking_id );
+        }
 
         // Mise à jour du titre du dossier WordPress avec la référence officielle LimoExpress
         if ( ! empty( $limo_official_id ) && 'OK' !== $limo_official_id ) {
@@ -1140,11 +1226,10 @@ class ETB_Ajax {
         }
 
         // 8. Réponse JSON de succès avec URL de paiement pour redirection
-        $limo_id = get_post_meta( $booking_id, '_etb_limo_booking_id', true );
         wp_send_json_success( array(
             'booking_id'   => $booking_id,
-            'booking_ref'  => ( ! empty( $limo_id ) && 'OK' !== $limo_id ) ? $limo_id : ( '#' . $booking_id ),
-            'limo_id'      => $limo_id ?: 'SYNCED',
+            'booking_ref'  => ! empty( $booking_ref ) ? ltrim( $booking_ref, '#' ) : (string) $booking_id,
+            'limo_id'      => ! empty( $limo_ids_list ) ? implode( ' & ', $limo_ids_list ) : ( $limo_official_id ?: 'SYNCED' ),
             'is_quote'     => $is_quote_ride,
             'payment_url'  => $payment_link_url,
             'message'      => $is_quote_ride ? 'Quote request registered.' : 'Reservation created, redirecting to payment...',
@@ -1153,6 +1238,7 @@ class ETB_Ajax {
 
     /**
      * Traitement AJAX : Génération d'un devis scellé serveur avec jeton temporaire (Quote Token)
+     * Compatible Réservation Unique ET Panier Multi-Trajets (Cart System)
      */
     public function handle_create_quote() {
         check_ajax_referer( 'etb_booking_nonce', 'nonce' );
@@ -1162,68 +1248,160 @@ class ETB_Ajax {
             wp_send_json_error( array( 'message' => 'Too many requests. Please wait a moment.' ) );
         }
 
-        // 2. Récupération et assainissement des critères de course (avec dé-échappement des apostrophes)
-        $mode       = sanitize_text_field( wp_unslash( $_POST['mode'] ?? 'transfer' ) );
-        $pickup     = sanitize_text_field( wp_unslash( $_POST['pickup'] ?? '' ) );
-        $dropoff    = sanitize_text_field( wp_unslash( $_POST['dropoff'] ?? '' ) );
-        $duration   = max( 1, floatval( $_POST['duration'] ?? 4 ) );
-        $date       = sanitize_text_field( wp_unslash( $_POST['date'] ?? '' ) );
-        $time       = sanitize_text_field( wp_unslash( $_POST['time'] ?? '' ) );
-        $vehicle_id = absint( $_POST['vehicle_id'] ?? 0 );
-        $raw_price  = sanitize_text_field( wp_unslash( $_POST['price'] ?? '0' ) );
+        // 2. Traitement du panier multi-trajets si présent
+        $raw_trips = ! empty( $_POST['trips'] ) ? json_decode( wp_unslash( $_POST['trips'] ), true ) : null;
+        $sanitized_trips = array();
+        $has_quote_in_cart = false;
+        $total_cart_price  = 0.0;
 
-        if ( empty( $pickup ) ) {
-            wp_send_json_error( array( 'message' => 'Pickup location is required.' ) );
-        }
-        
-        
-        if ( 'transfer' === $mode && empty( $dropoff ) ) {
-            wp_send_json_error( array( 'message' => 'Drop-off location is required.' ) );
-        }
-        if ( empty( $date ) || empty( $time ) ) {
-            wp_send_json_error( array( 'message' => 'Date and time are required.' ) );
-        }
-        if ( ! $vehicle_id || get_post_type( $vehicle_id ) !== 'tour_vehicle' ) {
-            wp_send_json_error( array( 'message' => 'Invalid vehicle selected.' ) );
-        }
+        if ( is_array( $raw_trips ) && count( $raw_trips ) > 0 ) {
+            foreach ( $raw_trips as $index => $t ) {
+                $t_mode       = sanitize_text_field( $t['mode'] ?? 'transfer' );
+                $t_pickup     = sanitize_text_field( $t['pickup'] ?? '' );
+                $t_dropoff    = sanitize_text_field( $t['dropoff'] ?? '' );
+                $t_duration   = max( 1, floatval( $t['duration'] ?? 4 ) );
+                $t_date       = sanitize_text_field( $t['date'] ?? '' );
+                $t_time       = sanitize_text_field( $t['time'] ?? '' );
+                $t_vehicle_id = absint( $t['vehicle_id'] ?? 0 );
+                $t_raw_price  = sanitize_text_field( $t['price'] ?? '0' );
 
-        // 3. Calcul / Verrouillage du prix côté serveur
-        $is_quote_ride = ( 'Custom Quote' === $raw_price || floatval( $raw_price ) <= 0 );
-        $locked_price  = 0.0;
+                if ( empty( $t_pickup ) || empty( $t_date ) || empty( $t_time ) ) {
+                    continue;
+                }
+                if ( 'transfer' === $t_mode && empty( $t_dropoff ) ) {
+                    continue;
+                }
+                if ( ! $t_vehicle_id || get_post_type( $t_vehicle_id ) !== 'tour_vehicle' ) {
+                    continue;
+                }
 
-        if ( ! $is_quote_ride ) {
-            if ( 'hourly' === $mode && class_exists( 'ETB_Pricing_Engine' ) ) {
-                $locked_price = ETB_Pricing_Engine::calculate_vehicle_price( $vehicle_id, $duration );
-            } else {
-                $locked_price = floatval( $raw_price );
+                // Vérification du prix
+                $t_is_quote = ( 'Custom Quote' === $t_raw_price || ! empty( $t['isQuote'] ) || floatval( $t_raw_price ) <= 0 );
+                $t_locked_price = 0.0;
+
+                if ( ! $t_is_quote ) {
+                    if ( 'hourly' === $t_mode && class_exists( 'ETB_Pricing_Engine' ) ) {
+                        $t_locked_price = (float) round( ETB_Pricing_Engine::calculate_vehicle_price( $t_vehicle_id, $t_duration ), 2 );
+                    } else {
+                        $t_locked_price = (float) round( floatval( $t_raw_price ), 2 );
+                    }
+                    $total_cart_price += $t_locked_price;
+                } else {
+                    $has_quote_in_cart = true;
+                }
+
+                $v_title = get_the_title( $t_vehicle_id );
+                $v_img   = get_the_post_thumbnail_url( $t_vehicle_id, 'full' ) ?: '';
+                $v_pax   = absint( get_post_meta( $t_vehicle_id, '_etb_max_pax', true ) ?: 1 );
+                $v_bag   = absint( get_post_meta( $t_vehicle_id, '_etb_max_baggage', true ) ?: 0 );
+
+                $sanitized_trips[] = array(
+                    'index'        => $index + 1,
+                    'mode'         => $t_mode,
+                    'pickup'       => $t_pickup,
+                    'dropoff'      => ( 'hourly' === $t_mode ) ? sprintf( 'By the hour (%sh)', $t_duration ) : $t_dropoff,
+                    'duration'     => $t_duration,
+                    'date'         => $t_date,
+                    'time'         => $t_time,
+                    'vehicle_id'   => $t_vehicle_id,
+                    'vehicle_name' => $v_title,
+                    'vehicle_img'  => $v_img,
+                    'pax'          => $v_pax,
+                    'bag'          => $v_bag,
+                    'price'        => $t_is_quote ? 'Custom Quote' : $t_locked_price,
+                    'is_quote'     => $t_is_quote,
+                );
             }
         }
 
-        // Récupération des informations officielles du véhicule
-        $vehicle_name = get_the_title( $vehicle_id );
-        $vehicle_img  = get_the_post_thumbnail_url( $vehicle_id, 'full' ) ?: '';
-        $max_pax      = absint( get_post_meta( $vehicle_id, '_etb_max_pax', true ) ?: 1 );
-        $max_bag      = absint( get_post_meta( $vehicle_id, '_etb_max_baggage', true ) ?: 0 );
+        // Si aucun panier valide n'a été décodé, on utilise le mode mono-trajet classique
+        if ( empty( $sanitized_trips ) ) {
+            $mode       = sanitize_text_field( wp_unslash( $_POST['mode'] ?? 'transfer' ) );
+            $pickup     = sanitize_text_field( wp_unslash( $_POST['pickup'] ?? '' ) );
+            $dropoff    = sanitize_text_field( wp_unslash( $_POST['dropoff'] ?? '' ) );
+            $duration   = max( 1, floatval( $_POST['duration'] ?? 4 ) );
+            $date       = sanitize_text_field( wp_unslash( $_POST['date'] ?? '' ) );
+            $time       = sanitize_text_field( wp_unslash( $_POST['time'] ?? '' ) );
+            $vehicle_id = absint( $_POST['vehicle_id'] ?? 0 );
+            $raw_price  = sanitize_text_field( wp_unslash( $_POST['price'] ?? '0' ) );
 
-        // 4. Génération d'un jeton aléatoire unique cryptographique (ex: q_8f94c2d1)
+            if ( empty( $pickup ) ) {
+                wp_send_json_error( array( 'message' => 'Pickup location is required.' ) );
+            }
+            if ( 'transfer' === $mode && empty( $dropoff ) ) {
+                wp_send_json_error( array( 'message' => 'Drop-off location is required.' ) );
+            }
+            if ( empty( $date ) || empty( $time ) ) {
+                wp_send_json_error( array( 'message' => 'Date and time are required.' ) );
+            }
+            if ( ! $vehicle_id || get_post_type( $vehicle_id ) !== 'tour_vehicle' ) {
+                wp_send_json_error( array( 'message' => 'Invalid vehicle selected.' ) );
+            }
+
+            $is_quote_ride = ( 'Custom Quote' === $raw_price || floatval( $raw_price ) <= 0 );
+            $locked_price  = 0.0;
+
+            if ( ! $is_quote_ride ) {
+                if ( 'hourly' === $mode && class_exists( 'ETB_Pricing_Engine' ) ) {
+                    $locked_price = (float) round( ETB_Pricing_Engine::calculate_vehicle_price( $vehicle_id, $duration ), 2 );
+                } else {
+                    $locked_price = (float) round( floatval( $raw_price ), 2 );
+                }
+            }
+
+            $vehicle_name = get_the_title( $vehicle_id );
+            $vehicle_img  = get_the_post_thumbnail_url( $vehicle_id, 'full' ) ?: '';
+            $max_pax      = absint( get_post_meta( $vehicle_id, '_etb_max_pax', true ) ?: 1 );
+            $max_bag      = absint( get_post_meta( $vehicle_id, '_etb_max_baggage', true ) ?: 0 );
+
+            $sanitized_trips[] = array(
+                'index'        => 1,
+                'mode'         => $mode,
+                'pickup'       => $pickup,
+                'dropoff'      => ( 'hourly' === $mode ) ? sprintf( 'By the hour (%sh)', $duration ) : $dropoff,
+                'duration'     => $duration,
+                'date'         => $date,
+                'time'         => $time,
+                'vehicle_id'   => $vehicle_id,
+                'vehicle_name' => $vehicle_name,
+                'vehicle_img'  => $vehicle_img,
+                'pax'          => $max_pax,
+                'bag'          => $max_bag,
+                'price'        => $is_quote_ride ? 'Custom Quote' : $locked_price,
+                'is_quote'     => $is_quote_ride,
+            );
+
+            $has_quote_in_cart = $is_quote_ride;
+            $total_cart_price  = $locked_price;
+        }
+
+        // 3. Premier trajet comme référence socle (rétrocompatibilité garantie)
+        $primary_trip = $sanitized_trips[0];
+        $final_price  = $has_quote_in_cart ? 'Custom Quote' : (float) round( $total_cart_price, 2 );
+
+        // 4. Génération du jeton aléatoire unique cryptographique
         $token = 'q_' . substr( md5( uniqid( (string) wp_rand(), true ) ), 0, 8 );
 
-        // 5. Enregistrement du devis dans la mémoire sécurisée WordPress (Transient 30 minutes)
+        // 5. Enregistrement du devis complet scellé dans la mémoire WordPress (Transient 30 minutes)
         $quote_data = array(
-            'ref'          => $token,
-            'mode'         => $mode,
-            'pickup'       => $pickup,
-            'dropoff'      => $dropoff,
-            'duration'     => $duration,
-            'date'         => $date,
-            'time'         => $time,
-            'vehicle_id'   => $vehicle_id,
-            'vehicle_name' => $vehicle_name,
-            'vehicle_img'  => $vehicle_img,
-            'pax'          => $max_pax,
-            'bag'          => $max_bag,
-            'price'        => $is_quote_ride ? 'Custom Quote' : $locked_price,
-            'created_at'   => current_time( 'timestamp' ),
+            'ref'           => $token,
+            'is_multi_trip' => ( count( $sanitized_trips ) > 1 ),
+            'trips_count'   => count( $sanitized_trips ),
+            'trips'         => $sanitized_trips,
+            // Clés directes de secours (compatibilité 100% avec l'ancien modèle)
+            'mode'          => $primary_trip['mode'],
+            'pickup'        => $primary_trip['pickup'],
+            'dropoff'       => $primary_trip['dropoff'],
+            'duration'      => $primary_trip['duration'],
+            'date'          => $primary_trip['date'],
+            'time'          => $primary_trip['time'],
+            'vehicle_id'    => $primary_trip['vehicle_id'],
+            'vehicle_name'  => $primary_trip['vehicle_name'],
+            'vehicle_img'   => $primary_trip['vehicle_img'],
+            'pax'           => $primary_trip['pax'],
+            'bag'           => $primary_trip['bag'],
+            'price'         => $final_price,
+            'created_at'    => current_time( 'timestamp' ),
         );
 
         set_transient( 'etb_quote_' . $token, $quote_data, 30 * MINUTE_IN_SECONDS );
@@ -1453,6 +1631,16 @@ class ETB_Ajax {
         update_post_meta( $booking_id, '_etb_stripe_payment_intent_id', $intent_id );
         update_post_meta( $booking_id, '_etb_paid_at', current_time( 'mysql' ) );
 
+        // Confirmation en cascade de tous les sous-trajets (si panier multi-trajets)
+        $child_booking_ids = get_post_meta( $booking_id, '_etb_child_booking_ids', true );
+        if ( ! empty( $child_booking_ids ) && is_array( $child_booking_ids ) ) {
+            foreach ( $child_booking_ids as $child_id ) {
+                update_post_meta( $child_id, '_etb_status', 'confirmed' );
+                update_post_meta( $child_id, '_etb_stripe_payment_intent_id', $intent_id );
+                update_post_meta( $child_id, '_etb_paid_at', current_time( 'mysql' ) );
+            }
+        }
+
         $payment_log = array(
             'amount'         => (float) round( $amount, 2 ),
             'method'         => 'card',
@@ -1674,25 +1862,37 @@ class ETB_Ajax {
                 'timeout' => 15,
             ) );
 
+           
             $up_code = ! is_wp_error( $update_res ) ? wp_remote_retrieve_response_code( $update_res ) : 500;
             $up_body = ! is_wp_error( $update_res ) ? wp_remote_retrieve_body( $update_res ) : $update_res->get_error_message();
             
-            // Log diagnostic précis dans debug.log et post_meta
-            error_log( "[ETB LIMO UPDATE] HTTP: " . $up_code . " | Réponse: " . $up_body );
+            // Enregistrement du diagnostic uniquement dans les métadonnées WP (sans polluer debug.log)
             update_post_meta( $booking_id, '_etb_limo_debug_response', 'HTTP ' . $up_code . ' : ' . $up_body );
 
-            // ÉTAPE 2 : Déclenchement formel des statuts Payé et Confirmé
-            $paid_res = wp_remote_post( 'https://api.limoexpress.me/api/integration/mark-booking-as-paid', array(
-                'headers' => $headers,
-                'body'    => wp_json_encode( array( 'id' => (string) $target_uuid ) ),
-                'timeout' => 15,
-            ) );
+            // ÉTAPE 2 : Déclenchement formel des statuts Payé et Confirmé (pour la course et ses sous-trajets)
+            $all_uuids_to_confirm = array( (string) $target_uuid );
+            $stored_child_uuids   = get_post_meta( $booking_id, '_etb_limo_uuids', true );
+            if ( ! empty( $stored_child_uuids ) && is_array( $stored_child_uuids ) ) {
+                foreach ( $stored_child_uuids as $c_uuid ) {
+                    if ( ! empty( $c_uuid ) && ! in_array( (string) $c_uuid, $all_uuids_to_confirm, true ) ) {
+                        $all_uuids_to_confirm[] = (string) $c_uuid;
+                    }
+                }
+            }
 
-            $conf_res = wp_remote_post( 'https://api.limoexpress.me/api/integration/mark-booking-as-confirmed', array(
-                'headers' => $headers,
-                'body'    => wp_json_encode( array( 'id' => (string) $target_uuid ) ),
-                'timeout' => 15,
-            ) );
+            foreach ( $all_uuids_to_confirm as $uuid_item ) {
+                wp_remote_post( 'https://api.limoexpress.me/api/integration/mark-booking-as-paid', array(
+                    'headers' => $headers,
+                    'body'    => wp_json_encode( array( 'id' => $uuid_item ) ),
+                    'timeout' => 15,
+                ) );
+
+                wp_remote_post( 'https://api.limoexpress.me/api/integration/mark-booking-as-confirmed', array(
+                    'headers' => $headers,
+                    'body'    => wp_json_encode( array( 'id' => $uuid_item ) ),
+                    'timeout' => 15,
+                ) );
+            }
 
             $paid_code = ! is_wp_error( $paid_res ) ? wp_remote_retrieve_response_code( $paid_res ) : 500;
             if ( $up_code >= 200 && $up_code < 300 && $paid_code >= 200 && $paid_code < 300 ) {

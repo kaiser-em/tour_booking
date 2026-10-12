@@ -820,6 +820,7 @@
     width: 18px !important;
     height: 18px !important;
     pointer-events: none !important;
+    z-index: 3 !important;
 }
 
 

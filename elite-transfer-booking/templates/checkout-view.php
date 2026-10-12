@@ -14,6 +14,10 @@ $quote_data = ! empty( $ref_token ) ? get_transient( 'etb_quote_' . $ref_token )
 
 $has_quote = ( is_array( $quote_data ) && ! empty( $quote_data['vehicle_id'] ) );
 
+// Détection du mode multi-trajets (Cart System)
+$is_multi_trip = ( $has_quote && ! empty( $quote_data['is_multi_trip'] ) && ! empty( $quote_data['trips'] ) );
+$trips_list    = $is_multi_trip ? $quote_data['trips'] : array();
+
 // Données du trajet scellées par le serveur
 $trip_mode     = $has_quote ? ( $quote_data['mode'] ?? 'transfer' ) : 'transfer';
 $pickup_addr   = $has_quote ? ( $quote_data['pickup'] ?? '' ) : '';
@@ -46,6 +50,32 @@ if ( ! empty( $date_val ) ) {
 // Détection d'une réservation urgente (< délai minimum configuré, par défaut 24h)
 $min_delay_hours   = ! empty( $gen_settings['min_delay'] ) ? absint( $gen_settings['min_delay'] ) : 24;
 $is_urgent_booking = false;
+
+// Détection dynamique des aéroports pour le temps d'attente gratuit
+$airport_regex = '/\b(airport|aeroport|aéroport|terminal|aeropuerto|flughafen|nce|cdg|ory|heathrow|gatwick|jfk)\b/i';
+$has_airport_pickup = false;
+$has_city_pickup    = false;
+
+if ( ! empty( $is_multi_trip ) && ! empty( $trips_list ) ) {
+    foreach ( $trips_list as $t ) {
+        if ( preg_match( $airport_regex, $t['pickup'] ?? '' ) ) {
+            $has_airport_pickup = true;
+        } else {
+            $has_city_pickup = true;
+        }
+    }
+} else {
+    $has_airport_pickup = (bool) preg_match( $airport_regex, $pickup_addr );
+    $has_city_pickup    = ! $has_airport_pickup;
+}
+
+if ( $has_airport_pickup && ! $has_city_pickup ) {
+    $dynamic_wait_time_text = '60 min complimentary wait time included (flight tracking)';
+} elseif ( $has_airport_pickup && $has_city_pickup ) {
+    $dynamic_wait_time_text = '60 min for airport pickups · 15 min for city transfers';
+} else {
+    $dynamic_wait_time_text = '15 min complimentary wait time included';
+}
 
 if ( ! empty( $date_val ) ) {
     $time_raw = ! empty( $time_val ) ? trim( $time_val ) : '09:00';
@@ -112,7 +142,7 @@ if ( ! empty( $date_val ) ) {
         <input type="hidden" name="etb_vehicle_id" id="etb-chk-vehicle-id" value="<?php echo esc_attr( $vehicle_id ); ?>">
         <input type="hidden" name="etb_calculated_price" id="etb-chk-price" value="<?php echo esc_attr( $price_val ); ?>">
         <input type="hidden" name="etb_is_urgent" id="etb-chk-is-urgent" value="<?php echo $is_urgent_booking ? '1' : '0'; ?>">
-
+        <input type="hidden" name="etb_is_multi_trip" id="etb-chk-is-multi-trip" value="<?php echo $is_multi_trip ? '1' : '0'; ?>">
         <!-- ============================================================== -->
         <!-- LE CONTENEUR 2 COLONNES (CSS GRID)                             -->
         <!-- ============================================================== -->
@@ -229,6 +259,68 @@ if ( ! empty( $date_val ) ) {
                                 </div>
                             </div>
                         </div>
+
+                        <?php if ( ! empty( $is_multi_trip ) && ! empty( $trips_list ) && count( $trips_list ) > 1 ) : ?>
+                            <!-- CONSIGNES DE CONCIERGERIE VIP AU-DESSUS DES ONGLETS (Empilé pour Mobile) -->
+                            <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 24px; margin-bottom: 12px;">
+                                <span style="font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--etb-accent-gold, #fbac18);">
+                                    Configure Each Transfer
+                                </span>
+                                <span style="font-size: 11.5px; color: var(--etb-text-secondary, #94a3b8); line-height: 1.4;">
+                                    Select a trip below to adjust passengers & luggage for that specific vehicle.
+                                </span>
+                            </div>
+
+                            <!-- 1. RANGÉE D'ONGLETS COMPACTS ENRICHIE -->
+                            <div class="etb-chk-leg-tabs" id="etb-chk-leg-tabs" style="display: flex; gap: 8px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 4px;">
+                                <?php foreach ( $trips_list as $l_idx => $leg ) : 
+                                    $route_label = ( 'hourly' === $leg['mode'] ) ? sprintf( 'By the hour (%sh)', $leg['duration'] ) : ( $leg['pickup'] . ' → ' . $leg['dropoff'] );
+                                    $leg_ts = strtotime( $leg['date'] );
+                                    $leg_date_formatted = ( $leg_ts ? date( 'D, d M Y', $leg_ts ) : $leg['date'] ) . ( ! empty( $leg['time'] ) ? ' • ' . $leg['time'] : '' );
+                                ?>
+                                    <button type="button" class="etb-chk-leg-tab-btn <?php echo ( 0 === $l_idx ) ? 'active' : ''; ?>" 
+                                            data-leg-index="<?php echo esc_attr( $l_idx ); ?>"
+                                            data-vehicle="<?php echo esc_attr( $leg['vehicle_name'] ); ?>"
+                                            data-route="<?php echo esc_attr( $route_label ); ?>"
+                                            data-date="<?php echo esc_attr( $leg_date_formatted ); ?>"
+                                            data-max-pax="<?php echo esc_attr( $leg['pax'] ); ?>"
+                                            data-max-bag="<?php echo esc_attr( $leg['bag'] ); ?>"
+                                            style="padding: 7px 16px; border-radius: 50px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s ease; white-space: nowrap; border: 1.5px solid <?php echo ( 0 === $l_idx ) ? 'var(--etb-accent-gold, #fbac18)' : 'var(--etb-border-light, rgba(255,255,255,0.12))'; ?>; background: <?php echo ( 0 === $l_idx ) ? 'rgba(251, 172, 24, 0.15)' : 'rgba(255,255,255,0.03)'; ?>; color: <?php echo ( 0 === $l_idx ) ? 'var(--etb-accent-gold, #fbac18)' : 'var(--etb-text-secondary, #94a3b8)'; ?>;">
+                                        Trip #<?php echo esc_html( $l_idx + 1 ); ?>
+                                    </button>
+                                <?php endforeach; ?>
+                            </div>
+                            <input type="hidden" name="etb_legs_data" id="etb-chk-legs-data" value="">
+
+                            <!-- 2. BANDEAU DE CONTEXTE DÉTAILLÉ DU TRAJET ACTIF (Empilé sur 3 lignes pour Mobile) -->
+                            <?php 
+                            $first_leg = $trips_list[0];
+                            $first_ts  = strtotime( $first_leg['date'] );
+                            $first_date_formatted = ( $first_ts ? date( 'D, d M Y', $first_ts ) : $first_leg['date'] ) . ( ! empty( $first_leg['time'] ) ? ' • ' . $first_leg['time'] : '' );
+                            ?>
+                            <div id="etb-chk-active-leg-info" style="display: flex; flex-direction: column; gap: 6px; background: rgba(255,255,255,0.02); border: 1px solid var(--etb-border-light, rgba(255,255,255,0.08)); border-radius: 8px; padding: 12px 14px; margin-bottom: 16px;">
+                                <!-- Ligne 1 : Véhicule -->
+                                <strong id="etb-chk-leg-info-vehicle" style="color: var(--etb-text-primary, #ffffff); font-size: 14px;">
+                                    <?php echo esc_html( $first_leg['vehicle_name'] ); ?>
+                                </strong>
+                                
+                                <!-- Ligne 2 : Itinéraire -->
+                                <span id="etb-chk-leg-info-route" style="color: var(--etb-text-secondary, #cbd5e1); font-size: 12px; line-height: 1.45;">
+                                    <?php echo ( 'hourly' === $first_leg['mode'] ) ? sprintf( 'By the hour (%sh)', $first_leg['duration'] ) : ( $first_leg['pickup'] . ' → ' . $first_leg['dropoff'] ); ?>
+                                </span>
+                                
+                                <!-- Ligne 3 : Date et Heure -->
+                                <span id="etb-chk-leg-info-date" style="color: var(--etb-accent-gold, #fbac18); font-size: 11.5px; display: inline-flex; align-items: center; gap: 6px; margin-top: 2px;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                                    </svg>
+                                    <span><?php echo esc_html( $first_date_formatted ); ?></span>
+                                </span>
+                            </div>
+                        <?php endif; ?>
 
                         <!-- Sélecteur 3 colonnes : Passengers | Checked Luggage | Cabin Bags -->
                         <div class="etb-chk-capacity-box etb-chk-capacity-3col" style="margin-top: 15px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; align-items: start;">
@@ -485,81 +577,128 @@ if ( ! empty( $date_val ) ) {
             <div class="etb-checkout-right-col">
                 <div class="etb-chk-sticky-card">
                     
-                    <h3 class="etb-chk-summary-title">Ride Summary</h3>
+                    <h3 class="etb-chk-summary-title">
+                        <?php echo $is_multi_trip ? sprintf( 'Trip Summary (%d Transfers)', count( $trips_list ) ) : 'Ride Summary'; ?>
+                    </h3>
 
-                    <!-- Aperçu du Véhicule (Synchronisé) -->
-                    <div class="etb-chk-summary-hero">
-                        <img src="<?php echo esc_url( $vehicle_img ); ?>" id="etb-chk-summary-img" alt="<?php echo esc_attr( $vehicle_name ); ?>" style="<?php echo empty( $vehicle_img ) ? 'display: none;' : ''; ?>">
-                        <div class="etb-chk-summary-vehicle-meta">
-                            <h4 id="etb-chk-summary-vehicle-name"><?php echo esc_html( $vehicle_name ); ?></h4>
-                            <div class="etb-chk-summary-specs" id="etb-chk-summary-specs">
-                                <span class="etb-summary-spec-item">
-                                    <svg viewBox="0 0 100 95" width="20" height="20" fill="#fbac18">
-                                        <path d="m88.484 31.117c0 8.0312-6.5117 14.539-14.539 14.539-8.0312 0-14.543-6.5078-14.543-14.539s6.5117-14.539 14.543-14.543c8.0273 0 14.539 6.5117 14.539 14.543z"/>
-                                        <path d="m0.90234 73.273c-3.0547 6.2812 2.0391 15.633 9.6914 17.562 16.133 3.6016 32.57 3.6016 48.703 0 7.6562-1.9336 12.75-11.281 9.6914-17.562-5.7109-11.867-18.844-22.293-34.047-22.391-15.203 0.10156-28.336 10.523-34.047 22.391z"/>
-                                        <path d="m54.445 25.965c0 10.77-8.7305 19.504-19.5 19.504-10.77 0-19.504-8.7344-19.504-19.504 0-10.77 8.7344-19.5 19.504-19.5 10.77-0.003906 19.5 8.7305 19.5 19.5z"/>
-                                        <path d="m99.328 66.391c-4.2578-8.8516-14.051-16.625-25.383-16.695-5.1719 0.03125-10.023 1.6719-14.176 4.2812 6.0273 4.4648 11.02 10.426 14.141 16.91 1.5391 3.1641 1.8438 6.8906 0.93359 10.605 5.7734-0.0625 11.539-0.73047 17.258-2.0078 5.707-1.4414 9.5078-8.4141 7.2266-13.094z"/>
+                    <?php if ( $is_multi_trip ) : ?>
+                        <!-- ══════════════════════════════════════════════════════════ -->
+                        <!-- AFFICHAGE MULTI-TRAJETS ÉLÉGANT                          -->
+                        <!-- ══════════════════════════════════════════════════════════ -->
+                        <div class="etb-chk-multi-trips-list" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
+                            <?php foreach ( $trips_list as $idx => $t ) : 
+                                $t_dt_display = '—';
+                                if ( ! empty( $t['date'] ) ) {
+                                    $t_ts = strtotime( $t['date'] );
+                                    $t_dt_display = $t_ts ? date( 'd M. Y', $t_ts ) : $t['date'];
+                                    if ( ! empty( $t['time'] ) ) {
+                                        $t_dt_display .= ' at ' . $t['time'];
+                                    }
+                                }
+                                $t_price_display = ( 'Custom Quote' === $t['price'] || floatval( $t['price'] ) <= 0 ) 
+                                    ? 'Custom Quote' 
+                                    : ( number_format_i18n( floatval( $t['price'] ), 0 ) . ' ' . $currency_symbol );
+                            ?>
+                                <div class="etb-chk-multi-trip-card" style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 12px 14px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <span style="background: #fbac18; color: #0f172a; font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: 4px;">#<?php echo esc_html( $idx + 1 ); ?></span>
+                                            <strong style="color: #ffffff; font-size: 13.5px;"><?php echo esc_html( $t['vehicle_name'] ); ?></strong>
+                                        </div>
+                                        <span style="color: #fbac18; font-weight: 800; font-size: 13.5px;"><?php echo esc_html( $t_price_display ); ?></span>
+                                    </div>
+                                    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 5px; display: flex; align-items: center; gap: 5px;">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--etb-accent-gold, #fbac18)" stroke-width="2" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                        <span><?php echo esc_html( $t_dt_display ); ?></span>
+                                    </div>
+                                    <div style="font-size: 12px; color: #cbd5e1; line-height: 1.45;">
+                                        <?php if ( 'hourly' === $t['mode'] ) : ?>
+                                            <div style="display: flex; align-items: center; gap: 6px;">
+                                                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="var(--etb-accent-gold, #fbac18)" stroke-width="2" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                                <strong>By the hour (<?php echo esc_html( $t['duration'] ); ?>h)</strong> — <?php echo esc_html( $t['pickup'] ); ?>
+                                            </div>
+                                        <?php else : ?>
+                                            <div style="display: flex; align-items: center; gap: 6px;">
+                                                <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; flex-shrink: 0;"></span>
+                                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><?php echo esc_html( $t['pickup'] ); ?></span>
+                                            </div>
+                                            <div style="display: flex; align-items: center; gap: 6px; margin-top: 2px;">
+                                                <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--etb-accent-gold, #fbac18); flex-shrink: 0;"></span>
+                                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><?php echo esc_html( $t['dropoff'] ); ?></span>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php else : ?>
+                        <!-- ══════════════════════════════════════════════════════════ -->
+                        <!-- APERÇU STANDARD 1 TRAJET (MONO-BOOKING CLASSIQUE)          -->
+                        <!-- ══════════════════════════════════════════════════════════ -->
+                        <div class="etb-chk-summary-hero">
+                            <img src="<?php echo esc_url( $vehicle_img ); ?>" id="etb-chk-summary-img" alt="<?php echo esc_attr( $vehicle_name ); ?>" style="<?php echo empty( $vehicle_img ) ? 'display: none;' : ''; ?>">
+                            <div class="etb-chk-summary-vehicle-meta">
+                                <h4 id="etb-chk-summary-vehicle-name"><?php echo esc_html( $vehicle_name ); ?></h4>
+                                <div class="etb-chk-summary-specs" id="etb-chk-summary-specs">
+                                    <span class="etb-summary-spec-item">
+                                        <svg viewBox="0 0 100 95" width="20" height="20" fill="#fbac18">
+                                            <path d="m88.484 31.117c0 8.0312-6.5117 14.539-14.539 14.539-8.0312 0-14.543-6.5078-14.543-14.539s6.5117-14.539 14.539 14.543c8.0273 0 14.539 6.5117 14.539 14.543z"/>
+                                            <path d="m0.90234 73.273c-3.0547 6.2812 2.0391 15.633 9.6914 17.562 16.133 3.6016 32.57 3.6016 48.703 0 7.6562-1.9336 12.75-11.281 9.6914-17.562-5.7109-11.867-18.844-22.293-34.047-22.391-15.203 0.10156-28.336 10.523-34.047 22.391z"/>
+                                            <path d="m54.445 25.965c0 10.77-8.7305 19.504-19.5 19.504-10.77 0-19.504-8.7344-19.504-19.504 0-10.77 8.7344-19.5 19.504-19.5 10.77-0.003906 19.5 8.7305 19.5 19.5z"/>
+                                            <path d="m99.328 66.391c-4.2578-8.8516-14.051-16.625-25.383-16.695-5.1719 0.03125-10.023 1.6719-14.176 4.2812 6.0273 4.4648 11.02 10.426 14.141 16.91 1.5391 3.1641 1.8438 6.8906 0.93359 10.605 5.7734-0.0625 11.539-0.73047 17.258-2.0078 5.707-1.4414 9.5078-8.4141 7.2266-13.094z"/>
+                                        </svg>
+                                        <span><strong id="etb-chk-pax-count"><?php echo esc_html( $pax_count ); ?></strong> Passengers</span>
+                                    </span>
+                                    <span class="etb-spec-dot">•</span>
+                                    <span class="etb-summary-spec-item">
+                                        <svg viewBox="20 8 60 88" width="20" height="20" fill="#fbac18">
+                                            <path d="M70.75,26.75H60.028l1.056,5.476c2.108-0.315,4.109,1.073,4.517,3.185l0.868,4.5c0.418,2.169-1.001,4.267-3.171,4.685 l-1.227,0.237c-2.169,0.418-4.268-1.001-4.686-3.17l-0.867-4.5c-0.408-2.113,0.936-4.146,3.01-4.637l-1.113-5.775H54.75v-14 c0-0.019-0.01-0.034-0.011-0.052c0.002-0.032,0.01-0.062,0.01-0.095c0-0.773-0.626-1.397-1.397-1.397h-6.705 c-0.771,0-1.397,0.624-1.397,1.397c0,0.034,0.008,0.065,0.01,0.098c0,0.017-0.01,0.031-0.01,0.049v14h-16c-2.209,0-4,1.791-4,4v59 c0,2.209,1.791,4,4,4h6V94c0,0.69,0.559,1.25,1.25,1.25c0.689,0,1.25-0.56,1.25-1.25v-0.25h24.5V94c0,0.69,0.559,1.25,1.25,1.25 c0.689,0,1.25-0.56,1.25-1.25v-0.25h6c2.209,0,4-1.791,4-4v-59C74.75,28.541,72.959,26.75,70.75,26.75z M47.75,14h4.5v12.75h-4.5V14 z M63.39,84.078h-26.78c-1.027,0-1.86-0.834-1.86-1.859c0-1.028,0.833-1.859,1.86-1.859h26.78c1.026,0,1.859,0.831,1.859,1.859 C65.249,83.244,64.416,84.078,63.39,84.078z"/>
+                                        </svg>
+                                        <span><strong id="etb-chk-bag-count"><?php echo esc_html( $bag_count ); ?></strong> Luggage</span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Détails Itinéraire & Horaires (Date en 1er puis Trajet) -->
+                        <div class="etb-chk-summary-timeline">
+                            <div class="etb-chk-timeline-item" id="etb-chk-timeline-date-row">
+                                <span class="etb-chk-calendar-icon">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                                        <line x1="3" y1="10" x2="21" y2="10"></line>
                                     </svg>
-                                    <span><strong id="etb-chk-pax-count"><?php echo esc_html( $pax_count ); ?></strong> Passengers</span>
                                 </span>
-                                <span class="etb-spec-dot">•</span>
-                                <span class="etb-summary-spec-item">
-                                    <svg viewBox="20 8 60 88" width="20" height="20" fill="#fbac18">
-                                        <path d="M70.75,26.75H60.028l1.056,5.476c2.108-0.315,4.109,1.073,4.517,3.185l0.868,4.5c0.418,2.169-1.001,4.267-3.171,4.685 l-1.227,0.237c-2.169,0.418-4.268-1.001-4.686-3.17l-0.867-4.5c-0.408-2.113,0.936-4.146,3.01-4.637l-1.113-5.775H54.75v-14 c0-0.019-0.01-0.034-0.011-0.052c0.002-0.032,0.01-0.062,0.01-0.095c0-0.773-0.626-1.397-1.397-1.397h-6.705 c-0.771,0-1.397,0.624-1.397,1.397c0,0.034,0.008,0.065,0.01,0.098c0,0.017-0.01,0.031-0.01,0.049v14h-16c-2.209,0-4,1.791-4,4v59 c0,2.209,1.791,4,4,4h6V94c0,0.69,0.559,1.25,1.25,1.25c0.689,0,1.25-0.56,1.25-1.25v-0.25h24.5V94c0,0.69,0.559,1.25,1.25,1.25 c0.689,0,1.25-0.56,1.25-1.25v-0.25h6c2.209,0,4-1.791,4-4v-59C74.75,28.541,72.959,26.75,70.75,26.75z M47.75,14h4.5v12.75h-4.5V14 z M63.39,84.078h-26.78c-1.027,0-1.86-0.834-1.86-1.859c0-1.028,0.833-1.859,1.86-1.859h26.78c1.026,0,1.859,0.831,1.859,1.859 C65.249,83.244,64.416,84.078,63.39,84.078z"/>
-                                    </svg>
-                                    <span><strong id="etb-chk-bag-count"><?php echo esc_html( $bag_count ); ?></strong> Luggage</span>
-                                </span>
+                                <div class="etb-chk-timeline-text">
+                                    <small>DATE & TIME</small>
+                                    <strong id="etb-chk-summary-datetime"><?php echo esc_html( $formatted_datetime_display ); ?></strong>
+                                </div>
+                            </div>
+                            <div class="etb-chk-timeline-item" id="etb-chk-timeline-pickup-row">
+                                <span class="etb-chk-bullet etb-bullet-pickup"></span>
+                                <div class="etb-chk-timeline-text">
+                                    <small>PICKUP</small>
+                                    <strong id="etb-chk-summary-pickup"><?php echo esc_html( $pickup_addr ?: '—' ); ?></strong>
+                                </div>
+                            </div>
+                            <div class="etb-chk-timeline-item" id="etb-chk-timeline-dropoff-row">
+                                <span class="etb-chk-bullet etb-bullet-dropoff"></span>
+                                <div class="etb-chk-timeline-text">
+                                    <small>DROP-OFF</small>
+                                    <strong id="etb-chk-summary-dropoff"><?php echo esc_html( $dropoff_addr ?: '—' ); ?></strong>
+                                </div>
+                            </div>
+                            <div class="etb-chk-timeline-item" id="etb-chk-timeline-duration-row" style="display: none;">
+                                <span class="etb-chk-bullet etb-bullet-hourly"></span>
+                                <div class="etb-chk-timeline-text">
+                                    <small>DURATION</small>
+                                    <strong id="etb-chk-summary-duration">—</strong>
+                                </div>
                             </div>
                         </div>
-                    </div>
-
-                    <!-- Détails Itinéraire & Horaires (Date en 1er puis Trajet) -->
-                    <div class="etb-chk-summary-timeline">
-                        
-                        <!-- 1. DATE & TIME (En tête) -->
-                        <div class="etb-chk-timeline-item" id="etb-chk-timeline-date-row">
-                            <span class="etb-chk-calendar-icon">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                                    <line x1="16" y1="2" x2="16" y2="6"></line>
-                                    <line x1="8" y1="2" x2="8" y2="6"></line>
-                                    <line x1="3" y1="10" x2="21" y2="10"></line>
-                                </svg>
-                            </span>
-                            <div class="etb-chk-timeline-text">
-                                <small>DATE & TIME</small>
-                                <strong id="etb-chk-summary-datetime"><?php echo esc_html( $formatted_datetime_display ); ?></strong>
-                            </div>
-                        </div>
-
-                        <!-- 2. PICKUP (Départ) -->
-                        <div class="etb-chk-timeline-item" id="etb-chk-timeline-pickup-row">
-                            <span class="etb-chk-bullet etb-bullet-pickup"></span>
-                            <div class="etb-chk-timeline-text">
-                                <small>PICKUP</small>
-                                <strong id="etb-chk-summary-pickup"><?php echo esc_html( $pickup_addr ?: '—' ); ?></strong>
-                            </div>
-                        </div>
-
-                        <!-- 3. DROP-OFF (Arrivée) -->
-                        <div class="etb-chk-timeline-item" id="etb-chk-timeline-dropoff-row">
-                            <span class="etb-chk-bullet etb-bullet-dropoff"></span>
-                            <div class="etb-chk-timeline-text">
-                                <small>DROP-OFF</small>
-                                <strong id="etb-chk-summary-dropoff"><?php echo esc_html( $dropoff_addr ?: '—' ); ?></strong>
-                            </div>
-                        </div>
-
-                        <!-- 3bis. DURATION (Mode À l'heure) -->
-                        <div class="etb-chk-timeline-item" id="etb-chk-timeline-duration-row" style="display: none;">
-                            <span class="etb-chk-bullet etb-bullet-hourly"></span>
-                            <div class="etb-chk-timeline-text">
-                                <small>DURATION</small>
-                                <strong id="etb-chk-summary-duration">—</strong>
-                            </div>
-                        </div>
-
-                    </div>
+                    <?php endif; ?>
 
                     <!-- Engagements de service Blacklane -->
                     <div class="etb-chk-guarantees">
@@ -569,7 +708,7 @@ if ( ! empty( $date_val ) ) {
                         </div>
                         <div class="etb-chk-guarantee-line">
                             <span class="dashicons dashicons-clock"></span>
-                            <span id="etb-chk-wait-time-text">15 min complimentary wait time included</span>
+                            <span id="etb-chk-wait-time-text"><?php echo esc_html( $dynamic_wait_time_text ); ?></span>
                         </div>
                         <div class="etb-chk-guarantee-line">
                             <span class="dashicons dashicons-shield"></span>

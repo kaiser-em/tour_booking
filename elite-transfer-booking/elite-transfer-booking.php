@@ -28,12 +28,16 @@ class Elite_Transfer_Booking {
     
 
     public function enqueue_public_assets() {
+        // 1. Ré-enregistrement sécurisé de dashicons si le thème l'a déchargé
+        if ( ! wp_style_is( 'dashicons', 'registered' ) ) {
+            wp_register_style( 'dashicons', includes_url( 'css/dashicons.min.css' ), array(), false, 'all' );
+        }
         wp_enqueue_style( 'dashicons' );
 
-        // 1. Module socle : Tokens globaux & Détection Dark/Light (Indispensable)
-        wp_enqueue_style( 'etb-tokens', ETB_URL . 'public/css/modules/etb-tokens.css', array( 'dashicons' ), ETB_VERSION );
+        // 2. Module socle : Tokens globaux (ZÉRO dépendance bloquante)
+        wp_enqueue_style( 'etb-tokens', ETB_URL . 'public/css/modules/etb-tokens.css', array(), ETB_VERSION );
 
-        // 2. Modules thématiques isolés (avec dépendance stricte sur les tokens)
+        // 3. Modules thématiques (liés uniquement aux tokens internes, jamais aux scripts du thème)
         wp_enqueue_style( 'intl-tel-input-style', 'https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/18.2.1/css/intlTelInput.css', array(), '18.2.1' );
         wp_enqueue_style( 'etb-transfer-widget', ETB_URL . 'public/css/modules/etb-transfer-widget.css', array( 'etb-tokens' ), ETB_VERSION );
         wp_enqueue_style( 'etb-circuits', ETB_URL . 'public/css/modules/etb-circuits.css', array( 'etb-tokens' ), ETB_VERSION );
@@ -108,7 +112,7 @@ class Elite_Transfer_Booking {
 
     private function init_hooks() {
         add_action( 'init', array( $this, 'register_cpts' ), 0 );
-        add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_public_assets' ) );
+        add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_public_assets' ), 99 );
         add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
     }
 

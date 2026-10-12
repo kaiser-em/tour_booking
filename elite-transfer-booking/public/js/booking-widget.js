@@ -92,21 +92,43 @@
             const duration = state.circuit.duration || 1;
             const allCards = Array.from(document.querySelectorAll('.etb-vehicle-card'));
 
-            // 1. Calcul des véhicules (Taux horaire × Durée × Quantité)
+          
+            // 1. Calcul des véhicules avec algorithme intelligent des paliers horaires (Pack 10h, Heures Sup)
             allCards.forEach(card => {
                 const qtyInput = card.querySelector('input[name^="etb_car_qty"]');
                 const qty = parseInt(qtyInput ? qtyInput.value : 0);
-                const price = parsePrice(card.querySelector('.etb-vehicle-price')?.textContent || '0');
                 const name = card.querySelector('h3')?.textContent.trim() || 'Véhicule';
                 const maxPax = parseInt(card.dataset.maxPax) || 0;
                 const maxBaggage = parseInt(card.dataset.maxBaggage) || 0;
 
-                // Met à jour la classe .etb-selected sur le DOM
                 card.classList.toggle('etb-selected', qty > 0);
 
                 if (qty > 0) {
                     hasSelectedVehicle = true;
-                    const subtotal = (price * duration) * qty;
+                    
+                    // Extraction stricte des tarifs depuis les attributs de la carte
+                    const hRate   = parseFloat(card.dataset.hourlyRate) || 0;
+                    const bPrice  = parseFloat(card.dataset.basePrice) || 0;
+                    const pack10h = parseFloat(card.dataset.pack10h) || 0;
+                    const supRate = parseFloat(card.dataset.supHourRate) || 0;
+                    
+                    const standardHourly = hRate > 0 ? hRate : bPrice;
+                    let vehicleUnitPrice = 0;
+
+                    // Application exacte du moteur de calcul PHP
+                    if (pack10h > 0 && duration >= 10.0) {
+                        if (duration === 10.0) {
+                            vehicleUnitPrice = pack10h;
+                        } else {
+                            const extraHours = duration - 10.0;
+                            const extraRate  = supRate > 0 ? supRate : standardHourly;
+                            vehicleUnitPrice = pack10h + (extraHours * extraRate);
+                        }
+                    } else {
+                        vehicleUnitPrice = standardHourly * duration;
+                    }
+
+                    const subtotal = vehicleUnitPrice * qty;
                     total += subtotal;
                     totalCapacityPax += maxPax * qty;
                     totalCapacityBaggage += maxBaggage * qty;
@@ -741,6 +763,44 @@
         const bookBtnLabel   = quickRoot.querySelector('#etb-quick-book-btn-label');
         const urgentNoticeEl = quickRoot.querySelector('#etb-quick-urgent-notice');
 
+        
+// Éléments du panier Multi-booking et du bouton doré flottant au-dessus de la barre
+        const bridgeTripWrap  = quickRoot.querySelector('#etb-bridge-trip-wrap');
+        const bridgeTripBtn   = quickRoot.querySelector('#etb-bridge-trip-btn');
+        const bridgeTripLabel = quickRoot.querySelector('#etb-bridge-trip-label');
+        const tripsCartEl     = quickRoot.querySelector('#etb-quick-trips-cart');
+        const tripsCountEl    = quickRoot.querySelector('#etb-cart-trips-count');
+        const tripsListEl     = quickRoot.querySelector('#etb-cart-trips-list');
+        let cartTrips         = [];
+        
+        // Sécurité anti-crash pour purger définitivement l'ancienne variable
+        const addTripBtn      = null;
+
+        // ── GESTION DE LA PERSISTANCE VIP (SESSIONSTORAGE) ──
+        const saveCartToStorage = () => {
+            try {
+                sessionStorage.setItem('etb_cart_trips', JSON.stringify(cartTrips));
+            } catch (e) {}
+        };
+
+        const saveFormState = () => {
+            try {
+                const formState = {
+                    mode: currentMode,
+                    pickup: pickupInput ? pickupInput.value : '',
+                    pickupLat: pickupLatEl ? pickupLatEl.value : '',
+                    pickupLng: pickupLngEl ? pickupLngEl.value : '',
+                    dropoff: dropoffInput ? dropoffInput.value : '',
+                    dropoffLat: dropoffLatEl ? dropoffLatEl.value : '',
+                    dropoffLng: dropoffLngEl ? dropoffLngEl.value : '',
+                    date: dateInput ? dateInput.value : '',
+                    time: timeInput ? timeInput.value : '',
+                    duration: durationSelect ? durationSelect.value : '4'
+                };
+                sessionStorage.setItem('etb_quick_form_state', JSON.stringify(formState));
+            } catch (e) {}
+        };
+
         // Vérifie si la date et l'heure sélectionnées sont dans le passé
         const isDateTimeInPast = (dateStr, timeStr) => {
             if (!dateStr || !timeStr || timeStr === '-- : --') return false;
@@ -1354,6 +1414,20 @@
         }
             
 
+        // ── DÉCLENCHEMENT DU RECALCUL EN TEMPS RÉEL LORS DU CHANGEMENT D'ADRESSE ──
+        const handleAddressChangeLive = () => {
+            if (currentMode === 'transfer') {
+                refreshLiveTransferPricing();
+            } else if (currentMode === 'hourly') {
+                if (fleetSection && fleetSection.style.display !== 'none') {
+                    recalculateHourlyFleet();
+                }
+            }
+        };
+
+        if (pickupInput)  pickupInput.addEventListener('change', handleAddressChangeLive);
+        if (dropoffInput) dropoffInput.addEventListener('change', handleAddressChangeLive);
+
 
         // 2. Bascule de Mode : Trajet simple vs À l'heure
         modeBtns.forEach(btn => {
@@ -1370,25 +1444,55 @@
                     if (durationCol) durationCol.style.display = 'none';
                 }
 
-                // Réinitialise la flotte, les bandeaux et les capsules si on change de mode
+                // Réinitialise l'état pour le nouveau mode
                 isQuoteMode = false;
                 if (quoteNoticeEl) quoteNoticeEl.classList.remove('is-visible');
-                if (fleetSection) fleetSection.style.display = 'none';
-                if (bookingBar) bookingBar.classList.remove('is-visible');
                 if (errorNotice) errorNotice.style.display = 'none';
+
+                // Si le panier contient des trajets, le conteneur principal reste TOUJOURS visible
+                if (cartTrips.length > 0) {
+                    if (fleetSection) fleetSection.style.display = 'block';
+                } else {
+                    if (fleetSection) fleetSection.style.display = 'none';
+                }
+
+                // En mode horaire, recalcul direct et affichage instantané de la flotte
+                if (currentMode === 'hourly' && fleetSection && fleetSection.style.display !== 'none') {
+                    recalculateHourlyFleet();
+                }
                 selectedCar = null;
                 carCards.forEach(c => {
                     c.classList.remove('selected');
                     const b = c.querySelector('.etb-quick-select-btn');
                     if (b) b.textContent = 'Select';
 
-                    // Purge systématique de la capsule km pour ne laisser aucun résidu
                     const km = c.querySelector('.etb-quick-km-info');
                     if (km) {
                         km.textContent = '';
                         km.classList.remove('is-visible');
                     }
                 });
+
+                // PRÉSERVATION CRITIQUE DU PANIER ET DE LA BARRE LORS DU CHANGEMENT DE MODE
+                if (cartTrips.length > 0) {
+                    if (fleetSection) fleetSection.style.display = 'block';
+                } else {
+                    if (fleetSection) fleetSection.style.display = 'none';
+                }
+
+                // En mode horaire : recalcul et réveil IMMÉDIATS des cartes sur la durée active (ex: 4h)
+                if (currentMode === 'hourly') {
+                    recalculateHourlyFleet();
+                    if (fleetSection && fleetSection.style.display !== 'none') {
+                        carCards.forEach(c => {
+                            if (!c.classList.contains('etb-hidden')) c.style.display = 'flex';
+                        });
+                    }
+                } else if (currentMode === 'transfer' && fleetSection && fleetSection.style.display !== 'none') {
+                    // Si on repasse en transfert et que des coordonnées existent, rafraîchir en direct
+                    refreshLiveTransferPricing();
+                }
+                saveFormState();
             });
         });
 
@@ -1518,6 +1622,111 @@
         };
 
       
+        // ── RAFRAÎCHISSEMENT EN DIRECT DU PRIX TRANSFERT (LIVE UPDATE SANS FERMETURE) ──
+        const refreshLiveTransferPricing = () => {
+            // Uniquement si la flotte est déjà affichée et en mode transfert
+            if (currentMode !== 'transfer' || !fleetSection || fleetSection.style.display === 'none') {
+                return;
+            }
+
+            const fromLat = pickupLatEl ? pickupLatEl.value : '';
+            const fromLng = pickupLngEl ? pickupLngEl.value : '';
+            const toLat   = dropoffLatEl ? dropoffLatEl.value : '';
+            const toLng   = dropoffLngEl ? dropoffLngEl.value : '';
+
+            // Si les deux coordonnées GPS ne sont pas encore complètes, on attend
+            if (!fromLat || !fromLng || !toLat || !toLng) {
+                return;
+            }
+
+            // 1. État de chargement satiné VIP sur les cartes (Micro-Shimmer)
+            carCards.forEach(c => {
+                c.style.pointerEvents = 'none'; // Empêche le clic pendant le calcul
+                const priceBox = c.querySelector('.etb-quick-price-display');
+                if (priceBox) {
+                    priceBox.style.transition = 'opacity 0.2s ease, filter 0.2s ease';
+                    priceBox.style.opacity = '0.35';
+                    priceBox.style.filter = 'blur(1px)';
+                }
+            });
+
+            if (getPriceBtn) {
+                getPriceBtn.classList.add('etb-loading-glow');
+            }
+
+            const formData = new FormData();
+            formData.append('action', 'etb_quick_pricing');
+            formData.append('nonce', etbAjax.nonce);
+            formData.append('from_lat', fromLat);
+            formData.append('from_lng', fromLng);
+            formData.append('to_lat', toLat);
+            formData.append('to_lng', toLng);
+
+            fetch(etbAjax.ajax_url, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(res => {
+                if (getPriceBtn) getPriceBtn.classList.remove('etb-loading-glow');
+
+                // 2. Réactivation des clics et retrait de l'effet de flou
+                carCards.forEach(c => {
+                    c.style.pointerEvents = 'auto';
+                    const priceBox = c.querySelector('.etb-quick-price-display');
+                    if (priceBox) {
+                        priceBox.style.opacity = '1';
+                        priceBox.style.filter = 'none';
+                    }
+                });
+
+                if (res.success && res.data.pricing_data && res.data.pricing_data.length > 0) {
+                    const pricingData = res.data.pricing_data;
+
+                    pricingData.forEach(item => {
+                        if (!item || !item.vehicle_class || !item.vehicle_class.id || !item.prices || item.prices.length === 0) return;
+                        const limoUuid = String(item.vehicle_class.id).trim().toLowerCase();
+                        const targetCard = document.getElementById('limo-car-' + limoUuid) 
+                                      || document.getElementById('limo-car-' + item.vehicle_class.id)
+                                      || quickRoot.querySelector('[data-limo-class-id="' + limoUuid + '"]');
+
+                        if (targetCard) {
+                            const limoPrice = Math.round(item.prices[0].price);
+                            targetCard.dataset.calculatedPrice = limoPrice;
+                            targetCard.dataset.isQuote = (limoPrice <= 0) ? '1' : '0';
+
+                            const priceAmountEl = targetCard.querySelector('.etb-quick-amount');
+                            if (priceAmountEl && limoPrice > 0) {
+                                priceAmountEl.textContent = limoPrice;
+                            }
+                        }
+                    });
+
+                    // Si un véhicule est sélectionné, actualiser la barre inférieure
+                    if (selectedCar && selectedCar.id) {
+                        const activeCard = quickRoot.querySelector(`.etb-quick-car-item[data-id="${selectedCar.id}"]`);
+                        if (activeCard) {
+                            selectedCar.price = activeCard.dataset.calculatedPrice || selectedCar.price;
+                            const barPriceEl = quickRoot.querySelector('#etb-quick-dynamic-bar-content .etb-bar-price');
+                            if (barPriceEl && cartTrips.length === 0) {
+                                barPriceEl.innerHTML = `<span style="color: var(--etb-accent-gold, #fbac18); font-size: 26px; font-weight: 900;">${selectedCar.price} <span style="font-size: 18px;">${currency}</span></span>`;
+                            }
+                        }
+                    }
+                }
+            })
+            .catch(() => {
+                if (getPriceBtn) getPriceBtn.classList.remove('etb-loading-glow');
+                carCards.forEach(c => {
+                    c.style.pointerEvents = 'auto';
+                    const priceBox = c.querySelector('.etb-quick-price-display');
+                    if (priceBox) {
+                        priceBox.style.opacity = '1';
+                        priceBox.style.filter = 'none';
+                    }
+                });
+            });
+        };
        
 
         // Fonction d'activation du mode Devis Sur Mesure (Custom Quote)
@@ -1756,7 +1965,7 @@
             }
         };
 
-        // 4. Sélection exclusive d'un véhicule
+        // 4. Sélection d'une voiture : Illumination, mise à jour des détails et affichage du bouton doré
         carCards.forEach(card => {
             card.addEventListener('click', function () {
                 const isCarQuote = (this.dataset.isQuote === '1' || isQuoteMode);
@@ -1765,11 +1974,14 @@
                 if (this.classList.contains('selected')) {
                     this.classList.remove('selected');
                     selectedCar = null;
-                    if (bookingBar) bookingBar.classList.remove('is-visible');
-                    if (urgentNoticeEl) urgentNoticeEl.style.display = 'none';
                     const btn = this.querySelector('.etb-quick-select-btn');
-                    if (btn) {
-                        btn.textContent = (this.dataset.isQuote === '1' || isQuoteMode) ? 'Request Quote' : 'Select';
+                    if (btn) btn.textContent = isCarQuote ? 'Request Quote' : 'Select';
+
+                    if (cartTrips.length > 0) {
+                        renderTripsCart();
+                    } else {
+                        if (bookingBar) bookingBar.classList.remove('is-visible');
+                        if (bridgeTripWrap) bridgeTripWrap.style.display = 'none';
                     }
                     return;
                 }
@@ -1778,185 +1990,403 @@
                 carCards.forEach(c => {
                     c.classList.remove('selected');
                     const b = c.querySelector('.etb-quick-select-btn');
-                    if (b) {
-                        b.textContent = (c.dataset.isQuote === '1' || isQuoteMode) ? 'Request Quote' : 'Select';
-                    }
+                    if (b) b.textContent = (c.dataset.isQuote === '1' || isQuoteMode) ? 'Request Quote' : 'Select';
                 });
 
-                // Active la carte cliquée
+                // Illumine la carte cliquée
                 this.classList.add('selected');
                 const activeBtn = this.querySelector('.etb-quick-select-btn');
-                if (activeBtn) {
-                    activeBtn.textContent = 'Selected';
-                }
+                if (activeBtn) activeBtn.textContent = 'Selected';
 
-                
-               
-
-                const carName  = this.querySelector('h4')?.textContent.trim() || 'Vehicle';
-                const carPrice = this.dataset.calculatedPrice || '0';
+                const carName    = this.querySelector('h4')?.textContent.trim() || 'Vehicle';
+                const carPrice   = this.dataset.calculatedPrice || '0';
+                const carImgSrc  = this.querySelector('.etb-img-static')?.src || '';
+                const maxPax     = this.dataset.maxPax || '1';
+                const maxBag     = this.dataset.maxBag || '0';
+                const amenitiesEl= this.querySelector('.etb-quick-amenities');
+                const amenitiesHtml = amenitiesEl ? amenitiesEl.innerHTML : '';
 
                 selectedCar = {
                     id: this.dataset.id,
                     name: carName,
                     price: carPrice,
-                    isQuote: isCarQuote
+                    isQuote: isCarQuote,
+                    img: carImgSrc,
+                    maxPax: maxPax,
+                    maxBag: maxBag
                 };
 
-            
-                // Affiche la barre de confirmation inférieure en 3 colonnes
-                if (bookingBar) {
-                    let priceMainHtml = '';
-                    let priceSubHtml  = '';
-                    let priceKmHtml   = '';
+                // 1. Mise à jour de la barre du bas avec ce véhicule précis
+                const dynamicContentEl = quickRoot.querySelector('#etb-quick-dynamic-bar-content');
+                if (dynamicContentEl) {
+                    const priceHtml = isCarQuote 
+                        ? '<span style="color: var(--etb-accent-gold, #fbac18); font-size: 20px; font-weight: 800;">Custom Quote</span>' 
+                        : `<span style="color: var(--etb-accent-gold, #fbac18); font-size: 26px; font-weight: 900;">${carPrice} <span style="font-size: 18px;">${currency}</span></span>`;
 
-                    if (isCarQuote) {
-                        if (bookBtnLabel) bookBtnLabel.textContent = 'Request this Quote';
-                        priceMainHtml = '<span style="color: #fbac18; font-size: 20px; font-weight: 800;">Custom Quote</span>';
-                        priceSubHtml  = 'Pending dispatch review';
-                    } else {
-                        if (bookBtnLabel) bookBtnLabel.textContent = 'Book this Trip';
-                        priceMainHtml = `<span style="color: #fbac18; font-size: 26px; font-weight: 900; letter-spacing: -0.5px;">${carPrice} <span style="font-size: 18px;">${currency}</span></span>`;
-                        
-                        // Condition de mode pour la ligne 2 et 3
-                        if (currentMode === 'hourly') {
-                            const detailEl = this.querySelector('.etb-quick-price-detail');
-                            // Extrait et nettoie le texte (ex: "10h Package + 2 extra hour(s) • 125 € per extra hour")
-                            priceSubHtml = detailEl ? detailEl.innerHTML.replace(/<br\s*[\/]?>/gi, ' • ').replace(/<\/?strong>/gi, '') : '';
-                            
-                            const kmInfoEl = this.querySelector('.etb-quick-km-info');
-                            priceKmHtml = kmInfoEl ? kmInfoEl.textContent : '';
-                        } else {
-                            priceSubHtml = 'All inclusive (Fixed rate)';
-                            priceKmHtml  = '';
-                        }
-                    }
-
-                   
-                    // Extraction de l'image miniature du véhicule
-                    const carImgEl  = this.querySelector('.etb-img-static');
-                    const carImgSrc = carImgEl ? carImgEl.src : '';
-
-                    // Extraction des capacités et du HTML des icônes
-                    const maxPax = this.dataset.maxPax || '1';
-                    const maxBag = this.dataset.maxBag || '0';
-                    const amenitiesBox = this.querySelector('.etb-quick-amenities');
-                    const amenitiesHtml = amenitiesBox ? amenitiesBox.innerHTML : '';
-
-                    // Assemblage selon la maquette (Ligne 1: Titre | Ligne 2: Pax/Bag | Ligne 3: Amenities)
-                    const barContentHtml = `
-                        <!-- Colonne 0 : Miniature Image (Optionnelle, masquée sur mobile) -->
-                        ${carImgSrc ? `<div class="etb-bar-col-img"><img src="${carImgSrc}" alt="${carName}"></div>` : ''} 
-
-
-                        <!-- Colonne 1 : Véhicule, Pax & Équipements -->
-                        <div class="etb-bar-col1">
-                            <div class="etb-bar-v-title">
-                                <strong>${carName}</strong>
+                    dynamicContentEl.innerHTML = `
+                        <div class="etb-bar-col1" style="display: flex; flex-direction: column; justify-content: center; flex-shrink: 0;">
+                            <div class="etb-bar-v-title" style="white-space: nowrap;">
+                                <strong style="color: var(--etb-text-primary, #ffffff); font-size: 15px;">${carName}</strong>
                             </div>
-                            <div class="etb-bar-pax-bag">
-                                <span class="etb-pax-bag-item">
-                                    <svg viewBox="0 0 100 95" width="14" height="14" fill="var(--etb-accent-gold, #fbac18)"><path d="m88.484 31.117c0 8.0312-6.5117 14.539-14.539 14.539-8.0312 0-14.543-6.5078-14.543-14.539s6.5117-14.539 14.543-14.543c8.0273 0 14.539 6.5117 14.539 14.543z"/><path d="m0.90234 73.273c-3.0547 6.2812 2.0391 15.633 9.6914 17.562 16.133 3.6016 32.57 3.6016 48.703 0 7.6562-1.9336 12.75-11.281 9.6914-17.562-5.7109-11.867-18.844-22.293-34.047-22.391-15.203 0.10156-28.336 10.523-34.047 22.391z"/><path d="m54.445 25.965c0 10.77-8.7305 19.504-19.5 19.504-10.77 0-19.504-8.7344-19.504-19.504 0-10.77 8.7344-19.5 19.504-19.5 10.77-0.003906 19.5 8.7305 19.5 19.5z"/><path d="m99.328 66.391c-4.2578-8.8516-14.051-16.625-25.383-16.695-5.1719 0.03125-10.023 1.6719-14.176 4.2812 6.0273 4.4648 11.02 10.426 14.141 16.91 1.5391 3.1641 1.8438 6.8906 0.93359 10.605 5.7734-0.0625 11.539-0.73047 17.258-2.0078 5.707-1.4414 9.5078-8.4141 7.2266-13.094z"/></svg>
-                                    ${maxPax} Pax
-                                </span>
-                                <span class="etb-sep"></span> 
-                                <span class="etb-pax-bag-item">
-                                    <svg viewBox="20 15 60 88" width="14" height="14" fill="var(--etb-accent-gold, #fbac18)"><path d="M70.75,26.75H60.028l1.056,5.476c2.108-0.315,4.109,1.073,4.517,3.185l0.868,4.5c0.418,2.169-1.001,4.267-3.171,4.685 l-1.227,0.237c-2.169,0.418-4.268-1.001-4.686-3.17l-0.867-4.5c-0.408-2.113,0.936-4.146,3.01-4.637l-1.113-5.775H54.75v-14 c0-0.019-0.01-0.034-0.011-0.052c0.002-0.032,0.01-0.062,0.01-0.095c0-0.773-0.626-1.397-1.397-1.397h-6.705 c-0.771,0-1.397,0.624-1.397,1.397c0,0.034,0.008,0.065,0.01,0.098c0,0.017-0.01,0.031-0.01,0.049v14h-16c-2.209,0-4,1.791-4,4v59 c0,2.209,1.791,4,4,4h6V94c0,0.69,0.559,1.25,1.25,1.25c0.689,0,1.25-0.56,1.25-1.25v-0.25h24.5V94c0,0.69,0.559,1.25,1.25,1.25 c0.689,0,1.25-0.56,1.25-1.25v-0.25h6c2.209,0,4-1.791,4-4v-59C74.75,28.541,72.959,26.75,70.75,26.75z M47.75,14h4.5v12.75h-4.5V14 z M63.39,84.078h-26.78c-1.027,0-1.86-0.834-1.86-1.859c0-1.028,0.833-1.859,1.86-1.859h26.78c1.026,0,1.859,0.831,1.859,1.859 C65.249,83.244,64.416,84.078,63.39,84.078z"/></svg>
-                                    ${maxBag} Bag.
-                                </span>
+                            <div class="etb-bar-pax-bag" style="color: var(--etb-text-secondary, #94a3b8); font-size: 11.5px; margin-top: 3px;">
+                                <span>${maxPax} Pax • ${maxBag} Luggage</span>
                             </div>
-                            <div class="etb-quick-amenities etb-bar-amenities">${amenitiesHtml}</div>
                         </div>
-                        
-                        <!-- Colonne 2 : Lignes de Tarif -->
-                        <div class="etb-bar-col2">
-                            <div class="etb-bar-price">${priceMainHtml}</div>
-                            <div class="etb-bar-sub">${priceSubHtml}</div>
-                            ${priceKmHtml ? `<div class="etb-bar-km">${priceKmHtml}</div>` : ''}
+                        <div class="etb-bar-col2" style="display: flex; flex-direction: column; justify-content: center;">
+                            <div class="etb-bar-price">${priceHtml}</div>
+                            <div class="etb-bar-sub" style="color: var(--etb-text-secondary, #94a3b8); font-size: 11px; text-transform: uppercase;">
+                                ${currentMode === 'hourly' ? 'Hourly Charter' : 'All Inclusive (Fixed rate)'}
+                            </div>
                         </div>
                     `;
+                }
 
-                    const dynamicContentEl = quickRoot.querySelector('#etb-quick-dynamic-bar-content');
-                    if (dynamicContentEl) {
-                        dynamicContentEl.innerHTML = barContentHtml;
+                // 2. Gestion du bouton doré et du bouton principal
+                if (bridgeTripWrap && bridgeTripLabel) {
+                    bridgeTripWrap.style.display = 'flex';
+                    // Le bouton flottant
+                    bridgeTripLabel.textContent = (cartTrips.length === 0) ? 'Add another trip' : 'Add this trip';
+                    
+                    // Le bouton de la barre principale reflète TOUJOURS le véhicule en cours de sélection
+                    if (bookBtnLabel) {
+                        bookBtnLabel.textContent = isCarQuote ? 'Request this Quote' : 'Book this Trip';
                     }
+                }
 
-
-                    // Données de la course pour WhatsApp et Mailto
-                    const pVal      = pickupInput ? pickupInput.value.trim() : '';
-                    const isHourly  = (currentMode === 'hourly');
-                    const dVal      = isHourly ? `By the hour (${durationSelect ? durationSelect.value : 4} Hours rental)` : (dropoffInput ? dropoffInput.value.trim() : '');
-                    const rawDate   = dateInput ? dateInput.value.trim() : '';
-                    const tmVal     = timeInput ? timeInput.value.trim() : '';
-                    const waPhone   = (typeof etbAjax !== 'undefined' && etbAjax.company_whatsapp) ? etbAjax.company_whatsapp : '';
-                    const adminMail = (typeof etbAjax !== 'undefined' && etbAjax.admin_email) ? etbAjax.admin_email : '';
-
-                    // Formatage compact WhatsApp / Email (ex: 2026-10-03 -> 03-Oct-26)
-                    const formatPrettyDate = (dStr) => {
-                        if (!dStr) return '';
-                        const parts = dStr.split('-');
-                        if (parts.length !== 3) return dStr;
-                        const monthsEn = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                        const mIdx      = parseInt(parts[1], 10) - 1;
-                        const monthStr  = monthsEn[mIdx] || parts[1];
-                        const shortYear = parts[0].slice(-2);
-                        return `${parts[2]}-${monthStr}-${shortYear}`;
-                    };
-
-                    const prettyDate = formatPrettyDate(rawDate);
-                    const formattedDateTime = (prettyDate && tmVal) ? `${prettyDate} at ${tmVal}` : (prettyDate || tmVal || '—');
-
-                    const dropoffSymbol = isHourly ? '↻🄷🄾🅄🅁🄻🅈' : '➘🄳🄾□';
-                    const rateText      = isCarQuote ? 'Custom Quote (Pending dispatch)' : `${carPrice} ${currency}`;
-
-                    // Émoji main qui salue 👋
-                    const waveEmoji = String.fromCodePoint(0x1F44B);
-
-                    // Mise en forme officielle rigoureuse demandée
-                    const formattedMessage = `Hey *EDEN CAB* team ${waveEmoji},\n\n`
-                        + `I would like to inquire about booking a transfer with:\n\n`
-                        + `*${carName}*\n\n`
-                        + `➚🄿🅄■ ${pVal}\n\n`
-                        + `> ${dropoffSymbol} ${dVal}\n\n`
-                        + `➔ ${formattedDateTime}\n\n`
-                        + `❏ Indicative rate: ${rateText}`;
-
-
-                    // 1. Injection WhatsApp via l'API directe (élimine le bug de wa.me sur PC)
-                    if (whatsappBtn) {
-                        const waText = encodeURIComponent(formattedMessage);
-                        whatsappBtn.href = waPhone 
-                            ? `https://api.whatsapp.com/send?phone=${waPhone}&text=${waText}` 
-                            : `https://api.whatsapp.com/send?text=${waText}`;
-                    }
-
-                    // 2. Injection E-mail (Mailto avec le même résultat stylisé)
-                    const emailInquiryBtn = quickRoot.querySelector('#etb-quick-email-btn');
-                    if (emailInquiryBtn) {
-                        const emailSubject = encodeURIComponent(`[Inquiry] ${carName} — ${formattedDateTime}`);
-                        // Version lisible pour l'e-mail avec les mêmes symboles
-                        const emailBody = encodeURIComponent(formattedMessage.replace(/\*/g, ''));
-                        emailInquiryBtn.href = `mailto:${adminMail}?subject=${emailSubject}&body=${emailBody}`;
-                    }
-
-
-                    // Affichage du bandeau < 24h si le trajet est urgent
-                    if (urgentNoticeEl) {
-                        urgentNoticeEl.style.display = checkIsUrgent() ? 'block' : 'none';
-                    }
-
+                // 3. Affichage et scroll fluide vers le bas
+                if (bookingBar) {
                     bookingBar.classList.add('is-visible');
-
-                    // Auto-scroll fluide vers le bouton "Book this trip"
                     setTimeout(() => {
                         bookingBar.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }, 220);
+                    }, 180);
                 }
             });
         });
 
+        // 4bis. Clic sur le bouton doré flottant au-dessus de la barre (#etb-bridge-trip-btn)
+        if (bridgeTripBtn) {
+            bridgeTripBtn.addEventListener('click', function(e) {
+                e.preventDefault();
 
-        
+                // Si un véhicule est sélectionné : on enregistre ce trajet dans le panier
+                if (selectedCar) {
+                    const pInputEl   = quickRoot.querySelector('#etb-quick-pickup');
+                    const dInputEl   = quickRoot.querySelector('#etb-quick-dropoff');
+                    const pickupVal  = pInputEl ? pInputEl.value.trim() : '';
+                    const dropoffVal = (currentMode === 'transfer' && dInputEl) ? dInputEl.value.trim() : '';
+                    const durVal     = (currentMode === 'hourly' && durationSelect) ? durationSelect.value : '4';
+                    const dateVal    = dateInput ? dateInput.value.trim() : '';
+                    const timeVal    = timeInput ? timeInput.value.trim() : '';
+
+                    if (!pickupVal) return showError('Please enter a pickup location.');
+                    if (currentMode === 'transfer' && !dropoffVal) return showError('Please enter a drop-off location.');
+                    if (!dateVal) return showError('Please select a date.');
+                    if (!timeVal || timeVal === '-- : --') return showError('Please select a pickup time.');
+
+                    cartTrips.push({
+                        id: 'trip_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                        mode: currentMode,
+                        pickup: pickupVal,
+                        dropoff: dropoffVal,
+                        duration: durVal,
+                        date: dateVal,
+                        time: timeVal,
+                        vehicle_id: selectedCar.id,
+                        vehicle_name: selectedCar.name,
+                        vehicle_img: selectedCar.img || '',
+                        price: selectedCar.price,
+                        isQuote: selectedCar.isQuote,
+                        maxPax: selectedCar.maxPax || '1',
+                        maxBag: selectedCar.maxBag || '0'
+                    });
+
+                    saveCartToStorage();
+
+                    // Détermine si on était en train d'ajouter ce véhicule ("Add this trip")
+                    const wasAddingThisTrip = bridgeTripLabel && bridgeTripLabel.textContent.includes('this trip');
+
+                    // Réinitialisation de la sélection
+                    selectedCar = null;
+                    carCards.forEach(c => c.classList.remove('selected'));
+
+                    // Mise à jour de la barre et du panier
+                    renderTripsCart();
+
+                    // RÈGLE DU SCROLL :
+                    // Si c'était "Add this trip" -> RESTE EN BAS (aucun scroll vers le haut)
+                    // Si c'était "Add another trip" (Trip 1) -> remonte vers la barre de recherche
+                    if (!wasAddingThisTrip) {
+                        const searchBar = quickRoot.querySelector('.etb-quick-glass-bar') || quickRoot;
+                        searchBar.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                } else if (cartTrips.length > 0) {
+                    // Consultation du panier : clic sur "Add another trip" -> scroll vers le haut
+                    const searchBar = quickRoot.querySelector('.etb-quick-glass-bar') || quickRoot;
+                    searchBar.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            });
+        }
+        // ── FORMATAGE DE DATE HAUTE CONCIERGERIE VIP ──
+        const formatLuxuryDateText = (dateStr, timeStr) => {
+            if (!dateStr) return '—';
+            const parts = dateStr.split('-');
+            if (parts.length !== 3) return dateStr + (timeStr ? ` • ${timeStr}` : '');
+            
+            const dateObj = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+            const daysShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const monthsShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            
+            const dayName   = daysShort[dateObj.getDay()] || '';
+            const monthName = monthsShort[dateObj.getMonth()] || parts[1];
+            const dayNum    = String(parts[2]).padStart(2, '0');
+            
+            const cleanTime = (timeStr && timeStr !== '-- : --') ? ` • ${timeStr}` : '';
+            return `${dayName}, ${dayNum} ${monthName} ${parts[0]}${cleanTime}`;
+        };
+
+        // ── GESTION DU PANIER MULTI-TRAJETS (VIP CART ENGINE) ──
+        const renderTripsCart = () => {
+            if (!tripsCartEl || !tripsListEl) return;
+
+            // 1. SI LE PANIER EST VIDE
+            if (cartTrips.length === 0) {
+                tripsCartEl.style.display = 'none';
+                tripsListEl.innerHTML = '';
+                if (tripsCountEl) tripsCountEl.textContent = '0';
+                if (bookBtnLabel) bookBtnLabel.textContent = 'Book this Trip';
+                
+                // Masque la barre du bas et le bouton doré uniquement si aucune voiture n'est en cours de sélection
+                if (!selectedCar) {
+                    if (bookingBar) bookingBar.classList.remove('is-visible');
+                    if (bridgeTripWrap) bridgeTripWrap.style.display = 'none';
+                }
+                return;
+            }
+
+            // 2. SI LE PANIER CONTIENT DES TRAJETS
+            // Dévoile immédiatement le conteneur parent, le panier ET la barre de confirmation
+            if (fleetSection) fleetSection.style.display = 'block';
+            tripsCartEl.style.display = 'block';
+            if (bookingBar) bookingBar.classList.add('is-visible');
+            if (tripsCountEl) tripsCountEl.textContent = cartTrips.length;
+
+            let html = '';
+            let cumulativeTotal = 0;
+            let hasCustomQuoteInCart = false;
+
+            cartTrips.forEach((trip, index) => {
+                const isQuote = trip.isQuote;
+                if (isQuote) {
+                    hasCustomQuoteInCart = true;
+                } else {
+                    cumulativeTotal += parseFloat(trip.price) || 0;
+                }
+
+                const priceDisplay = isQuote 
+                    ? '<span style="color: var(--etb-accent-gold, #fbac18); font-weight: 800; font-size: 13px;">Quote Upon Request</span>' 
+                    : `<strong style="color: var(--etb-text-primary, #ffffff); font-size: 15px; font-weight: 800;">${parseFloat(trip.price).toFixed(0)} <span style="font-size: 12px; color: var(--etb-accent-gold, #fbac18);">${currency}</span></strong>`;
+
+                const formattedDateTime = formatLuxuryDateText(trip.date, trip.time);
+
+                // Ligne d'itinéraire responsive VIP (2 lignes empilées)
+                const routeHtml = (trip.mode === 'hourly')
+                    ? `<div style="display: flex; flex-direction: column; gap: 4px; margin-top: 3px;">
+                         <div style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--etb-accent-gold, #fbac18);">
+                           <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                           <strong>By the hour (${trip.duration} Hours Charter)</strong>
+                         </div>
+                         <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--etb-text-secondary, #cbd5e1); overflow: hidden;">
+                           <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; flex-shrink: 0;"></span>
+                           <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">${trip.pickup}</span>
+                         </div>
+                       </div>`
+                    : `<div style="display: flex; flex-direction: column; gap: 4px; margin-top: 3px; width: 100%; overflow: hidden;">
+                         <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--etb-text-secondary, #cbd5e1); overflow: hidden;">
+                           <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; flex-shrink: 0;" title="Pickup"></span>
+                           <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">${trip.pickup}</span>
+                         </div>
+                         <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--etb-text-secondary, #cbd5e1); overflow: hidden;">
+                           <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--etb-accent-gold, #fbac18); flex-shrink: 0;" title="Drop-off"></span>
+                           <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">${trip.dropoff}</span>
+                         </div>
+                       </div>`;
+
+                html += `
+                    <div class="etb-cart-trip-item" style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); border: 1px solid var(--etb-border-light, rgba(255,255,255,0.08)); border-radius: 9px; padding: 12px 16px; gap: 14px; transition: all 0.2s ease;">
+                        <div style="display: flex; flex-direction: column; gap: 3px; overflow: hidden; flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; overflow: hidden; width: 100%;">
+                                <span style="background: var(--etb-accent-gold, #fbac18); color: #0f172a; font-size: 10px; font-weight: 900; padding: 2px 7px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0;">Leg #${index + 1}</span>
+                                <strong style="color: var(--etb-text-primary, #ffffff); font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1;">${trip.vehicle_name}</strong>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--etb-text-secondary, #94a3b8); flex-wrap: wrap;">
+                                <span style="color: var(--etb-accent-gold, #fbac18); font-weight: 700;">${trip.maxPax} Pax • ${trip.maxBag} Bags</span>
+                                <span>•</span>
+                                <span>${formattedDateTime}</span>
+                            </div>
+                            ${routeHtml}
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 14px; flex-shrink: 0;">
+                            <div>${priceDisplay}</div>
+                            <button type="button" class="etb-cart-remove-trip-btn" data-index="${index}" title="Remove this transfer" style="background: rgba(239, 68, 68, 0.12) !important; border: 1px solid rgba(239, 68, 68, 0.4) !important; width: 30px !important; height: 30px !important; border-radius: 8px !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; cursor: pointer !important; padding: 0 !important; transition: all 0.2s ease !important;">
+                                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block; width: 11px; height: 11px; flex-shrink: 0;">
+                                    <path d="M1.5 1.5L10.5 10.5M10.5 1.5L1.5 10.5" stroke="#f87171" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            tripsListEl.innerHTML = html;
+
+            // Écouteurs de suppression
+            tripsListEl.querySelectorAll('.etb-cart-remove-trip-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const idx = parseInt(this.dataset.index, 10);
+                    if (!isNaN(idx) && idx >= 0 && idx < cartTrips.length) {
+                        cartTrips.splice(idx, 1);
+                        saveCartToStorage();
+                        renderTripsCart();
+                    }
+                });
+            });
+
+            // Libellé intelligent du bouton d'action principal
+            if (bookBtnLabel) {
+                // Si un véhicule est sélectionné, le bouton cible ce véhicule précis
+                if (selectedCar) {
+                    bookBtnLabel.textContent = selectedCar.isQuote ? 'Request this Quote' : 'Book this Trip';
+                } else {
+                    // Si on est en consultation de panier globale
+                    if (hasCustomQuoteInCart) {
+                        bookBtnLabel.textContent = (cartTrips.length === 1) ? 'Request this Quote' : `Request Quote (${cartTrips.length} Transfers)`;
+                    } else {
+                        bookBtnLabel.textContent = (cartTrips.length === 1) ? 'Book this Trip' : `Proceed to Checkout (${cartTrips.length} Transfers)`;
+                    }
+                }
+            }
+
+            const dynamicContentEl = quickRoot.querySelector('#etb-quick-dynamic-bar-content');
+            if (dynamicContentEl && !selectedCar) {
+                // Le bouton doré flottant au-dessus reste affiché pour ajouter d'autres courses
+                if (bridgeTripWrap && bridgeTripLabel) {
+                    bridgeTripWrap.style.display = 'flex';
+                    bridgeTripLabel.textContent = 'Add another trip';
+                }
+
+                dynamicContentEl.innerHTML = `
+                    <div class="etb-bar-col1" style="display: flex; flex-direction: column; justify-content: center; flex-shrink: 0;">
+                        <div class="etb-bar-v-title" style="white-space: nowrap;">
+                            <strong style="color: var(--etb-text-primary, #ffffff); font-size: 15px; letter-spacing: 0.02em;">
+                                ${cartTrips.length} Scheduled Transfers
+                            </strong>
+                        </div>
+                    </div>
+                    <div class="etb-bar-col2" style="display: flex; flex-direction: column; justify-content: center;">
+                        <div class="etb-bar-price">
+                            ${hasCustomQuoteInCart 
+                                ? '<span style="color: var(--etb-accent-gold, #fbac18); font-size: 22px; font-weight: 800;">Custom Quote</span>' 
+                                : `<span style="color: var(--etb-accent-gold, #fbac18); font-size: 28px; font-weight: 900; letter-spacing: -0.5px;">${cumulativeTotal.toFixed(0)} <span style="font-size: 18px;">${currency}</span></span>`}
+                        </div>
+                        <div class="etb-bar-sub" style="color: var(--etb-text-secondary, #94a3b8); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;">
+                            Fixed All-Inclusive Rate
+                        </div>
+                    </div>
+                `;
+            } else if (dynamicContentEl && selectedCar) {
+                const priceBox = dynamicContentEl.querySelector('.etb-bar-price');
+                const subBox   = dynamicContentEl.querySelector('.etb-bar-sub');
+                const kmBox    = dynamicContentEl.querySelector('.etb-bar-km');
+
+                if (priceBox) {
+                    priceBox.innerHTML = hasCustomQuoteInCart 
+                        ? '<span style="color: var(--etb-accent-gold, #fbac18); font-size: 22px; font-weight: 800;">Custom Quote</span>' 
+                        : `<span style="color: var(--etb-accent-gold, #fbac18); font-size: 28px; font-weight: 900; letter-spacing: -0.5px;">${cumulativeTotal.toFixed(0)} <span style="font-size: 18px;">${currency}</span></span>`;
+                }
+                if (subBox) {
+                    subBox.innerHTML = `<span style="color: var(--etb-text-secondary, #94a3b8); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;">Fixed All-Inclusive Rate</span>`;
+                }
+                if (kmBox) kmBox.style.display = 'none';
+            }
+        };
+
+       // 4bis. Clic sur "Add this Trip" / "Add another trip"
+        if (addTripBtn) {
+            addTripBtn.style.setProperty('background', 'rgba(251, 172, 24, 0.1)', 'important');
+            addTripBtn.style.setProperty('border', '1.5px solid #fbac18', 'important');
+            addTripBtn.style.setProperty('color', '#fbac18', 'important');
+
+            addTripBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+
+                // Si aucun nouveau véhicule n'est sélectionné et que le panier a déjà des trajets :
+                // Le client veut enchaîner sur un autre trajet -> Auto-scroll fluide vers la barre du haut !
+                if (!selectedCar && cartTrips.length > 0) {
+                    const searchBar = quickRoot.querySelector('.etb-quick-glass-bar') || quickRoot;
+                    searchBar.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    return;
+                }
+
+                if (!selectedCar) {
+                    showError('Please select a vehicle above before adding this trip.');
+                    return;
+                }
+
+                const pInputEl = quickRoot.querySelector('#etb-quick-pickup');
+                const dInputEl = quickRoot.querySelector('#etb-quick-dropoff');
+                const pickupVal  = pInputEl ? pInputEl.value.trim() : '';
+                const dropoffVal = (currentMode === 'transfer' && dInputEl) ? dInputEl.value.trim() : '';
+                const durVal     = (currentMode === 'hourly' && durationSelect) ? durationSelect.value : '4';
+                const dateVal    = dateInput ? dateInput.value.trim() : '';
+                const timeVal    = timeInput ? timeInput.value.trim() : '';
+
+                if (!pickupVal) return showError('Please enter a pickup location.');
+                if (currentMode === 'transfer' && !dropoffVal) return showError('Please enter a drop-off location.');
+                if (!dateVal) return showError('Please select a date.');
+                if (!timeVal || timeVal === '-- : --') return showError('Please select a pickup time.');
+
+                const newTrip = {
+                    id: 'trip_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                    mode: currentMode,
+                    pickup: pickupVal,
+                    dropoff: dropoffVal,
+                    duration: durVal,
+                    date: dateVal,
+                    time: timeVal,
+                    vehicle_id: selectedCar.id,
+                    vehicle_name: selectedCar.name,
+                    vehicle_img: selectedCar.img || '',
+                    price: selectedCar.price,
+                    isQuote: selectedCar.isQuote,
+                    maxPax: selectedCar.maxPax || '1',
+                    maxBag: selectedCar.maxBag || '0'
+                };
+
+                cartTrips.push(newTrip);
+                saveCartToStorage();
+
+                // 1. Désélectionne la carte véhicule dans la grille au-dessus
+                carCards.forEach(c => {
+                    c.classList.remove('selected');
+                    const b = c.querySelector('.etb-quick-select-btn');
+                    if (b) b.textContent = (c.dataset.isQuote === '1' || isQuoteMode) ? 'Request Quote' : 'Select';
+                });
+
+                // 2. Remet selectedCar à null AVANT d'actualiser le panier
+                selectedCar = null;
+
+                // 3. Bascule instantanément la barre en mode Récapitulatif officiel
+                renderTripsCart();
+
+                // 4. Défilement fluide automatique vers le haut pour configurer le trajet suivant
+                setTimeout(() => {
+                    const searchBar = quickRoot.querySelector('.etb-quick-glass-bar') || quickRoot;
+                    searchBar.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 300);
+            });
+        }
         
 
         // 5. Clic sur "Book this Trip" : Génération du Quote Token sécurisé et redirection
@@ -1964,31 +2394,50 @@
             bookNowBtn.addEventListener('click', function (e) {
                 e.preventDefault();
 
-                if (!selectedCar) {
-                    showError('Please select a vehicle from the list above before proceeding.');
+                // Si aucun trajet n'est au panier et aucune voiture n'est sélectionnée : erreur
+                if (cartTrips.length === 0 && !selectedCar) {
+                    showError('Please select a vehicle or add at least one trip to your booking.');
                     return;
                 }
 
-                // Lecture directe et robuste du champ pickup dans le widget
-                const pInputEl   = quickRoot.querySelector('#etb-quick-pickup');
-                const dInputEl   = quickRoot.querySelector('#etb-quick-dropoff');
-                
-                const pickupVal  = pInputEl ? pInputEl.value.trim() : '';
-                const dropoffVal = (currentMode === 'transfer' && dInputEl) ? dInputEl.value.trim() : '';
-                const durVal     = (currentMode === 'hourly' && durationSelect) ? durationSelect.value : '4';
-                const dateVal    = dateInput ? dateInput.value.trim() : '';
-                const timeVal    = timeInput ? timeInput.value.trim() : '';
+                // Si une voiture est actuellement sélectionnée mais pas encore ajoutée au panier, on l'ajoute automatiquement !
+                if (selectedCar) {
+                    const pInputEl   = quickRoot.querySelector('#etb-quick-pickup');
+                    const dInputEl   = quickRoot.querySelector('#etb-quick-dropoff');
+                    const pickupVal  = pInputEl ? pInputEl.value.trim() : '';
+                    const dropoffVal = (currentMode === 'transfer' && dInputEl) ? dInputEl.value.trim() : '';
+                    const durVal     = (currentMode === 'hourly' && durationSelect) ? durationSelect.value : '4';
+                    const dateVal    = dateInput ? dateInput.value.trim() : '';
+                    const timeVal    = timeInput ? timeInput.value.trim() : '';
 
-                // Sécurité front-end immédiate avec message clair avant l'appel AJAX
-                if (!pickupVal) {
-                    showError('Please enter a pickup location.');
-                    if (pInputEl) pInputEl.focus();
-                    return;
-                }
-                if (currentMode === 'transfer' && !dropoffVal) {
-                    showError('Please enter a drop-off location.');
-                    if (dInputEl) dInputEl.focus();
-                    return;
+                    if (!pickupVal) {
+                        showError('Please enter a pickup location.');
+                        if (pInputEl) pInputEl.focus();
+                        return;
+                    }
+                    if (currentMode === 'transfer' && !dropoffVal) {
+                        showError('Please enter a drop-off location.');
+                        if (dInputEl) dInputEl.focus();
+                        return;
+                    }
+
+                    // Ajout automatique au panier avant envoi
+                    cartTrips.push({
+                        id: 'trip_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                        mode: currentMode,
+                        pickup: pickupVal,
+                        dropoff: dropoffVal,
+                        duration: durVal,
+                        date: dateVal,
+                        time: timeVal,
+                        vehicle_id: selectedCar.id,
+                        vehicle_name: selectedCar.name,
+                        vehicle_img: selectedCar.img || '',
+                        price: selectedCar.price,
+                        isQuote: selectedCar.isQuote,
+                        maxPax: selectedCar.maxPax || '1',
+                        maxBag: selectedCar.maxBag || '0'
+                    });
                 }
 
                 // État de chargement discret sur le bouton
@@ -2000,15 +2449,20 @@
                 const formData = new FormData();
                 formData.append('action', 'etb_create_quote');
                 formData.append('nonce', etbAjax.nonce);
-                formData.append('mode', currentMode);
-                formData.append('pickup', pickupVal);
-                formData.append('dropoff', dropoffVal);
-                formData.append('duration', durVal);
-                formData.append('date', dateVal);
-                formData.append('time', timeVal);
-                formData.append('vehicle_id', selectedCar.id);
-                formData.append('price', selectedCar.price);
 
+                // Envoi de l'ensemble des trajets du panier en JSON
+                formData.append('trips', JSON.stringify(cartTrips));
+
+                // Données de secours du premier trajet pour rétrocompatibilité
+                const firstTrip = cartTrips[0];
+                formData.append('mode', firstTrip.mode);
+                formData.append('pickup', firstTrip.pickup);
+                formData.append('dropoff', firstTrip.dropoff);
+                formData.append('duration', firstTrip.duration);
+                formData.append('date', firstTrip.date);
+                formData.append('time', firstTrip.time);
+                formData.append('vehicle_id', firstTrip.vehicle_id);
+                formData.append('price', firstTrip.price);
                 fetch(etbAjax.ajax_url, {
                     method: 'POST',
                     body: formData
@@ -2034,7 +2488,92 @@
                 });
             });
         }
-                      
+         
+
+         // ── RESTAURATION AUTOMATIQUE DE LA SESSION (RETOUR DU CHECKOUT OU ACTUALISATION) ──
+        const restoreQuickSession = () => {
+            // 1. Restauration des champs du formulaire
+            try {
+                const savedState = sessionStorage.getItem('etb_quick_form_state');
+                if (savedState) {
+                    const st = JSON.parse(savedState);
+                    if (st) {
+                        if (st.pickup && pickupInput) {
+                            pickupInput.value = st.pickup;
+                            if (pickupClearBtn) pickupClearBtn.classList.add('is-visible');
+                        }
+                        if (st.pickupLat && pickupLatEl) pickupLatEl.value = st.pickupLat;
+                        if (st.pickupLng && pickupLngEl) pickupLngEl.value = st.pickupLng;
+                        if (st.dropoff && dropoffInput) {
+                            dropoffInput.value = st.dropoff;
+                            if (dropoffClearBtn) dropoffClearBtn.classList.add('is-visible');
+                        }
+                        if (st.dropoffLat && dropoffLatEl) dropoffLatEl.value = st.dropoffLat;
+                        if (st.dropoffLng && dropoffLngEl) dropoffLngEl.value = st.dropoffLng;
+                        if (st.date && dateInput) {
+                            dateInput.value = st.date;
+                            if (dateTextEl && typeof formatCustomDate === 'function') {
+                                dateTextEl.textContent = formatCustomDate(st.date);
+                            }
+                        }
+                        if (st.time && timeInput) {
+                            timeInput.value = st.time;
+                        }
+                        if (st.duration && durationSelect) {
+                            durationSelect.value = st.duration;
+                        }
+                        if (st.mode && st.mode !== currentMode) {
+                            const targetModeBtn = quickRoot.querySelector(`.etb-quick-mode-btn[data-mode="${st.mode}"]`);
+                            if (targetModeBtn) targetModeBtn.click();
+                        }
+                    }
+                }
+            } catch (e) {}
+
+            // 2. Restauration du panier
+            try {
+                const storedCart = sessionStorage.getItem('etb_cart_trips');
+                if (storedCart) {
+                    const parsedCart = JSON.parse(storedCart);
+                    if (Array.isArray(parsedCart) && parsedCart.length > 0) {
+                        cartTrips = parsedCart;
+                        renderTripsCart();
+                    }
+                }
+            } catch (e) {}
+
+           // 3. RÉVEIL AUTOMATIQUE DES PRIX ET DE LA FLOTTE
+            // (Simule intelligemment le clic sur "Show Prices" si les champs sont prêts)
+            setTimeout(() => {
+                const hasPickup = pickupInput && pickupInput.value.trim() !== '';
+                const hasDate   = dateInput && dateInput.value.trim() !== '';
+                const hasTime   = timeInput && timeInput.value.trim() !== '-- : --' && timeInput.value.trim() !== '';
+
+                if (hasPickup && hasDate && hasTime) {
+                    if (currentMode === 'hourly') {
+                        if (getPriceBtn) getPriceBtn.click();
+                    } else if (currentMode === 'transfer') {
+                        const fromLat    = pickupLatEl ? pickupLatEl.value : '';
+                        const toLat      = dropoffLatEl ? dropoffLatEl.value : '';
+                        const hasDropoff = dropoffInput && dropoffInput.value.trim() !== '';
+                        
+                        // Si les coordonnées GPS du point A et du point B sont bien restaurées
+                        if (fromLat && toLat && hasDropoff) {
+                            if (getPriceBtn) getPriceBtn.click();
+                        }
+                    }
+                }
+            }, 100);
+        };
+
+        // Sauvegarde de l'état du formulaire à chaque saisie
+        if (pickupInput)  pickupInput.addEventListener('change', saveFormState);
+        if (dropoffInput) dropoffInput.addEventListener('change', saveFormState);
+        if (dateInput)    dateInput.addEventListener('change', saveFormState);
+        if (timeInput)    timeInput.addEventListener('change', saveFormState);
+
+        // Lancement immédiat de la restauration
+        restoreQuickSession();             
     };
 
     // ==========================================================================
@@ -2459,28 +2998,33 @@
             if (vehicleIdInput) vehicleIdInput.value = vehicleId;
             if (priceInput) priceInput.value = rawPrice;
 
-            // Affichage de l'itinéraire dans le récapitulatif
-            if (sumPickup && pickupAddr) sumPickup.textContent = pickupAddr;
+            const isMultiTripEl = checkoutRoot.querySelector('#etb-chk-is-multi-trip');
+            const isMultiTrip   = isMultiTripEl && isMultiTripEl.value === '1';
 
-            if (tripMode === 'hourly') {
-                if (sumDropoffRow) {
-                    sumDropoffRow.classList.add('is-hidden');
-                    sumDropoffRow.style.setProperty('display', 'none', 'important');
-                }
-                if (sumDurationRow) {
-                    sumDurationRow.classList.remove('is-hidden');
-                    sumDurationRow.style.setProperty('display', 'flex', 'important');
-                    if (sumDuration) sumDuration.textContent = `${durVal} Hours rental`;
-                }
-            } else {
-                if (sumDurationRow) {
-                    sumDurationRow.classList.add('is-hidden');
-                    sumDurationRow.style.setProperty('display', 'none', 'important');
-                }
-                if (sumDropoffRow) {
-                    sumDropoffRow.classList.remove('is-hidden');
-                    sumDropoffRow.style.setProperty('display', 'flex', 'important');
-                    if (sumDropoff && dropoffAddr) sumDropoff.textContent = dropoffAddr;
+            // Affichage de l'itinéraire dans le récapitulatif (UNIQUEMENT si mono-trajet)
+            if (!isMultiTrip) {
+                if (sumPickup && pickupAddr) sumPickup.textContent = pickupAddr;
+
+                if (tripMode === 'hourly') {
+                    if (sumDropoffRow) {
+                        sumDropoffRow.classList.add('is-hidden');
+                        sumDropoffRow.style.setProperty('display', 'none', 'important');
+                    }
+                    if (sumDurationRow) {
+                        sumDurationRow.classList.remove('is-hidden');
+                        sumDurationRow.style.setProperty('display', 'flex', 'important');
+                        if (sumDuration) sumDuration.textContent = `${durVal} Hours rental`;
+                    }
+                } else {
+                    if (sumDurationRow) {
+                        sumDurationRow.classList.add('is-hidden');
+                        sumDurationRow.style.setProperty('display', 'none', 'important');
+                    }
+                    if (sumDropoffRow) {
+                        sumDropoffRow.classList.remove('is-hidden');
+                        sumDropoffRow.style.setProperty('display', 'flex', 'important');
+                        if (sumDropoff && dropoffAddr) sumDropoff.textContent = dropoffAddr;
+                    }
                 }
             }
 
@@ -2618,6 +3162,9 @@
                 const airportGrid  = checkoutRoot.querySelector('#etb-chk-airport-grid');
                 const waitTimeText = checkoutRoot.querySelector('#etb-chk-wait-time-text');
 
+                // En mode multi-trajets, le temps d'attente est déjà calculé dynamiquement par le serveur
+                const isMultiTripOrder = checkoutRoot.querySelector('#etb-chk-is-multi-trip')?.value === '1';
+
                 if (isPickupAirport) {
                     airportCard.style.display = 'block';
                     if (airportTitle) airportTitle.textContent = 'Airport Arrival & Greeting';
@@ -2626,7 +3173,7 @@
                     if (flightHint)   flightHint.textContent   = '1 hour free waiting time after landing.';
                     if (signField)    signField.style.display  = 'block';
                     if (airportGrid)  airportGrid.style.gridTemplateColumns = '';
-                    if (waitTimeText) waitTimeText.textContent = '60 min complimentary wait time included (flight tracking)';
+                    if (waitTimeText && !isMultiTripOrder) waitTimeText.textContent = '60 min complimentary wait time included (flight tracking)';
                 } else if (isDropoffAirport) {
                     airportCard.style.display = 'block';
                     if (airportTitle) airportTitle.textContent = 'Airport Drop-off & Departure Terminal';
@@ -2639,10 +3186,10 @@
                         if (signInput) signInput.value = '';
                     }
                     if (airportGrid)  airportGrid.style.gridTemplateColumns = '1fr';
-                    if (waitTimeText) waitTimeText.textContent = '15 min complimentary wait time included';
+                    if (waitTimeText && !isMultiTripOrder) waitTimeText.textContent = '15 min complimentary wait time included';
                 } else {
                     airportCard.style.display = 'none';
-                    if (waitTimeText) waitTimeText.textContent = '15 min complimentary wait time included';
+                    if (waitTimeText && !isMultiTripOrder) waitTimeText.textContent = '15 min complimentary wait time included';
                     if (signField) {
                         const signInput = signField.querySelector('input');
                         if (signInput) signInput.value = '';
@@ -2802,6 +3349,103 @@
                 const maxLimit = parseInt(paxInputEl.dataset.max, 10) || 3;
                 if (val < maxLimit) {
                     paxInputEl.value = val + 1;
+                }
+            });
+        }
+
+        // ── GESTION DES ONGLETS DE TRAJETS ET CAPACITÉS INDÉPENDANTES (VIP PER-LEG) ──
+        const legTabBtns     = checkoutRoot.querySelectorAll('.etb-chk-leg-tab-btn');
+        const legInfoVehicle = checkoutRoot.querySelector('#etb-chk-leg-info-vehicle');
+        const legInfoRoute   = checkoutRoot.querySelector('#etb-chk-leg-info-route');
+        const legInfoDate    = checkoutRoot.querySelector('#etb-chk-leg-info-date');
+        const legsDataInput  = checkoutRoot.querySelector('#etb-chk-legs-data');
+
+        let currentActiveLeg = 0;
+        let perLegState      = [];
+
+        // Initialisation de l'état pour chaque onglet
+        if (legTabBtns.length > 0) {
+            legTabBtns.forEach((btn, idx) => {
+                const maxPax = parseInt(btn.dataset.maxPax, 10) || 3;
+                const maxBag = parseInt(btn.dataset.maxBag, 10) || 2;
+                perLegState.push({
+                    pax: 1,
+                    checked: Math.min(1, maxBag),
+                    cabin: 0,
+                    maxPax: maxPax,
+                    maxBag: maxBag
+                });
+            });
+
+            const syncLegsDataInput = () => {
+                if (legsDataInput) {
+                    legsDataInput.value = JSON.stringify(perLegState);
+                }
+            };
+
+            const switchLegTab = (targetIdx) => {
+                if (targetIdx < 0 || targetIdx >= perLegState.length) return;
+
+                // 1. Sauvegarde des valeurs du trajet qui était ouvert
+                if (paxInputEl)      perLegState[currentActiveLeg].pax     = parseInt(paxInputEl.value, 10) || 1;
+                if (bagInputEl)      perLegState[currentActiveLeg].checked = parseInt(bagInputEl.value, 10) || 0;
+                if (cabinBagInputEl) perLegState[currentActiveLeg].cabin   = parseInt(cabinBagInputEl.value, 10) || 0;
+
+                currentActiveLeg = targetIdx;
+                const targetBtn  = legTabBtns[targetIdx];
+                const legData    = perLegState[targetIdx];
+
+                // 2. Mise à jour visuelle des pilules d'onglets
+                legTabBtns.forEach((b, i) => {
+                    const isActive = (i === targetIdx);
+                    b.classList.toggle('active', isActive);
+                    b.style.border     = isActive ? '1.5px solid var(--etb-accent-gold, #fbac18)' : '1px solid var(--etb-border-light, rgba(255,255,255,0.12))';
+                    b.style.background = isActive ? 'rgba(251, 172, 24, 0.15)' : 'rgba(255,255,255,0.03)';
+                    b.style.color      = isActive ? 'var(--etb-accent-gold, #fbac18)' : 'var(--etb-text-secondary, #94a3b8)';
+                });
+
+                // 3. Mise à jour du bandeau contextuel (Zone verte)
+                if (legInfoVehicle && targetBtn.dataset.vehicle) legInfoVehicle.textContent = targetBtn.dataset.vehicle;
+                if (legInfoRoute && targetBtn.dataset.route)     legInfoRoute.textContent   = targetBtn.dataset.route;
+                if (legInfoDate && targetBtn.dataset.date)       legInfoDate.textContent    = '📅 ' + targetBtn.dataset.date;
+
+                // 4. Adaptation dynamique des capacités MAX du véhicule actif
+                if (paxHint) paxHint.textContent = 'Max: ' + legData.maxPax;
+                if (paxInputEl) {
+                    paxInputEl.dataset.max = legData.maxPax;
+                    paxInputEl.value       = Math.min(legData.pax, legData.maxPax);
+                }
+
+                if (bagInputEl) {
+                    bagInputEl.value = legData.checked;
+                }
+                if (cabinBagInputEl) {
+                    cabinBagInputEl.value = legData.cabin;
+                }
+
+                syncLegsDataInput();
+            };
+
+            // Écouteur de clic sur chaque onglet
+            legTabBtns.forEach((btn, idx) => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    switchLegTab(idx);
+                });
+            });
+
+            // Initialisation avec le premier onglet actif
+            switchLegTab(0);
+
+            // Synchronisation continue dès que l'utilisateur clique sur +/-
+            [paxMinusBtn, paxPlusBtn, bagMinusBtn, bagPlusBtn, cabinBagMinusBtn, cabinBagPlusBtn].forEach(btn => {
+                if (btn) {
+                    btn.addEventListener('click', () => {
+                        if (paxInputEl)      perLegState[currentActiveLeg].pax     = parseInt(paxInputEl.value, 10) || 1;
+                        if (bagInputEl)      perLegState[currentActiveLeg].checked = parseInt(bagInputEl.value, 10) || 0;
+                        if (cabinBagInputEl) perLegState[currentActiveLeg].cabin   = parseInt(cabinBagInputEl.value, 10) || 0;
+                        syncLegsDataInput();
+                    });
                 }
             });
         }
@@ -3052,11 +3696,12 @@
                         ? etbAjax.home_url 
                         : (window.location.origin + '/');
 
-                    const leftCol = checkoutRoot.querySelector('.etb-checkout-left-col');
+                   const leftCol = checkoutRoot.querySelector('.etb-checkout-left-col');
                     if (leftCol) {
-                        const finalDisplayRef = res.data.booking_ref || ('#' + res.data.booking_id);
+                        const rawRef = String(res.data.booking_ref || res.data.booking_id || '').replace(/^#+/, '');
+                        const finalDisplayRef = rawRef ? ('#' + rawRef) : ('#' + res.data.booking_id);
                         let successTitle    = 'Reservation Registered (Payment Pending)';
-                        let successSubtitle = 'Your reservation <strong>#' + finalDisplayRef + '</strong> has been registered.';
+                        let successSubtitle = 'Your reservation <strong>' + finalDisplayRef + '</strong> has been registered.';
                         let successDetails  = '<p style="margin: 6px 0;">An email with your secure payment link has been sent to <strong>' + emailVal + '</strong>.</p>'
                             + '<p style="margin: 6px 0;">You can complete your payment anytime before pickup to confirm your chauffeur.</p>';
 
