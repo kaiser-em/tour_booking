@@ -899,29 +899,29 @@
 }
 
 
-/* État déployé : glissement ascendant et fondu soyeux */
+/* État déployé : respiration sans coupure de bordure */
 .etb-quick-confirm-bar.is-visible {
     display: flex !important;
     position: relative !important;
-    max-height: 600px !important;
     z-index: 50 !important;
     width: 100% !important;
     background: var(--etb-bg-card, #0b0f19) !important;
     border: 1.5px solid var(--etb-border-main, #232a3b) !important;
     box-shadow: var(--etb-shadow-base, 0 10px 30px rgba(0, 0, 0, 0.1)) !important;
     border-radius: 16px !important;
-    padding: 18px 26px !important;
-    margin-top: 10px !important; 
+    padding: 16px 20px !important;
+    margin-top: 0px !important; 
     margin-bottom: 20px !important;
     opacity: 1 !important;
     border-color: var(--etb-border-main, #232a3b) !important;
     transform: translateY(0) scale(1) !important;
     pointer-events: auto !important;
-    max-height: 180px !important;
+    max-height: 220px !important;
     justify-content: space-between !important;
     align-items: center !important;
-    gap: 16px !important;
+    gap: 14px !important;
     box-sizing: border-box !important;
+    overflow: visible !important; /* Évite toute coupure du bouton sur le bord droit */
     clear: both !important;
 }
 
@@ -968,15 +968,16 @@
     color: #0f172a !important;
     border: none !important;
     border-radius: 50px !important;
-    padding: 13px 28px !important;
-    font-size: 14px !important;
+    padding: 11px 20px !important;
+    font-size: 13.5px !important;
     font-weight: 800 !important;
     cursor: pointer !important;
     display: inline-flex !important;
     align-items: center !important;
-    gap: 8px !important;
+    gap: 7px !important;
     transition: all 0.25s ease !important;
     white-space: nowrap !important;
+    flex-shrink: 0 !important;
 }
 
 .etb-quick-book-trip-btn:hover {
@@ -1054,7 +1055,7 @@
     font-size: 13px !important;
     font-weight: 600 !important;
     cursor: pointer !important;
-    transition: all 0.25s ease !important;
+    transition: all 0.3s ease-in-out !important;
     white-space: nowrap !important;
     text-decoration: none !important;
     flex: 0 0 auto !important;
@@ -1067,12 +1068,18 @@
     color: #ffffff !important;
 }
 
+.etb-quick-email-btn:hover .dashicons{
+    color: #ffffff !important;
+}
+
 .etb-quick-email-btn .dashicons {
     font-size: 15px !important;
     width: 15px !important;
     height: 15px !important;
-    color: #ffffff !important;
+    color: var(--etb-text-primary) !important;
 }
+
+
 
 /* Bouton WhatsApp VIP (Compact & Raffiné) */
 .etb-quick-whatsapp-btn {
@@ -1088,23 +1095,22 @@
     border-radius: 50px !important;
     font-size: 13px !important;
     font-weight: 600 !important;
-    transition: all 0.25s ease !important;
+   transition: all 0.3s ease-in-out !important;
     white-space: nowrap !important;
     flex: 0 0 auto !important;
     width: auto !important;
 }
 
-.etb-quick-whatsapp-btn:hover {
+.etb-quick-whatsapp-btn:hover{
     background: #27D366 !important;
     border-color: #27D366 !important;
-    color: #ffffff !important;
+    color: var(--etb-text-primary) !important;
 }
 
 .etb-quick-whatsapp-btn .dashicons {
     font-size: 16px !important;
     width: 16px !important;
     height: 16px !important;
-    color: #ffffff !important;
 }
 
 /* Rangée d'actions sur Desktop : alignement strict sur une seule ligne */
@@ -1639,14 +1645,20 @@
         padding: 10px 12px !important;
     }
 
-    /* Boutons de réservation en pleine largeur */
+   /* Boutons de réservation en pleine largeur cadree sans debordement */
     .etb-quick-actions-row .etb-quick-add-trip-btn,
     .etb-quick-actions-row .etb-quick-book-trip-btn,
     .etb-quick-actions-row #etb-quick-book-now-btn {
         width: 100% !important;
+        max-width: 100% !important;
         flex: 1 1 100% !important;
         justify-content: center !important;
         box-sizing: border-box !important;
+        padding: 12px 14px !important;
+        font-size: 13px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
     }
 }
 
@@ -1738,7 +1750,7 @@
     background: #ffffff !important;
     border: 1.5px solid #d97706 !important;
     color: #b45309 !important;
-    box-shadow: 0 4px 14px rgba(217, 119, 6, 0.15) !important;
+    /*box-shadow: 0 4px 14px rgba(217, 119, 6, 0.15) !important;*/
 }
 
 [data-etb-theme="light"] #etb-bridge-trip-btn:hover {
@@ -1853,14 +1865,15 @@
     color: var(--etb-text-secondary, #94a3b8) !important;
 }
 
-/* ── Colonne 2 : Tarification ── */
+/* ── Colonne 2 : Tarification souple ── */
 .etb-bar-col2 {
     display: flex !important;
     flex-direction: column !important;
     justify-content: center !important;
     border-left: 1px solid var(--etb-border-light, rgba(255, 255, 255, 0.1)) !important;
-    padding-left: 25px !important;
-    min-width: 200px !important;
+    padding-left: 18px !important;
+    min-width: auto !important;
+    flex-shrink: 0 !important;
 }
 
 .etb-bar-price {

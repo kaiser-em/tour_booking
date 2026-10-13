@@ -862,7 +862,7 @@ $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_s
                             'YE' => 'Yemen', 'ZM' => 'Zambia', 'ZW' => 'Zimbabwe'
                         );
                         ?>
-                        <div class="etb-chk-field" style="margin-top: 16px;">
+                        <div class="etb-chk-field" style="margin-top: 16px;" hidden>
                             <label style="font-size: 13px; font-weight: 600;">Country or Region *</label>
                             <input type="hidden" name="card_country" id="etb-pay-card-country" value="FR">
                         

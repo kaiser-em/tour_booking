@@ -972,14 +972,23 @@
             return `${parts[2]} ${months[monthIdx] || parts[1]} ${parts[0]}`;
         };
 
-        /// Mise à jour du texte de date dès le chargement et à chaque clic
+        // ── ACTUALISATION EN DIRECT DU BANDEAU D'URGENCE (< 24H) ──
+        const updateUrgentNoticeLive = () => {
+            if (urgentNoticeEl && fleetSection && fleetSection.style.display !== 'none') {
+                urgentNoticeEl.style.display = checkIsUrgent() ? 'block' : 'none';
+            }
+        };
+
+        /// Mise à jour du texte de date et réévaluation instantanée de l'urgence (< 24h)
         if (dateInput && dateTextEl) {
             dateTextEl.textContent = formatCustomDate(dateInput.value);
             dateInput.addEventListener('change', function () {
                 dateTextEl.textContent = formatCustomDate(this.value);
+                updateUrgentNoticeLive();
             });
             dateInput.addEventListener('input', function () {
                 dateTextEl.textContent = formatCustomDate(this.value);
+                updateUrgentNoticeLive();
             });
         }
 
@@ -1064,12 +1073,15 @@
                 }
             });
 
-            /// Fonction interne de mise à jour de la valeur 12h formatée
+            /// Fonction interne de mise à jour de la valeur 12h formatée et réévaluation de l'urgence en direct
             const update12hTime = () => {
                 const activeH     = timePopup.querySelector('.etb-hour-opt.active')?.dataset.val || '09';
                 const activeM     = timePopup.querySelector('.etb-minute-opt.active')?.dataset.val || '00';
                 const activeAmpm  = timePopup.querySelector('.etb-ampm-btn.active')?.dataset.val || 'AM';
                 timeInput.value   = `${activeH}:${activeM} ${activeAmpm}`;
+                
+                // Réévaluation immédiate du bandeau rouge (< 24h) en direct
+                updateUrgentNoticeLive();
             };
 
             // 1. Bascule AM / PM avec rafraîchissement immédiat des heures disponibles
@@ -1622,9 +1634,9 @@
         };
 
       
-        // ── RAFRAÎCHISSEMENT EN DIRECT DU PRIX TRANSFERT (LIVE UPDATE SANS FERMETURE) ──
+        // ── RAFRAÎCHISSEMENT EN DIRECT DU PRIX TRANSFERT (BASCULE FLUIDE PRIX ⇄ DEVIS) ──
         const refreshLiveTransferPricing = () => {
-            // Uniquement si la flotte est déjà affichée et en mode transfert
+            // Uniquement si la flotte est affichée et en mode transfert
             if (currentMode !== 'transfer' || !fleetSection || fleetSection.style.display === 'none') {
                 return;
             }
@@ -1634,14 +1646,14 @@
             const toLat   = dropoffLatEl ? dropoffLatEl.value : '';
             const toLng   = dropoffLngEl ? dropoffLngEl.value : '';
 
-            // Si les deux coordonnées GPS ne sont pas encore complètes, on attend
+            // Si les deux coordonnées GPS ne sont pas complètes, on attend
             if (!fromLat || !fromLng || !toLat || !toLng) {
                 return;
             }
 
-            // 1. État de chargement satiné VIP sur les cartes (Micro-Shimmer)
+            // 1. État de chargement satiné VIP sur les cartes
             carCards.forEach(c => {
-                c.style.pointerEvents = 'none'; // Empêche le clic pendant le calcul
+                c.style.pointerEvents = 'none';
                 const priceBox = c.querySelector('.etb-quick-price-display');
                 if (priceBox) {
                     priceBox.style.transition = 'opacity 0.2s ease, filter 0.2s ease';
@@ -1670,7 +1682,7 @@
             .then(res => {
                 if (getPriceBtn) getPriceBtn.classList.remove('etb-loading-glow');
 
-                // 2. Réactivation des clics et retrait de l'effet de flou
+                // 2. Réactivation des cartes
                 carCards.forEach(c => {
                     c.style.pointerEvents = 'auto';
                     const priceBox = c.querySelector('.etb-quick-price-display');
@@ -1682,6 +1694,11 @@
 
                 if (res.success && res.data.pricing_data && res.data.pricing_data.length > 0) {
                     const pricingData = res.data.pricing_data;
+                    let availableCarsCount = 0;
+
+                    // A. RÉINITIALISATION DU MODE DEVIS -> RETOUR EN MODE TARIF NORMAL
+                    isQuoteMode = false;
+                    if (quoteNoticeEl) quoteNoticeEl.classList.remove('is-visible');
 
                     pricingData.forEach(item => {
                         if (!item || !item.vehicle_class || !item.vehicle_class.id || !item.prices || item.prices.length === 0) return;
@@ -1692,27 +1709,39 @@
 
                         if (targetCard) {
                             const limoPrice = Math.round(item.prices[0].price);
-                            targetCard.dataset.calculatedPrice = limoPrice;
-                            targetCard.dataset.isQuote = (limoPrice <= 0) ? '1' : '0';
+                            const priceBox  = targetCard.querySelector('.etb-quick-price-display');
+                            const detailBox = targetCard.querySelector('.etb-quick-price-detail');
+                            const selBtn    = targetCard.querySelector('.etb-quick-select-btn');
+                            const allInclEl = targetCard.querySelector('.etb-quick-all-inclusive');
 
-                            const priceAmountEl = targetCard.querySelector('.etb-quick-amount');
-                            if (priceAmountEl && limoPrice > 0) {
-                                priceAmountEl.textContent = limoPrice;
+                            if (limoPrice > 0) {
+                                targetCard.dataset.calculatedPrice = limoPrice;
+                                targetCard.dataset.isQuote = '0';
+
+                                if (priceBox) {
+                                    priceBox.innerHTML = `<span class="etb-quick-amount">${limoPrice}</span> <span class="etb-quick-currency">${currency}</span> <span class="etb-quick-all-inclusive">All inclusive</span>`;
+                                }
+                                if (detailBox) {
+                                    detailBox.style.display = 'none';
+                                    detailBox.innerHTML = '';
+                                }
+                                if (selBtn) selBtn.textContent = 'Select';
+                                if (allInclEl) allInclEl.style.display = 'flex';
+
+                                targetCard.style.display = 'flex';
+                                targetCard.classList.remove('etb-hidden');
+                                availableCarsCount++;
                             }
                         }
                     });
 
-                    // Si un véhicule est sélectionné, actualiser la barre inférieure
-                    if (selectedCar && selectedCar.id) {
-                        const activeCard = quickRoot.querySelector(`.etb-quick-car-item[data-id="${selectedCar.id}"]`);
-                        if (activeCard) {
-                            selectedCar.price = activeCard.dataset.calculatedPrice || selectedCar.price;
-                            const barPriceEl = quickRoot.querySelector('#etb-quick-dynamic-bar-content .etb-bar-price');
-                            if (barPriceEl && cartTrips.length === 0) {
-                                barPriceEl.innerHTML = `<span style="color: var(--etb-accent-gold, #fbac18); font-size: 26px; font-weight: 900;">${selectedCar.price} <span style="font-size: 18px;">${currency}</span></span>`;
-                            }
-                        }
+                    if (availableCarsCount === 0) {
+                        // Trajet non chiffrable ➔ Bascule automatique en Devis
+                        triggerCustomQuoteMode();
                     }
+                } else {
+                    // Hors zone (ex: Nice ➔ Paris) ➔ Bascule automatique en Devis en direct !
+                    triggerCustomQuoteMode();
                 }
             })
             .catch(() => {
@@ -1725,6 +1754,7 @@
                         priceBox.style.filter = 'none';
                     }
                 });
+                triggerCustomQuoteMode();
             });
         };
        
@@ -2253,17 +2283,20 @@
                 });
             });
 
-            // Libellé intelligent du bouton d'action principal
-            if (bookBtnLabel) {
-                // Si un véhicule est sélectionné, le bouton cible ce véhicule précis
-                if (selectedCar) {
-                    bookBtnLabel.textContent = selectedCar.isQuote ? 'Request this Quote' : 'Book this Trip';
-                } else {
-                    // Si on est en consultation de panier globale
-                    if (hasCustomQuoteInCart) {
-                        bookBtnLabel.textContent = (cartTrips.length === 1) ? 'Request this Quote' : `Request Quote (${cartTrips.length} Transfers)`;
+            // Libellé intelligent du bouton d'action principal et déverrouillage systématique
+            if (bookNowBtn) {
+                bookNowBtn.disabled = false; // Réactive le bouton à chaque rendu
+                const currentLabelEl = bookNowBtn.querySelector('#etb-quick-book-btn-label') || bookBtnLabel;
+
+                if (currentLabelEl) {
+                    if (selectedCar) {
+                        currentLabelEl.textContent = selectedCar.isQuote ? 'Request this Quote' : 'Book this Trip';
                     } else {
-                        bookBtnLabel.textContent = (cartTrips.length === 1) ? 'Book this Trip' : `Proceed to Checkout (${cartTrips.length} Transfers)`;
+                        if (hasCustomQuoteInCart) {
+                        bookBtnLabel.textContent = (cartTrips.length === 1) ? 'Request Quote' : `Request Quote (${cartTrips.length} Transfers)`;
+                        } else {
+                            bookBtnLabel.textContent = (cartTrips.length === 1) ? 'Book this Trip' : `Checkout (${cartTrips.length} Transfers)`;
+                        }
                     }
                 }
             }
@@ -2440,10 +2473,12 @@
                     });
                 }
 
-                // État de chargement discret sur le bouton
-                const originalBtnHtml = bookNowBtn.innerHTML;
+                // État de chargement discret sur le bouton (Sans détruire les balises internes)
                 bookNowBtn.disabled = true;
-                bookNowBtn.innerHTML = '<span>Securing quote...</span>';
+                const activeLabelEl = bookNowBtn.querySelector('#etb-quick-book-btn-label');
+                if (activeLabelEl) {
+                    activeLabelEl.textContent = 'Securing quote...';
+                }
 
                 // Préparation de la requête AJAX vers notre générateur de devis
                 const formData = new FormData();
@@ -2472,18 +2507,18 @@
                 })
                 .then(function (res) {
                     if (res.success && res.data.redirect_url) {
-                        // Redirection immédiate vers l'URL propre Blacklane : /checkout/?ref=q_XXXX
+                        // Redirection immédiate vers le Checkout
                         window.location.href = res.data.redirect_url;
                     } else {
                         bookNowBtn.disabled = false;
-                        bookNowBtn.innerHTML = originalBtnHtml;
+                        if (activeLabelEl) renderTripsCart();
                         showError(res.data.message || 'Could not initialize quote. Please try again.');
                     }
                 })
                 .catch(function (err) {
                     console.error('Quote generation error:', err);
                     bookNowBtn.disabled = false;
-                    bookNowBtn.innerHTML = originalBtnHtml;
+                    if (activeLabelEl) renderTripsCart();
                     showError('Communication error. Please try again.');
                 });
             });
@@ -2573,12 +2608,20 @@
         if (timeInput)    timeInput.addEventListener('change', saveFormState);
 
         // Lancement immédiat de la restauration
-        restoreQuickSession();             
+        restoreQuickSession();
+
+        // Réveil forcé en cas de retour via le cache du navigateur (Bfcache / History Back)
+        window.addEventListener('pageshow', function () {
+            if (bookNowBtn) {
+                bookNowBtn.disabled = false;
+            }
+            if (cartTrips.length > 0) {
+                renderTripsCart();
+            }
+        });
     };
 
-    // ==========================================================================
-    // MOTEUR DU CHECKOUT BLACKLANE ([etb_checkout])
-    // ==========================================================================
+    
     // ==========================================================================
     // MOTEUR DU CHECKOUT BLACKLANE ([etb_checkout]) - SYNCHRONISÉ ET SÉCURISÉ
     // ==========================================================================
@@ -3061,36 +3104,54 @@
             const totalLabelEl    = checkoutRoot.querySelector('.etb-chk-price-row.total-row span:first-child');
             const guaranteesBoxEl = checkoutRoot.querySelector('.etb-chk-guarantees');
 
-            // Détection dynamique en temps réel de la réservation urgente (< 24h)
+            // Détection dynamique de l'urgence (< 24h) sur TOUS les trajets du panier
             const checkIsUrgentCheckout = () => {
+                const evaluateHoursDiff = (dateStr, timeStr) => {
+                    if (!dateStr || !timeStr || timeStr === '-- : --') return 999;
+                    let h = 9, m = 0;
+                    const cleanTime = timeStr.toUpperCase();
+                    if (cleanTime.includes('AM') || cleanTime.includes('PM')) {
+                        const parts = cleanTime.split(/\s+/);
+                        const hm = (parts[0] || '').split(':');
+                        h = parseInt(hm[0], 10) || 0;
+                        m = parseInt(hm[1], 10) || 0;
+                        if (cleanTime.includes('PM') && h < 12) h += 12;
+                        if (cleanTime.includes('AM') && h === 12) h = 0;
+                    } else {
+                        const hm = cleanTime.split(':');
+                        h = parseInt(hm[0], 10) || 0;
+                        m = parseInt(hm[1], 10) || 0;
+                    }
+
+                    const dParts = dateStr.split('-');
+                    if (dParts.length !== 3) return 999;
+
+                    const pickupDate = new Date(parseInt(dParts[0], 10), parseInt(dParts[1], 10) - 1, parseInt(dParts[2], 10), h, m, 0);
+                    const now = new Date();
+                    return (pickupDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+                };
+
+                // 1. Analyse de chaque trajet du panier mémorisé en session
+                try {
+                    const storedCart = sessionStorage.getItem('etb_cart_trips');
+                    if (storedCart) {
+                        const trips = JSON.parse(storedCart);
+                        if (Array.isArray(trips) && trips.length > 0) {
+                            for (let i = 0; i < trips.length; i++) {
+                                const diffH = evaluateHoursDiff(trips[i].date, trips[i].time);
+                                if (diffH >= 0 && diffH < 24) {
+                                    return true; // AU MOINS UN trajet a lieu dans moins de 24h -> Urgent !
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {}
+
+                // 2. Repli classique si mono-trajet
                 const rawDate = dateInput ? dateInput.value.trim() : '';
                 const rawTime = timeInput ? timeInput.value.trim() : '';
-                if (!rawDate || !rawTime || rawTime === '-- : --') return false;
-
-                let h = 9, m = 0;
-                const cleanTime = rawTime.toUpperCase();
-                if (cleanTime.includes('AM') || cleanTime.includes('PM')) {
-                    const parts = cleanTime.split(/\s+/);
-                    const hm = (parts[0] || '').split(':');
-                    h = parseInt(hm[0], 10) || 0;
-                    m = parseInt(hm[1], 10) || 0;
-                    if (cleanTime.includes('PM') && h < 12) h += 12;
-                    if (cleanTime.includes('AM') && h === 12) h = 0;
-                } else {
-                    const hm = cleanTime.split(':');
-                    h = parseInt(hm[0], 10) || 0;
-                    m = parseInt(hm[1], 10) || 0;
-                }
-
-                const dParts = rawDate.split('-');
-                if (dParts.length !== 3) return false;
-
-                const pickupDate = new Date(parseInt(dParts[0], 10), parseInt(dParts[1], 10) - 1, parseInt(dParts[2], 10), h, m, 0);
-                const now = new Date();
-                const diffHours = (pickupDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-
-                // Urgent si la prise en charge a lieu entre maintenant et moins de 24h
-                return diffHours >= 0 && diffHours < 24;
+                const singleDiff = evaluateHoursDiff(rawDate, rawTime);
+                return singleDiff >= 0 && singleDiff < 24;
             };
 
             const isUrgentInput  = checkoutRoot.querySelector('#etb-chk-is-urgent');
@@ -3151,48 +3212,51 @@
             };
 
             if (airportCard) {
-                const isPickupAirport  = checkAirportKeywords(pickupAddr);
-                const isDropoffAirport = checkAirportKeywords(dropoffAddr);
-
-                const airportTitle = checkoutRoot.querySelector('#etb-chk-airport-title');
-                const airportDesc  = checkoutRoot.querySelector('#etb-chk-airport-desc');
-                const flightLabel  = checkoutRoot.querySelector('#etb-chk-flight-label');
-                const flightHint   = checkoutRoot.querySelector('#etb-chk-flight-hint');
-                const signField    = checkoutRoot.querySelector('#etb-chk-sign-field');
-                const airportGrid  = checkoutRoot.querySelector('#etb-chk-airport-grid');
-                const waitTimeText = checkoutRoot.querySelector('#etb-chk-wait-time-text');
-
-                // En mode multi-trajets, le temps d'attente est déjà calculé dynamiquement par le serveur
                 const isMultiTripOrder = checkoutRoot.querySelector('#etb-chk-is-multi-trip')?.value === '1';
 
-                if (isPickupAirport) {
-                    airportCard.style.display = 'block';
-                    if (airportTitle) airportTitle.textContent = 'Airport Arrival & Greeting';
-                    if (airportDesc)  airportDesc.textContent  = 'Real-time flight tracking included. Your chauffeur tracks your flight and adjusts pickup time automatically.';
-                    if (flightLabel)  flightLabel.textContent  = 'Flight Number';
-                    if (flightHint)   flightHint.textContent   = '1 hour free waiting time after landing.';
-                    if (signField)    signField.style.display  = 'block';
-                    if (airportGrid)  airportGrid.style.gridTemplateColumns = '';
-                    if (waitTimeText && !isMultiTripOrder) waitTimeText.textContent = '60 min complimentary wait time included (flight tracking)';
-                } else if (isDropoffAirport) {
-                    airportCard.style.display = 'block';
-                    if (airportTitle) airportTitle.textContent = 'Airport Drop-off & Departure Terminal';
-                    if (airportDesc)  airportDesc.textContent  = 'Helps your chauffeur drop you off directly in front of the correct departures terminal gate.';
-                    if (flightLabel)  flightLabel.textContent  = 'Flight Number or Departure Terminal (Optional)';
-                    if (flightHint)   flightHint.textContent   = 'e.g. Terminal 2E, AF 7704 — Ensures a seamless curbside drop-off.';
-                    if (signField) {
-                        signField.style.display = 'none';
-                        const signInput = signField.querySelector('input');
-                        if (signInput) signInput.value = '';
-                    }
-                    if (airportGrid)  airportGrid.style.gridTemplateColumns = '1fr';
-                    if (waitTimeText && !isMultiTripOrder) waitTimeText.textContent = '15 min complimentary wait time included';
-                } else {
-                    airportCard.style.display = 'none';
-                    if (waitTimeText && !isMultiTripOrder) waitTimeText.textContent = '15 min complimentary wait time included';
-                    if (signField) {
-                        const signInput = signField.querySelector('input');
-                        if (signInput) signInput.value = '';
+                // Si Multi-Trajets : on ne touche à rien ici ! Les onglets (switchLegTab) gèrent l'affichage.
+                // Si Mono-Trajet : on applique la logique classique.
+                if (!isMultiTripOrder) {
+                    const isPickupAirport  = checkAirportKeywords(pickupAddr);
+                    const isDropoffAirport = checkAirportKeywords(dropoffAddr);
+
+                    const airportTitle = checkoutRoot.querySelector('#etb-chk-airport-title');
+                    const airportDesc  = checkoutRoot.querySelector('#etb-chk-airport-desc');
+                    const flightLabel  = checkoutRoot.querySelector('#etb-chk-flight-label');
+                    const flightHint   = checkoutRoot.querySelector('#etb-chk-flight-hint');
+                    const signField    = checkoutRoot.querySelector('#etb-chk-sign-field');
+                    const airportGrid  = checkoutRoot.querySelector('#etb-chk-airport-grid');
+                    const waitTimeText = checkoutRoot.querySelector('#etb-chk-wait-time-text');
+
+                    if (isPickupAirport) {
+                        airportCard.style.display = 'block';
+                        if (airportTitle) airportTitle.textContent = 'Airport Arrival & Greeting';
+                        if (airportDesc)  airportDesc.textContent  = 'Real-time flight tracking included. Your chauffeur tracks your flight and adjusts pickup time automatically.';
+                        if (flightLabel)  flightLabel.textContent  = 'Flight Number';
+                        if (flightHint)   flightHint.textContent   = '1 hour free waiting time after landing.';
+                        if (signField)    signField.style.display  = 'block';
+                        if (airportGrid)  airportGrid.style.gridTemplateColumns = '';
+                        if (waitTimeText) waitTimeText.textContent = '60 min complimentary wait time included (flight tracking)';
+                    } else if (isDropoffAirport) {
+                        airportCard.style.display = 'block';
+                        if (airportTitle) airportTitle.textContent = 'Airport Drop-off & Departure Terminal';
+                        if (airportDesc)  airportDesc.textContent  = 'Helps your chauffeur drop you off directly in front of the correct departures terminal gate.';
+                        if (flightLabel)  flightLabel.textContent  = 'Flight Number or Departure Terminal (Optional)';
+                        if (flightHint)   flightHint.textContent   = 'e.g. Terminal 2E, AF 7704 — Ensures a seamless curbside drop-off.';
+                        if (signField) {
+                            signField.style.display = 'none';
+                            const signInput = signField.querySelector('input');
+                            if (signInput) signInput.value = '';
+                        }
+                        if (airportGrid)  airportGrid.style.gridTemplateColumns = '1fr';
+                        if (waitTimeText) waitTimeText.textContent = '15 min complimentary wait time included';
+                    } else {
+                        airportCard.style.display = 'none';
+                        if (waitTimeText) waitTimeText.textContent = '15 min complimentary wait time included';
+                        if (signField) {
+                            const signInput = signField.querySelector('input');
+                            if (signInput) signInput.value = '';
+                        }
                     }
                 }
             }
@@ -3360,6 +3424,15 @@
         const legInfoDate    = checkoutRoot.querySelector('#etb-chk-leg-info-date');
         const legsDataInput  = checkoutRoot.querySelector('#etb-chk-legs-data');
 
+        // Sécurité : Déclaration des éléments de l'Aéroport pour éviter les crashs (ReferenceError)
+        const flightInputEl  = checkoutRoot.querySelector('#etb-flight-number');
+        const signInputEl    = checkoutRoot.querySelector('#etb-pickup-sign');
+        const airportTitle   = checkoutRoot.querySelector('#etb-chk-airport-title');
+        const airportDesc    = checkoutRoot.querySelector('#etb-chk-airport-desc');
+        const flightLabel    = checkoutRoot.querySelector('#etb-chk-flight-label');
+        const flightHint     = checkoutRoot.querySelector('#etb-chk-flight-hint');
+        const signField      = checkoutRoot.querySelector('#etb-chk-sign-field');
+
         let currentActiveLeg = 0;
         let perLegState      = [];
 
@@ -3386,10 +3459,12 @@
             const switchLegTab = (targetIdx) => {
                 if (targetIdx < 0 || targetIdx >= perLegState.length) return;
 
-                // 1. Sauvegarde des valeurs du trajet qui était ouvert
-                if (paxInputEl)      perLegState[currentActiveLeg].pax     = parseInt(paxInputEl.value, 10) || 1;
-                if (bagInputEl)      perLegState[currentActiveLeg].checked = parseInt(bagInputEl.value, 10) || 0;
-                if (cabinBagInputEl) perLegState[currentActiveLeg].cabin   = parseInt(cabinBagInputEl.value, 10) || 0;
+                // 1. Sauvegarde des valeurs du trajet qui était ouvert (Capacités + Vol + Pancarte)
+                if (paxInputEl)      perLegState[currentActiveLeg].pax          = parseInt(paxInputEl.value, 10) || 1;
+                if (bagInputEl)      perLegState[currentActiveLeg].checked      = parseInt(bagInputEl.value, 10) || 0;
+                if (cabinBagInputEl) perLegState[currentActiveLeg].cabin        = parseInt(cabinBagInputEl.value, 10) || 0;
+                if (flightInputEl)   perLegState[currentActiveLeg].flightNumber = flightInputEl.value;
+                if (signInputEl)     perLegState[currentActiveLeg].greetingSign = signInputEl.value;
 
                 currentActiveLeg = targetIdx;
                 const targetBtn  = legTabBtns[targetIdx];
@@ -3404,10 +3479,43 @@
                     b.style.color      = isActive ? 'var(--etb-accent-gold, #fbac18)' : 'var(--etb-text-secondary, #94a3b8)';
                 });
 
-                // 3. Mise à jour du bandeau contextuel (Zone verte)
+                // 3. Mise à jour du bandeau contextuel (Véhicule, 2 lignes d'adresses, Date)
                 if (legInfoVehicle && targetBtn.dataset.vehicle) legInfoVehicle.textContent = targetBtn.dataset.vehicle;
-                if (legInfoRoute && targetBtn.dataset.route)     legInfoRoute.textContent   = targetBtn.dataset.route;
-                if (legInfoDate && targetBtn.dataset.date)       legInfoDate.textContent    = '📅 ' + targetBtn.dataset.date;
+
+                if (legInfoRoute) {
+                    const p   = targetBtn.dataset.pickup || '';
+                    const d   = targetBtn.dataset.dropoff || '';
+                    const m   = targetBtn.dataset.mode || 'transfer';
+                    const dur = targetBtn.dataset.duration || '4';
+
+                    if (m === 'hourly') {
+                        legInfoRoute.innerHTML = `
+                            <div style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--etb-accent-gold, #fbac18);">
+                                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                <strong>By the hour (${dur} Hours Charter)</strong>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--etb-text-secondary, #64748b); overflow: hidden;">
+                                <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; flex-shrink: 0;" title="Pickup"></span>
+                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p}</span>
+                            </div>
+                        `;
+                    } else {
+                        legInfoRoute.innerHTML = `
+                            <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--etb-text-secondary, #64748b); overflow: hidden;">
+                                <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; flex-shrink: 0;" title="Pickup"></span>
+                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p}</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--etb-text-secondary, #64748b); overflow: hidden;">
+                                <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--etb-accent-gold, #fbac18); flex-shrink: 0;" title="Drop-off"></span>
+                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${d}</span>
+                            </div>
+                        `;
+                    }
+                }
+
+                if (legInfoDate && targetBtn.dataset.date) {
+                    legInfoDate.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> <span>${targetBtn.dataset.date}</span>`;
+                }
 
                 // 4. Adaptation dynamique des capacités MAX du véhicule actif
                 if (paxHint) paxHint.textContent = 'Max: ' + legData.maxPax;
@@ -3416,11 +3524,55 @@
                     paxInputEl.value       = Math.min(legData.pax, legData.maxPax);
                 }
 
-                if (bagInputEl) {
-                    bagInputEl.value = legData.checked;
-                }
-                if (cabinBagInputEl) {
-                    cabinBagInputEl.value = legData.cabin;
+                if (bagInputEl)      bagInputEl.value      = legData.checked;
+                if (cabinBagInputEl) cabinBagInputEl.value = legData.cabin;
+                if (flightInputEl)   flightInputEl.value   = legData.flightNumber || '';
+                if (signInputEl)     signInputEl.value     = legData.greetingSign || '';
+
+                // 5. Bascule dynamique et intelligente de la boîte Aéroport pour CE trajet
+                if (airportCard) {
+                    const checkApt = (str) => {
+                        if (!str) return false;
+                        return /\b(airport|aeroport|aéroport|terminal|aeropuerto|flughafen|nce|cdg|ory|heathrow|gatwick|jfk)\b/i.test(str);
+                    };
+
+                    const pickupStr  = targetBtn.dataset.pickup || '';
+                    const dropoffStr = targetBtn.dataset.dropoff || '';
+                    const routeStr   = targetBtn.dataset.route || '';
+
+                    // Détection arrivée ou départ aéroport
+                    const isPickupApt  = (targetBtn.dataset.airportPickup === '1') || checkApt(pickupStr) || (checkApt(routeStr) && !checkApt(dropoffStr));
+                    const isDropoffApt = (targetBtn.dataset.airportDropoff === '1') || checkApt(dropoffStr);
+
+                    const airportTitle = checkoutRoot.querySelector('#etb-chk-airport-title');
+                    const airportDesc  = checkoutRoot.querySelector('#etb-chk-airport-desc');
+                    const flightLabel  = checkoutRoot.querySelector('#etb-chk-flight-label');
+                    const flightHint   = checkoutRoot.querySelector('#etb-chk-flight-hint');
+                    const signField    = checkoutRoot.querySelector('#etb-chk-sign-field');
+
+                    if (isPickupApt) {
+                        airportCard.style.display = 'block';
+                        if (airportTitle) airportTitle.textContent = `Airport Arrival & Greeting (Trip #${targetIdx + 1})`;
+                        if (airportDesc)  airportDesc.textContent  = 'Real-time flight tracking included. Your chauffeur adjusts pickup time automatically.';
+                        if (flightLabel)  flightLabel.textContent  = 'Flight Number';
+                        if (flightHint)   flightHint.textContent   = '1 hour free waiting time after landing.';
+                        if (signField)    signField.style.display  = 'block';
+
+                        // Remplissage automatique de la pancarte si encore vide
+                        if (!legData.greetingSign && typeof updateGreetingSign === 'function') {
+                            updateGreetingSign();
+                        }
+                    } else if (isDropoffApt) {
+                        airportCard.style.display = 'block';
+                        if (airportTitle) airportTitle.textContent = `Airport Departure Terminal (Trip #${targetIdx + 1})`;
+                        if (airportDesc)  airportDesc.textContent  = 'Helps your chauffeur drop you off directly at the correct terminal gate.';
+                        if (flightLabel)  flightLabel.textContent  = 'Flight Number or Departure Terminal (Optional)';
+                        if (flightHint)   flightHint.textContent   = 'e.g. Terminal 2E, AF 7704';
+                        if (signField)    signField.style.display  = 'none';
+                    } else {
+                        // Trajet 100% ville : on masque complètement la boîte pour ce trajet
+                        airportCard.style.display = 'none';
+                    }
                 }
 
                 syncLegsDataInput();
@@ -3448,6 +3600,28 @@
                     });
                 }
             });
+
+            // Synchronisation en TEMPS RÉEL du vol et de la pancarte
+            if (flightInputEl) {
+                flightInputEl.addEventListener('input', () => {
+                    perLegState[currentActiveLeg].flightNumber = flightInputEl.value;
+                    syncLegsDataInput();
+                });
+            }
+            if (signInputEl) {
+                signInputEl.addEventListener('input', () => {
+                    perLegState[currentActiveLeg].greetingSign = signInputEl.value;
+                    syncLegsDataInput();
+                });
+            }
+
+            // Mémorise la fonction pour forcer la synchronisation au moment du clic final
+            window.etbForceSyncActiveLeg = () => {
+                if (paxInputEl)      perLegState[currentActiveLeg].pax     = parseInt(paxInputEl.value, 10) || 1;
+                if (flightInputEl)   perLegState[currentActiveLeg].flightNumber = flightInputEl.value;
+                if (signInputEl)     perLegState[currentActiveLeg].greetingSign = signInputEl.value;
+                syncLegsDataInput();
+            };
         }
 
         if (bagMinusBtn && bagPlusBtn && bagInputEl) {
@@ -3647,6 +3821,9 @@
 
         // 11bis. Fonction universelle de finalisation et dispatch (Accessible pour Étape 1 & Étape 2)
         const executeFinalOrderDispatch = (paymentLogsData, isPayLater = false) => {
+            // Force la synchronisation des données de l'onglet actif juste avant l'envoi
+            if (typeof window.etbForceSyncActiveLeg === 'function') window.etbForceSyncActiveLeg();
+
             const originalBtnText = isQuoteRide ? 'Submit Quote Request' : 'Continue to Payment';
             if (submitText) submitText.textContent = isPayLater ? 'Registering...' : 'Dispatching ...';
 

@@ -1,24 +1,24 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-// Récupération des options générales
+// 1. Récupération des options générales
 $gen_settings    = get_option( 'etb_general_settings', array() );
 $currency_symbol = ! empty( $gen_settings['currency'] ) ? sanitize_text_field( $gen_settings['currency'] ) : '€';
 
 // Jetons de sécurité anti-spam
 $sec_token = class_exists( 'ETB_Security' ) ? ETB_Security::generate_timestamp_token() : array( 'time' => time(), 'token' => '' );
 
-// ── LECTURE SÉCURISÉE DU QUOTE TOKEN SERVEUR (?ref=q_XXXX) ──
+// 2. Lecture sécurisée du Quote Token (?ref=q_XXXX)
 $ref_token  = ! empty( $_GET['ref'] ) ? sanitize_key( $_GET['ref'] ) : '';
 $quote_data = ! empty( $ref_token ) ? get_transient( 'etb_quote_' . $ref_token ) : false;
 
 $has_quote = ( is_array( $quote_data ) && ! empty( $quote_data['vehicle_id'] ) );
 
-// Détection du mode multi-trajets (Cart System)
+// Détection prioritaire du panier Multi-Trajets
 $is_multi_trip = ( $has_quote && ! empty( $quote_data['is_multi_trip'] ) && ! empty( $quote_data['trips'] ) );
-$trips_list    = $is_multi_trip ? $quote_data['trips'] : array();
+$trips_list    = $is_multi_trip ? (array) $quote_data['trips'] : array();
 
-// Données du trajet scellées par le serveur
+// Données socles de secours (Premier trajet)
 $trip_mode     = $has_quote ? ( $quote_data['mode'] ?? 'transfer' ) : 'transfer';
 $pickup_addr   = $has_quote ? ( $quote_data['pickup'] ?? '' ) : '';
 $dropoff_addr  = $has_quote ? ( $quote_data['dropoff'] ?? '' ) : '';
@@ -36,8 +36,7 @@ $formatted_price = ( 'Custom Quote' === $price_val || floatval( $price_val ) <= 
     ? 'Custom Quote'
     : ( number_format_i18n( floatval( $price_val ), 0 ) . ' ' . $currency_symbol );
 
-
-// Formatage de la date en anglais (ex: 03 Oct. 2026 at 09:00 AM)
+// Formatage de la date du premier trajet
 $formatted_datetime_display = '—';
 if ( ! empty( $date_val ) ) {
     $dt_timestamp = strtotime( $date_val );
@@ -47,16 +46,48 @@ if ( ! empty( $date_val ) ) {
     }
 }
 
-// Détection d'une réservation urgente (< délai minimum configuré, par défaut 24h)
+// 3. DÉTECTION D'URGENCE INFLEXIBLE (< 24H) SUR TOUT LE PANIER
 $min_delay_hours   = ! empty( $gen_settings['min_delay'] ) ? absint( $gen_settings['min_delay'] ) : 24;
 $is_urgent_booking = false;
+$now_timestamp     = current_time( 'timestamp' ); // Heure locale exacte de WordPress
 
-// Détection dynamique des aéroports pour le temps d'attente gratuit
-$airport_regex = '/\b(airport|aeroport|aéroport|terminal|aeropuerto|flughafen|nce|cdg|ory|heathrow|gatwick|jfk)\b/i';
-$has_airport_pickup = false;
-$has_city_pickup    = false;
+if ( $is_multi_trip && ! empty( $trips_list ) ) {
+    // Analyse de chaque course du panier
+    foreach ( $trips_list as $t ) {
+        $t_date = $t['date'] ?? '';
+        $t_time = ! empty( $t['time'] ) ? trim( $t['time'] ) : '09:00';
+        if ( ! empty( $t_date ) ) {
+            $t_ts = strtotime( $t_date . ' ' . $t_time );
+            if ( ! $t_ts ) {
+                $t_ts = strtotime( $t_date . ' ' . substr( $t_time, 0, 5 ) . ':00' );
+            }
+            // Urgent si le départ a lieu entre maintenant et moins de 24h
+            if ( $t_ts && ( $t_ts - $now_timestamp ) >= 0 && ( $t_ts - $now_timestamp ) < ( $min_delay_hours * HOUR_IN_SECONDS ) ) {
+                $is_urgent_booking = true;
+                break; // Urgence confirmée pour toute la commande
+            }
+        }
+    }
+} elseif ( ! empty( $date_val ) ) {
+    // Mono-trajet classique
+    $time_raw = ! empty( $time_val ) ? trim( $time_val ) : '09:00';
+    $pickup_timestamp = strtotime( $date_val . ' ' . $time_raw );
+    if ( ! $pickup_timestamp ) {
+        $pickup_timestamp = strtotime( $date_val . ' ' . substr( $time_raw, 0, 5 ) . ':00' );
+    }
 
-if ( ! empty( $is_multi_trip ) && ! empty( $trips_list ) ) {
+    if ( $pickup_timestamp && ( $pickup_timestamp - $now_timestamp ) >= 0 && ( $pickup_timestamp - $now_timestamp ) < ( $min_delay_hours * HOUR_IN_SECONDS ) ) {
+        $is_urgent_booking = true;
+    }
+}
+
+// 4. TEMPS D'ATTENTE GRATUIT DYNAMIQUE (Valeur par défaut garantie)
+$dynamic_wait_time_text = '15 min complimentary wait time included';
+$airport_regex          = '/\b(airport|aeroport|aéroport|terminal|aeropuerto|flughafen|nce|cdg|ory|heathrow|gatwick|jfk)\b/iu';
+$has_airport_pickup     = false;
+$has_city_pickup        = false;
+
+if ( $is_multi_trip && ! empty( $trips_list ) ) {
     foreach ( $trips_list as $t ) {
         if ( preg_match( $airport_regex, $t['pickup'] ?? '' ) ) {
             $has_airport_pickup = true;
@@ -75,23 +106,6 @@ if ( $has_airport_pickup && ! $has_city_pickup ) {
     $dynamic_wait_time_text = '60 min for airport pickups · 15 min for city transfers';
 } else {
     $dynamic_wait_time_text = '15 min complimentary wait time included';
-}
-
-if ( ! empty( $date_val ) ) {
-    $time_raw = ! empty( $time_val ) ? trim( $time_val ) : '09:00';
-    $pickup_timestamp = strtotime( $date_val . ' ' . $time_raw );
-    
-    // Fallback si le format est standard HH:MM
-    if ( ! $pickup_timestamp ) {
-        $pickup_timestamp = strtotime( $date_val . ' ' . substr( $time_raw, 0, 5 ) . ':00' );
-    }
-
-    // Comparaison temporelle absolue (UTC vs UTC)
-    $now_timestamp = time();
-
-    if ( $pickup_timestamp && ( $pickup_timestamp - $now_timestamp ) >= 0 && ( $pickup_timestamp - $now_timestamp ) < ( $min_delay_hours * HOUR_IN_SECONDS ) ) {
-        $is_urgent_booking = true;
-    }
 }
 ?>
 
@@ -285,6 +299,10 @@ if ( ! empty( $date_val ) ) {
                                             data-date="<?php echo esc_attr( $leg_date_formatted ); ?>"
                                             data-max-pax="<?php echo esc_attr( $leg['pax'] ); ?>"
                                             data-max-bag="<?php echo esc_attr( $leg['bag'] ); ?>"
+                                            data-mode="<?php echo esc_attr( $leg['mode'] ?? 'transfer' ); ?>"
+                                            data-duration="<?php echo esc_attr( $leg['duration'] ?? 4 ); ?>"
+                                            data-pickup="<?php echo esc_attr( $leg['pickup'] ?? '' ); ?>"
+                                            data-dropoff="<?php echo esc_attr( $leg['dropoff'] ?? '' ); ?>"
                                             style="padding: 7px 16px; border-radius: 50px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s ease; white-space: nowrap; border: 1.5px solid <?php echo ( 0 === $l_idx ) ? 'var(--etb-accent-gold, #fbac18)' : 'var(--etb-border-light, rgba(255,255,255,0.12))'; ?>; background: <?php echo ( 0 === $l_idx ) ? 'rgba(251, 172, 24, 0.15)' : 'rgba(255,255,255,0.03)'; ?>; color: <?php echo ( 0 === $l_idx ) ? 'var(--etb-accent-gold, #fbac18)' : 'var(--etb-text-secondary, #94a3b8)'; ?>;">
                                         Trip #<?php echo esc_html( $l_idx + 1 ); ?>
                                     </button>
@@ -304,10 +322,28 @@ if ( ! empty( $date_val ) ) {
                                     <?php echo esc_html( $first_leg['vehicle_name'] ); ?>
                                 </strong>
                                 
-                                <!-- Ligne 2 : Itinéraire -->
-                                <span id="etb-chk-leg-info-route" style="color: var(--etb-text-secondary, #cbd5e1); font-size: 12px; line-height: 1.45;">
-                                    <?php echo ( 'hourly' === $first_leg['mode'] ) ? sprintf( 'By the hour (%sh)', $first_leg['duration'] ) : ( $first_leg['pickup'] . ' → ' . $first_leg['dropoff'] ); ?>
-                                </span>
+                                <!-- Ligne 2 : Itinéraire sur 2 lignes distinctes (Pickup & Drop-off) -->
+                                <div id="etb-chk-leg-info-route" style="display: flex; flex-direction: column; gap: 4px; margin: 2px 0; overflow: hidden;">
+                                    <?php if ( 'hourly' === $first_leg['mode'] ) : ?>
+                                        <div style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--etb-accent-gold, #fbac18);">
+                                            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                            <strong>By the hour (<?php echo esc_html( $first_leg['duration'] ); ?> Hours Charter)</strong>
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--etb-text-secondary, #64748b); overflow: hidden;">
+                                            <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; flex-shrink: 0;" title="Pickup"></span>
+                                            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><?php echo esc_html( $first_leg['pickup'] ); ?></span>
+                                        </div>
+                                    <?php else : ?>
+                                        <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--etb-text-secondary, #64748b); overflow: hidden;">
+                                            <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; flex-shrink: 0;" title="Pickup"></span>
+                                            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><?php echo esc_html( $first_leg['pickup'] ); ?></span>
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--etb-text-secondary, #64748b); overflow: hidden;">
+                                            <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--etb-accent-gold, #fbac18); flex-shrink: 0;" title="Drop-off"></span>
+                                            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><?php echo esc_html( $first_leg['dropoff'] ); ?></span>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
                                 
                                 <!-- Ligne 3 : Date et Heure -->
                                 <span id="etb-chk-leg-info-date" style="color: var(--etb-accent-gold, #fbac18); font-size: 11.5px; display: inline-flex; align-items: center; gap: 6px; margin-top: 2px;">
@@ -472,7 +508,7 @@ if ( ! empty( $date_val ) ) {
                             <textarea name="etb_notes" id="etb-chauffeur-notes" rows="3" placeholder="Hotel room number, gate entry code, assistance with heavy luggage..."></textarea>
                         </div>
 
-                        <div class="etb-chk-field">
+                        <div class="etb-chk-field" hidden>
                             <label for="etb-cost-center">Billing Reference / Cost Center (Optional)</label>
                             <input type="text" name="etb_cost_center" id="etb-cost-center" placeholder="e.g. PO-84920, Project Alpha...">
                             <small class="etb-chk-hint">Will appear on your official printable PDF invoice.</small>
@@ -607,24 +643,24 @@ if ( ! empty( $date_val ) ) {
                                         </div>
                                         <span style="color: #fbac18; font-weight: 800; font-size: 13.5px;"><?php echo esc_html( $t_price_display ); ?></span>
                                     </div>
-                                    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 5px; display: flex; align-items: center; gap: 5px;">
+                                    <div style="font-size: 12px; color: var(--etb-text-secondary); margin-bottom: 5px; display: flex; align-items: center; gap: 5px;">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--etb-accent-gold, #fbac18)" stroke-width="2" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                                        <span><?php echo esc_html( $t_dt_display ); ?></span>
+                                        <span style="font-weight: bold; color: var(--etb-text-primary);"><?php echo esc_html( $t_dt_display ); ?></span>
                                     </div>
                                     <div style="font-size: 12px; color: #cbd5e1; line-height: 1.45;">
                                         <?php if ( 'hourly' === $t['mode'] ) : ?>
                                             <div style="display: flex; align-items: center; gap: 6px;">
                                                 <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="var(--etb-accent-gold, #fbac18)" stroke-width="2" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                                                <strong>By the hour (<?php echo esc_html( $t['duration'] ); ?>h)</strong> — <?php echo esc_html( $t['pickup'] ); ?>
+                                                <strong style="color: color: var(--etb-text-secondary)">By the hour (<?php echo esc_html( $t['duration'] ); ?>h)</strong> — <?php echo esc_html( $t['pickup'] ); ?>
                                             </div>
                                         <?php else : ?>
                                             <div style="display: flex; align-items: center; gap: 6px;">
                                                 <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; flex-shrink: 0;"></span>
-                                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><?php echo esc_html( $t['pickup'] ); ?></span>
+                                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--etb-text-secondary)"><?php echo esc_html( $t['pickup'] ); ?></span>
                                             </div>
                                             <div style="display: flex; align-items: center; gap: 6px; margin-top: 2px;">
                                                 <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--etb-accent-gold, #fbac18); flex-shrink: 0;"></span>
-                                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><?php echo esc_html( $t['dropoff'] ); ?></span>
+                                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--etb-text-secondary)"><?php echo esc_html( $t['dropoff'] ); ?></span>
                                             </div>
                                         <?php endif; ?>
                                     </div>
