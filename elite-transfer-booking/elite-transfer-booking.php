@@ -3,14 +3,14 @@
  * Plugin Name: Elite Transfer Booking
  * Plugin URI: 
  * Description: Système de réservation d'excursions, circuits touristiques et transferts privés. avec lien API ou autonome
- * Version:     2.2.2
+ * Version:     2.2.4
  * Author:      Reich C
  * Text Domain: elite-transfer-booking
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'ETB_VERSION', '2.2.2' );
+define( 'ETB_VERSION', '2.2.4' );
 define( 'ETB_PATH', plugin_dir_path( __FILE__ ) );
 define( 'ETB_URL', plugin_dir_url( __FILE__ ) );
 
@@ -38,9 +38,11 @@ class Elite_Transfer_Booking {
         wp_enqueue_style( 'etb-tokens', ETB_URL . 'public/css/modules/etb-tokens.css', array(), ETB_VERSION );
 
         // 3. Modules thématiques (liés uniquement aux tokens internes, jamais aux scripts du thème)
+        wp_enqueue_style( 'font-awesome-6', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css', array(), '6.5.1' );
         wp_enqueue_style( 'intl-tel-input-style', 'https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/18.2.1/css/intlTelInput.css', array(), '18.2.1' );
         wp_enqueue_style( 'etb-transfer-widget', ETB_URL . 'public/css/modules/etb-transfer-widget.css', array( 'etb-tokens' ), ETB_VERSION );
-        wp_enqueue_style( 'etb-circuits', ETB_URL . 'public/css/modules/etb-circuits.css', array( 'etb-tokens' ), ETB_VERSION );
+        wp_enqueue_style( 'etb-circuits', ETB_URL . 'public/css/modules/etb-circuits.css', array( 'etb-tokens', 'font-awesome-6' ), ETB_VERSION );
+       
         wp_enqueue_style( 'etb-checkout', ETB_URL . 'public/css/modules/etb-checkout.css', array( 'etb-tokens', 'intl-tel-input-style' ), ETB_VERSION );
         wp_enqueue_style( 'etb-payment', ETB_URL . 'public/css/modules/etb-payment.css', array( 'etb-tokens' ), ETB_VERSION );
         
@@ -111,14 +113,52 @@ class Elite_Transfer_Booking {
     }
 
     private function init_hooks() {
-        add_action( 'init', array( $this, 'register_cpts' ), 0 );
-        add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_public_assets' ), 99 );
-        add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
-    }
+    add_action( 'init', array( $this, 'register_cpts' ), 0 );
+    add_action( 'init', array( $this, 'register_circuit_taxonomy' ), 1 );
+    add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_public_assets' ), 99 );
+    add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
+}
 
     public function register_cpts() {
         $cpt_manager = new ETB_CPT_Manager();
         $cpt_manager->register_all_cpts();
+    }
+
+    /**
+ * Enregistre la taxonomie « Catégories de circuits ».
+ * Chargée après le CPT (priorité init 1) pour garantir que 'circuit' existe.
+ */
+    public function register_circuit_taxonomy() {
+        if ( ! post_type_exists( 'circuit' ) ) {
+            return;
+        }
+
+        register_taxonomy(
+            'circuit_category',
+            'circuit',
+            array(
+                'labels'            => array(
+                    'name'              => __( 'Catégories de circuits', 'elite-transfer-booking' ),
+                    'singular_name'     => __( 'Catégorie de circuit', 'elite-transfer-booking' ),
+                    'search_items'      => __( 'Rechercher une catégorie', 'elite-transfer-booking' ),
+                    'all_items'         => __( 'Toutes les catégories', 'elite-transfer-booking' ),
+                    'parent_item'       => __( 'Catégorie parente', 'elite-transfer-booking' ),
+                    'parent_item_colon' => __( 'Catégorie parente :', 'elite-transfer-booking' ),
+                    'edit_item'         => __( 'Modifier la catégorie', 'elite-transfer-booking' ),
+                    'update_item'       => __( 'Mettre à jour la catégorie', 'elite-transfer-booking' ),
+                    'add_new_item'      => __( 'Ajouter une catégorie', 'elite-transfer-booking' ),
+                    'new_item_name'     => __( 'Nom de la nouvelle catégorie', 'elite-transfer-booking' ),
+                    'menu_name'         => __( 'Catégories', 'elite-transfer-booking' ),
+                ),
+                'hierarchical'      => true,
+                'public'            => true,
+                'show_ui'           => true,
+                'show_admin_column' => true,
+                'show_in_rest'      => true,
+                'query_var'         => true,
+                'rewrite'           => array( 'slug' => 'circuit-category' ),
+            )
+        );
     }
 
     public function instantiate_modules() {
@@ -137,15 +177,22 @@ class Elite_Transfer_Booking {
     public function enqueue_admin_assets( $hook ) {
         global $post_type;
         if ( 'circuit' === $post_type ) {
+            // Active la médiathèque officielle WordPress pour la galerie photo du circuit
+            wp_enqueue_style( 'font-awesome-6', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css', array(), '6.5.1' );
+
+            wp_enqueue_media();
+
             if ( file_exists( ETB_PATH . 'admin/css/etb-admin.css' ) ) {
                 wp_enqueue_style( 'etb-admin-style', ETB_URL . 'admin/css/etb-admin.css', array(), ETB_VERSION );
             }
             if ( file_exists( ETB_PATH . 'admin/js/etb-admin.js' ) ) {
-                wp_enqueue_script( 'etb-admin-script', ETB_URL . 'admin/js/etb-admin.js', array( 'jquery' ), ETB_VERSION, true );
+                wp_enqueue_script( 'etb-admin-script', ETB_URL . 'admin/js/etb-admin.js', array( 'jquery', 'jquery-ui-sortable' ), ETB_VERSION, true );
             }
         }
     }
+
 }
+
 
 // Activation / Désactivation avec flush des permaliens
 function etb_activate_plugin() {

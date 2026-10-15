@@ -152,6 +152,10 @@ if ( $has_valid_booking && ! $is_tampered ) {
             ? ( $settled_amount - $saved_tip_amount - $child_seat_fee ) 
             : $settled_amount;
     }
+
+    // Détection de la commande multi-trajets
+    $is_multi_trip = ( '1' === (string) get_post_meta( $booking_id, '_etb_is_multi_trip', true ) );
+    $order_trips   = get_post_meta( $booking_id, '_etb_order_trips', true ) ?: ( $pay_data['trips'] ?? array() );
     
     $vehicles = get_post_meta( $booking_id, '_etb_vehicles', true ) ?: array();
     $vehicle_title = 'VIP Chauffeured Vehicle';
@@ -344,70 +348,113 @@ $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_s
                     <!-- Détails de la mission -->
                     <div style="border-top: 1px solid var(--etb-border-light, rgba(255,255,255,0.08)); padding-top: 20px; margin-bottom: 20px;">
                         
-                        <!-- 1. NOM DU VÉHICULE -->
-                        <h4 style="font-size: 17px; font-weight: 800; margin: 0 0 16px 0; color: var(--etb-text-primary, #ffffff); letter-spacing: 0.02em;">
-                            <?php echo esc_html( $vehicle_title ); ?>
-                        </h4>
+                        <?php if ( ! empty( $is_multi_trip ) && ! empty( $order_trips ) && count( $order_trips ) > 1 ) : ?>
+                            <!-- ══════════════════════════════════════════════════════════ -->
+                            <!-- VUE MULTI-TRAJETS SUR LA PAGE DE PAIEMENT                  -->
+                            <!-- ══════════════════════════════════════════════════════════ -->
+                            <h4 style="font-size: 15px; font-weight: 800; margin: 0 0 14px 0; color: var(--etb-accent-gold, #fbac18); text-transform: uppercase; letter-spacing: 0.05em;">
+                                🛒 Scheduled Transfers (<?php echo count( $order_trips ); ?>)
+                            </h4>
 
-                        <!-- 2. TIMELINE : DATE, PICKUP, DROPOFF, FLIGHT, GREETING SIGN -->
-                        <div class="etb-chk-summary-timeline" style="margin-bottom: 18px;">
-                            
-                            <!-- Date & Time -->
-                            <div class="etb-chk-timeline-item">
-                                <span class="etb-chk-calendar-icon">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fbac18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                                        <line x1="16" y1="2" x2="16" y2="6"></line>
-                                        <line x1="8" y1="2" x2="8" y2="6"></line>
-                                        <line x1="3" y1="10" x2="21" y2="10"></line>
-                                    </svg>
-                                </span>
-                                <div class="etb-chk-timeline-text">
-                                    <small>DATE & TIME</small>
-                                    <strong><?php echo esc_html( $formatted_pay_datetime ); ?></strong>
-                                </div>
+                            <div class="etb-pay-multi-trips-list" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 18px;">
+                                <?php foreach ( $order_trips as $idx => $t ) : 
+                                    $t_dt_display = '—';
+                                    if ( ! empty( $t['date'] ) ) {
+                                        $t_ts = strtotime( $t['date'] );
+                                        $t_dt_display = $t_ts ? date( 'd M. Y', $t_ts ) : $t['date'];
+                                        if ( ! empty( $t['time'] ) ) {
+                                            $t_dt_display .= ' at ' . $t['time'];
+                                        }
+                                    }
+                                    $t_price_display = ( 'Custom Quote' === $t['price'] || floatval( $t['price'] ) <= 0 ) 
+                                        ? 'Custom Quote' 
+                                        : ( number_format_i18n( floatval( $t['price'] ), 2 ) . ' ' . $currency_symbol );
+                                ?>
+                                    <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--etb-border-light, rgba(255, 255, 255, 0.08)); border-radius: 10px; padding: 12px 14px;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <span style="background: #fbac18; color: #0f172a; font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: 4px;">#<?php echo esc_html( $idx + 1 ); ?></span>
+                                                <strong style="color: var(--etb-text-primary, #ffffff); font-size: 13.5px;"><?php echo esc_html( $t['vehicle_name'] ); ?></strong>
+                                            </div>
+                                            <strong style="color: var(--etb-accent-gold, #fbac18); font-size: 13.5px;"><?php echo esc_html( $t_price_display ); ?></strong>
+                                        </div>
+                                        <div style="font-size: 12px; color: var(--etb-text-secondary, #94a3b8); margin-bottom: 4px;">
+                                            📅 <?php echo esc_html( $t_dt_display ); ?>
+                                        </div>
+                                        <div style="font-size: 12px; color: var(--etb-text-primary, #cbd5e1); line-height: 1.45;">
+                                            <?php if ( 'hourly' === $t['mode'] ) : ?>
+                                                ⏱️ By the hour (<?php echo esc_html( $t['duration'] ); ?>h) — <?php echo esc_html( $t['pickup'] ); ?>
+                                            <?php else : ?>
+                                                📍 <?php echo esc_html( $t['pickup'] ); ?><br>➔ 🏁 <?php echo esc_html( $t['dropoff'] ); ?>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
                             </div>
 
-                            <!-- Pickup -->
-                            <div class="etb-chk-timeline-item">
-                                <span class="etb-chk-bullet etb-bullet-pickup"></span>
-                                <div class="etb-chk-timeline-text">
-                                    <small>PICKUP</small>
-                                    <strong><?php echo esc_html( $pickup_address ); ?></strong>
-                                </div>
-                            </div>
+                        <?php else : ?>
+                            <!-- ══════════════════════════════════════════════════════════ -->
+                            <!-- VUE STANDARD MONO-TRAJET (RÉTROCOMPATIBILITÉ INTACTE)      -->
+                            <!-- ══════════════════════════════════════════════════════════ -->
+                            <!-- 1. NOM DU VÉHICULE -->
+                            <h4 style="font-size: 17px; font-weight: 800; margin: 0 0 16px 0; color: var(--etb-text-primary, #ffffff); letter-spacing: 0.02em;">
+                                <?php echo esc_html( $vehicle_title ); ?>
+                            </h4>
 
-                            <!-- Drop-off -->
-                            <div class="etb-chk-timeline-item">
-                                <span class="etb-chk-bullet etb-bullet-dropoff"></span>
-                                <div class="etb-chk-timeline-text">
-                                    <small>DROP-OFF / SERVICE</small>
-                                    <strong><?php echo esc_html( $dropoff_info ); ?></strong>
-                                </div>
-                            </div>
-
-                            <!-- Vol si présent -->
-                            <?php if ( ! empty( $flight_number ) ) : ?>
+                            <!-- 2. TIMELINE : DATE, PICKUP, DROPOFF, FLIGHT, GREETING SIGN -->
+                            <div class="etb-chk-summary-timeline" style="margin-bottom: 18px;">
                                 <div class="etb-chk-timeline-item">
-                                    <span class="dashicons dashicons-airplane" style="color: #fbac18; font-size: 15px; margin-left: 2px;"></span>
+                                    <span class="etb-chk-calendar-icon">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fbac18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                                        </svg>
+                                    </span>
                                     <div class="etb-chk-timeline-text">
-                                        <small>FLIGHT</small>
-                                        <strong><?php echo esc_html( $flight_number ); ?></strong>
+                                        <small>DATE & TIME</small>
+                                        <strong><?php echo esc_html( $formatted_pay_datetime ); ?></strong>
                                     </div>
                                 </div>
-                            <?php endif; ?>
 
-                            <!-- Pancarte d'accueil si présente -->
-                            <?php if ( ! empty( $waiting_sign ) ) : ?>
                                 <div class="etb-chk-timeline-item">
-                                    <span style="font-size: 13px; line-height: 1; margin-left: 2px;">🪧</span>
+                                    <span class="etb-chk-bullet etb-bullet-pickup"></span>
                                     <div class="etb-chk-timeline-text">
-                                        <small>GREETING SIGN</small>
-                                        <strong><?php echo esc_html( $waiting_sign ); ?></strong>
+                                        <small>PICKUP</small>
+                                        <strong><?php echo esc_html( $pickup_address ); ?></strong>
                                     </div>
                                 </div>
-                            <?php endif; ?>
-                        </div>
+
+                                <div class="etb-chk-timeline-item">
+                                    <span class="etb-chk-bullet etb-bullet-dropoff"></span>
+                                    <div class="etb-chk-timeline-text">
+                                        <small>DROP-OFF / SERVICE</small>
+                                        <strong><?php echo esc_html( $dropoff_info ); ?></strong>
+                                    </div>
+                                </div>
+
+                                <?php if ( ! empty( $flight_number ) ) : ?>
+                                    <div class="etb-chk-timeline-item">
+                                        <span class="dashicons dashicons-airplane" style="color: #fbac18; font-size: 15px; margin-left: 2px;"></span>
+                                        <div class="etb-chk-timeline-text">
+                                            <small>FLIGHT</small>
+                                            <strong><?php echo esc_html( $flight_number ); ?></strong>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+
+                                <?php if ( ! empty( $waiting_sign ) ) : ?>
+                                    <div class="etb-chk-timeline-item">
+                                        <span style="font-size: 13px; line-height: 1; margin-left: 2px;">🪧</span>
+                                        <div class="etb-chk-timeline-text">
+                                            <small>GREETING SIGN</small>
+                                            <strong><?php echo esc_html( $waiting_sign ); ?></strong>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
 
                         <!-- 3. PASSAGER & CAPACITÉS (PAX, CHECKED, CABIN, SIÈGES BÉBÉ) -->
                         <div style="border-top: 1px dashed var(--etb-border-light, rgba(255,255,255,0.08)); padding-top: 16px;">
@@ -462,10 +509,11 @@ $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_s
 
                     <!-- Référence officielle unifiée de la mission -->
                     <?php 
-                    $main_booking_ref = ( ! empty( $limo_id ) && 'OK' !== $limo_id ) ? $limo_id : ( '#' . $booking_id );
+                    $raw_ref = ( ! empty( $limo_id ) && 'OK' !== $limo_id ) ? $limo_id : (string) $booking_id;
+                    $clean_display_ref = ltrim( $raw_ref, '#' );
                     ?>
                     <div style="font-size: 12px; color: var(--etb-text-secondary, #94a3b8); border-top: 1px dashed var(--etb-border-light, rgba(255,255,255,0.08)); padding-top: 12px;">
-                        <span>Booking Reference: <strong style="color: var(--etb-text-primary, #ffffff); font-size: 13.5px; letter-spacing: 0.02em;">#<?php echo esc_html( $main_booking_ref ); ?></strong></span>
+                        <span>Booking Reference: <strong style="color: var(--etb-text-primary, #ffffff); font-size: 13.5px; letter-spacing: 0.02em;">#<?php echo esc_html( $clean_display_ref ); ?></strong></span>
                     </div>
 
                     <!-- Note informative : Paiements futurs (Point 1) -->
@@ -814,7 +862,7 @@ $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_s
                             'YE' => 'Yemen', 'ZM' => 'Zambia', 'ZW' => 'Zimbabwe'
                         );
                         ?>
-                        <div class="etb-chk-field" style="margin-top: 16px;">
+                        <div class="etb-chk-field" style="margin-top: 16px;" hidden>
                             <label style="font-size: 13px; font-weight: 600;">Country or Region *</label>
                             <input type="hidden" name="card_country" id="etb-pay-card-country" value="FR">
                         

@@ -401,9 +401,8 @@ class ETB_LimoExpress {
         // NOTE RÉPARTITEUR : Alerte + Stripe + Opérationnel complet + Code Promo
         $dispatcher_note = $dispatcher_alert . $stripe_block . "═DÉTAILS RÉSERVATION═\n" . $operational_details . "\n" . $promo_info;
 
-        // Résolution dynamique du Type de réservation selon le mode (Hourly vs Transfer)
-        $is_hourly_trip  = ( isset( $data['trip_mode'] ) && 'hourly' === $data['trip_mode'] ) 
-                        || ( isset( $data['pricing']['duration_hours'] ) && floatval( $data['pricing']['duration_hours'] ) > 1.0 && empty( $data['option_id'] ) );
+        // Résolution dynamique du Type de réservation stricte (Fini les transferts confondus avec l'horaire)
+        $is_hourly_trip  = ( isset( $data['trip_mode'] ) && 'hourly' === $data['trip_mode'] );
 
         $booking_type_id = '';
         $available_types = self::get_booking_types();

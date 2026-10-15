@@ -201,3 +201,576 @@
     padding-bottom: 10px;
     border-bottom: 2px dashed #e2e8f0;
 }
+
+/* ==========================================================================
+   METABOX CIRCUIT MODERNE (INSPIRATION WP TRAVEL ENGINE)
+   ========================================================================== */
+.etb-engine-container {
+    display: flex;
+    min-height: 480px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-top: 10px;
+}
+
+/* 1. Navigation verticale gauche */
+.etb-engine-sidebar {
+    width: 220px;
+    background: #f8fafc;
+    border-right: 1px solid #e2e8f0;
+    flex-shrink: 0;
+    padding: 12px 0;
+}
+
+.etb-engine-tab-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 18px;
+    background: transparent;
+    border: none;
+    border-left: 3px solid transparent;
+    color: #475569;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.etb-engine-tab-btn:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+.etb-engine-tab-btn.active {
+    background: #ffffff;
+    border-left-color: #2563eb;
+    color: #2563eb;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+}
+
+.etb-engine-tab-btn .dashicons {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+}
+
+/* 2. Zone de contenu droite */
+.etb-engine-content {
+    flex: 1;
+    padding: 24px 30px;
+    background: #ffffff;
+    min-width: 0;
+}
+
+.etb-engine-pane {
+    display: none;
+}
+
+.etb-engine-pane.active {
+    display: block;
+}
+
+.etb-engine-pane-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 20px 0;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+/* 3. Cartes de formulaire & champs */
+.etb-engine-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.etb-engine-card-header {
+    font-size: 14px;
+    font-weight: 700;
+    color: #334155;
+    margin: 0 0 15px 0;
+}
+
+.etb-engine-row {
+    margin-bottom: 16px;
+}
+
+.etb-engine-row label {
+    display: block;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 6px;
+    font-size: 13px;
+}
+
+.etb-engine-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.etb-engine-grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+}
+
+/* 4. Highlights (Points forts) dynamiques */
+.etb-highlight-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.etb-highlight-item input {
+    flex: 1;
+}
+
+/* 5. Itinéraire en Accordéon */
+.etb-itinerary-step {
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    overflow: hidden;
+    background: #ffffff;
+}
+
+.etb-itinerary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: #f8fafc;
+    cursor: pointer;
+    user-select: none;
+}
+
+.etb-itinerary-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 600;
+    color: #0f172a;
+    font-size: 13px;
+}
+
+.etb-itinerary-body {
+    padding: 16px;
+    border-top: 1px solid #e2e8f0;
+    background: #ffffff;
+}
+
+.etb-itinerary-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* 6. Boutons utilitaires épurés */
+.etb-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #f1f5f9;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+    padding: 7px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 12px;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.etb-btn-secondary:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.etb-btn-danger-icon {
+    background: #fee2e2;
+    border: 1px solid #fca5a5;
+    color: #dc2626;
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: all 0.2s ease;
+}
+
+.etb-btn-danger-icon:hover {
+    background: #dc2626;
+    color: #ffffff;
+}
+
+
+/* ==========================================================================
+   MINI-BARRE D'OUTILS DE FORMATAGE (B, I, LIEN, LISTE)
+   ========================================================================== */
+.etb-editor-toolbar {
+    display: flex;
+    gap: 6px;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    padding: 6px 10px;
+    align-items: center;
+}
+
+.etb-editor-toolbar .etb-format-btn {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #334155;
+    cursor: pointer;
+    line-height: 1.2;
+    transition: all 0.15s ease;
+}
+
+.etb-editor-toolbar .etb-format-btn:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+    border-color: #94a3b8;
+}
+
+.etb-rich-text {
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+}
+
+
+/* ==========================================================================
+   STYLE ÉPURÉ & RAFFINÉ "MAP & GALLERY" (WP TRAVEL ENGINE REPLICA)
+   ========================================================================== */
+
+/* 1. Sous-onglets horizontaux (Gallery | Map) */
+.etb-subtabs-bar {
+    display: flex;
+    gap: 25px;
+    border-bottom: 1px solid #e2e8f0;
+    margin-bottom: 25px;
+}
+
+.etb-subtab-btn {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 0 0 10px 0;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.etb-subtab-btn:hover {
+    color: #0f172a;
+}
+
+.etb-subtab-btn.active {
+    color: #2563eb;
+    border-bottom-color: #2563eb;
+}
+
+/* 2. Interrupteur Toggle Switch iOS */
+.etb-ios-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 22px;
+}
+
+.etb-ios-toggle-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.etb-ios-switch {
+    position: relative;
+    display: inline-block;
+    width: 42px;
+    height: 22px;
+    flex-shrink: 0;
+}
+
+.etb-ios-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.etb-ios-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #cbd5e1;
+    transition: .25s ease;
+    border-radius: 50px;
+}
+
+.etb-ios-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .25s ease;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+}
+
+.etb-ios-switch input:checked + .etb-ios-slider {
+    background-color: #2563eb;
+}
+
+.etb-ios-switch input:checked + .etb-ios-slider:before {
+    transform: translateX(20px);
+}
+
+/* 3. Zone d'upload pointillée bleue */
+.etb-gallery-dropzone {
+    border: 1.5px dashed #3b82f6;
+    border-radius: 8px;
+    background: #fcfdfe;
+    padding: 35px 20px;
+    text-align: center;
+    margin-bottom: 24px;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.etb-gallery-dropzone:hover {
+    background: #f0f7ff;
+    border-color: #2563eb;
+}
+
+.etb-btn-outline-blue {
+    background: #ffffff !important;
+    border: 1.5px solid #2563eb !important;
+    color: #2563eb !important;
+    border-radius: 50px !important;
+    padding: 8px 24px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    transition: all 0.2s ease !important;
+}
+
+.etb-btn-outline-blue:hover {
+    background: #2563eb !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25) !important;
+}
+
+.etb-dropzone-hint {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+/* 4. Miniatures épurées avec poignée drag */
+.etb-gallery-thumbs-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-bottom: 20px;
+}
+
+.etb-gallery-thumb-card {
+    position: relative;
+    width: 130px;
+    height: 90px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    background: #ffffff;
+}
+
+.etb-gallery-thumb-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.etb-gallery-thumb-card .etb-thumb-handle {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    background: rgba(255,255,255,0.9);
+    border-radius: 3px;
+    padding: 2px 4px;
+    font-size: 11px;
+    color: #64748b;
+    cursor: grab;
+    line-height: 1;
+}
+
+.etb-gallery-thumb-card .etb-remove-gallery-img-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: rgba(239, 68, 68, 0.9);
+    border: none;
+    color: #ffffff;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    line-height: 1;
+    transition: background 0.15s;
+}
+
+.etb-gallery-thumb-card .etb-remove-gallery-img-btn:hover {
+    background: #dc2626;
+}
+
+
+/* ==========================================================================
+   LIGHTBOX (GALERIE PHOTO VIP)
+   ========================================================================== */
+.etb-lightbox-overlay {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 999999 !important;
+    background: rgba(15, 23, 42, 0.92) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s ease !important;
+}
+
+.etb-lightbox-overlay.etb-lightbox-active {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+.etb-lightbox-img {
+    max-width: 90vw !important;
+    max-height: 85vh !important;
+    object-fit: contain !important;
+    border-radius: 6px !important;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6) !important;
+    transform: scale(0.95);
+    transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.2s ease !important;
+}
+
+.etb-lightbox-overlay.etb-lightbox-active .etb-lightbox-img {
+    transform: scale(1);
+}
+
+/* Contrôles de la Lightbox */
+.etb-lightbox-close,
+.etb-lightbox-nav {
+    position: absolute !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: #ffffff !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    border-radius: 50% !important;
+    transition: all 0.2s ease !important;
+    z-index: 10 !important;
+}
+
+.etb-lightbox-close:hover,
+.etb-lightbox-nav:hover {
+    background: var(--etb-theme-primary, #ba6827) !important;
+    border-color: var(--etb-theme-primary, #ba6827) !important;
+    transform: scale(1.08) !important;
+}
+
+.etb-lightbox-close {
+    top: 25px !important;
+    right: 30px !important;
+    width: 44px !important;
+    height: 44px !important;
+}
+
+.etb-lightbox-nav {
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 54px !important;
+    height: 54px !important;
+}
+
+.etb-lightbox-nav:hover {
+    transform: translateY(-50%) scale(1.08) !important;
+}
+
+.etb-lightbox-prev {
+    left: 30px !important;
+}
+
+.etb-lightbox-next {
+    right: 30px !important;
+}
+
+.etb-lightbox-counter {
+    position: absolute !important;
+    bottom: 25px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    color: #ffffff !important;
+    font-family: var(--etb-theme-font-head, sans-serif) !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    letter-spacing: 2px !important;
+    background: rgba(0, 0, 0, 0.4) !important;
+    padding: 6px 16px !important;
+    border-radius: 50px !important;
+    backdrop-filter: blur(4px) !important;
+}
+
+@media (max-width: 768px) {
+    .etb-lightbox-img {
+        max-width: 100vw !important;
+        max-height: 70vh !important;
+        border-radius: 0 !important;
+    }
+    .etb-lightbox-nav {
+        width: 40px !important;
+        height: 40px !important;
+    }
+    .etb-lightbox-prev { left: 10px !important; }
+    .etb-lightbox-next { right: 10px !important; }
+    .etb-lightbox-close { top: 15px !important; right: 15px !important; width: 36px !important; height: 36px !important; }
+}
+

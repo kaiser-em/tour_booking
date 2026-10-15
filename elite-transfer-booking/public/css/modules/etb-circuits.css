@@ -1,3 +1,12 @@
+
+@font-face {
+    font-family: 'Sunsive-Medium';
+    src: url('../../fonts/Sunsive-Medium.woff') format('woff');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
 /* ==========================================================================
    ETB MODULE — CIRCUITS TOURISTIQUES & TOUR BOOKING SIDEBAR
    ========================================================================== */
@@ -34,12 +43,33 @@
     letter-spacing: normal !important;
 }
 
+/* Protection essentielle de Font Awesome contre le reset font-family: inherit */
+.co-circuit-wrapper .fa,
+.co-circuit-wrapper .fas,
+.co-circuit-wrapper .fa-solid,
+.co-circuit-wrapper .far,
+.co-circuit-wrapper .fa-regular {
+    font-family: "Font Awesome 6 Free" !important;
+    display: inline-block !important;
+    font-style: normal !important;
+    line-height: 1 !important;
+}
+
+.co-circuit-wrapper .fab,
+.co-circuit-wrapper .fa-brands {
+    font-family: "Font Awesome 6 Brands" !important;
+    display: inline-block !important;
+    font-style: normal !important;
+    line-height: 1 !important;
+}
+
 /* Neutralisation des styles de listes des thèmes */
 .co-circuit-wrapper ul,
 .etb-booking-widget ul {
     list-style: none !important;
     margin: 0 !important;
     padding: 0 !important;
+    font-weight: 600 !important;
 }
 
 /* Neutralisation des boutons et inputs */
@@ -94,7 +124,7 @@
     font-weight: 800 !important;
     text-transform: uppercase !important;
     letter-spacing: 0.05em !important;
-    color: var(--etb-primary) !important;
+    color: var(--etb-theme-secondary) !important;
     margin: 0 0 20px 0 !important;
     display: flex !important;
     align-items: center !important;
@@ -122,7 +152,7 @@
 /* 1. Carte Véhicule (Cadre fixe 255px avec transition douce) */
 .co-vehicles-grid .etb-vehicle-card {
     background: var(--etb-white) !important;
-    border: 2px solid var(--etb-border) !important;
+    border: 1px solid #eaeaea !important;
     border-radius: var(--etb-radius-md) !important;
     height: 255px !important;
     min-height: 255px !important;
@@ -584,11 +614,11 @@
 /* ==========================================================================
    6. COLONNE DROITE : WIDGET FORMULAIRE DE RÉSERVATION (SIDEBAR)
    ========================================================================== */
-
 .etb-booking-widget {
-    border: 1px solid var(--etb-border) !important;
+    border: 1px solid #f1f1f1 !important;
     width: 100% !important;
-    min-width: 400px !important;
+    min-width: 0 !important; /* Débloque l'adaptation sur mobile (au lieu de 400px fixe) */
+    max-width: 100% !important;
     background: var(--etb-white) !important;
     padding: 24px 16px !important;
     border-radius: var(--etb-radius-lg) !important;
@@ -607,10 +637,10 @@
 
 .etb-section-title {
     font-size: 13px !important;
-    font-weight: 800 !important;
+    font-weight: 700 !important;
     text-transform: uppercase !important;
     letter-spacing: 0.08em !important;
-    color: var(--etb-primary) !important;
+    color: #5b3516 !important;
     margin: 0 0 14px 0 !important;
     display: flex !important;
     align-items: center !important;
@@ -618,7 +648,7 @@
 }
 
 .etb-section-title .dashicons {
-    color: var(--etb-primary) !important;
+    color: #5b3516 !important;
     font-size: 18px !important;
     width: 18px !important;
     height: 18px !important;
@@ -705,7 +735,7 @@
 
 .etb-pax-card {
     background: var(--etb-white) !important;
-    border: 1.2px solid var(--etb-border) !important;
+    border: 1px solid #ecebeb !important;
     padding: 10px 14px !important;
     border-radius: var(--etb-radius-md) !important;
     display: flex !important;
@@ -718,7 +748,7 @@
     display: block !important;
     font-size: 14px !important;
     color: var(--etb-primary) !important;
-    font-weight: 800 !important;
+    font-weight: 600 !important;
 }
 
 .etb-pax-info span {
@@ -733,7 +763,7 @@
     display: inline-flex !important;
     align-items: center !important;
     justify-content: space-between !important;
-    background: #fed7aa !important; /* Orange doux pêche */
+    background: #ababab1c !important; /* Orange doux pêche */
     padding: 2px 4px !important;
     border-radius: 50px !important;
     height: 32px !important;
@@ -956,7 +986,7 @@
 .etb-option-row-top strong {
     font-size: 14px !important;
     color: var(--etb-primary) !important;
-    font-weight: 800 !important;
+    font-weight: 600 !important;
 }
 
 .etb-option-row-bottom {
@@ -1201,7 +1231,6 @@
 @media (max-width: 992px) {
     .co-circuit-wrapper {
         padding: 0 12px !important;
-         padding: 0 4px !important;
         width: 100% !important;
         max-width: 100% !important;
         margin: 10px auto !important;
@@ -1225,6 +1254,42 @@
     }
 }
 
+/* 3. SMARTPHONES & PETITS ÉCRANS (<= 600px) */
+@media (max-width: 600px) {
+    .co-circuit-wrapper {
+        padding: 0 8px !important;
+    }
+
+    .etb-booking-widget {
+        padding: 18px 12px !important;
+        border-radius: var(--etb-radius-md) !important;
+    }
+
+    /* Passage en 1 seule colonne propre pour éliminer tout débordement */
+    .etb-pax-grid,
+    .etb-grid-2 {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+
+    /* Chaque passager occupe toute la largeur de façon aérée */
+    .etb-pax-card {
+        padding: 10px 14px !important;
+    }
+
+    /* Les options supplémentaires s'affichent sans écraser le titre */
+    .etb-pax-card.etb-extra-item {
+        min-height: auto !important;
+        padding: 12px 14px !important;
+    }
+
+    /* Taille de texte optimale pour éviter le zoom automatique sur iPhone */
+    .etb-field input,
+    .etb-field textarea {
+        font-size: 15px !important;
+    }
+}
+
 /* 2. TABLETTE EN PORTRAIT (641px à 768px) */
 @media (min-width: 641px) and (max-width: 768px) {
     .co-vehicles-grid {
@@ -1236,4 +1301,621 @@
         min-height: 240px !important;
         padding: 12px !important;
     }
+}
+
+
+/* ==========================================================================
+   HARMONISATION ÉCOSYSTÈME ELEMENTOR (DYNAMIC TOKENS)
+   ========================================================================== */
+.co-circuit-wrapper {
+    /* Mapping direct sur votre Kit Elementor 5931 avec fallbacks */
+    --etb-theme-primary: var(--e-global-color-primary, #BA6827);
+    --etb-theme-secondary: var(--e-global-color-secondary, #5B3516);
+    --etb-theme-text: var(--e-global-color-text, #797979);
+    --etb-theme-font-head: var(--e-global-typography-secondary-font-family, "Sunsive-SemiBold", sans-serif);
+    --etb-theme-font-body: var(--e-global-typography-text-font-family, "Sunsive-Medium", sans-serif);
+    
+    font-family: var(--etb-theme-font-body);
+    color: var(--etb-theme-text);
+}
+
+/* Titres de sections (Overview, Itinerary, Includes...) */
+.co-vip-title,
+.co-hero-header h1,
+.co-hero-header h2 {
+    font-family: var(--etb-theme-font-head) !important;
+    color: var(--etb-theme-secondary) !important;
+    line-height: 1.25 !important; /* Rétablit un interlignage aéré */
+    letter-spacing: -0.02em;
+}
+
+/* Textes de paragraphes */
+.co-vip-text,
+.co-hero-header p,
+.co-vip-step-body {
+    color: var(--etb-theme-text) !important;
+    font-size: 15.5px;
+    line-height: 1.65;
+    font-weight: 600;
+}
+
+/* Points forts (Highlights) - Disposition en ligne fluide */
+.co-vip-highlights {
+    margin: 20px 0 35px 0 !important;
+    padding: 0 !important;
+    list-style: none !important;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    gap: 12px 28px !important;
+}
+
+.co-vip-highlights li {
+    color: var(--etb-theme-text) !important;
+    font-family: var(--etb-theme-font-body);
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    font-size: 15px !important;
+    font-weight: 500 !important;
+}
+
+.co-vip-highlights svg {
+    stroke: var(--etb-theme-primary) !important;
+    flex-shrink: 0 !important;
+}
+
+.co-vip-highlights-card{
+    margin-top: 30px;
+}
+
+/* ==========================================================================
+   ALIGNEMENT DE L'ITINÉRAIRE (ACCORDÉON VIP)
+   ========================================================================== */
+
+/* Commande "Expand all / Collapse all" */
+.co-timeline-head-bar {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    margin-top: 35px !important;
+    margin-bottom: 20px !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    padding-bottom: 12px !important;
+}
+
+.co-expand-all-wrap {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    cursor: pointer !important;
+    user-select: none !important;
+}
+
+.co-expand-all-label {
+    font-size: 13.5px !important;
+    font-weight: 600 !important;
+    color: var(--etb-theme-secondary, #5b3516) !important;
+}
+
+.co-expand-toggle-switch {
+    position: relative !important;
+    width: 40px !important;
+    height: 22px !important;
+    background: #cbd5e1;
+    border-radius: 50px !important;
+    border: none !important;
+    cursor: pointer !important;
+    padding: 2px !important;
+    transition: background 0.25s ease !important;
+}
+
+.co-expand-switch-thumb {
+    display: block !important;
+    width: 18px !important;
+    height: 18px !important;
+    background: #ffffff !important;
+    border-radius: 50% !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
+    transition: transform 0.25s ease !important;
+}
+
+
+.co-vip-timeline {
+    position: relative;
+    padding-left: 24px;
+    margin-top: 25px;
+    border-left: 1.5px dashed #cbd5e1; /* Ligne de temps verticale */
+}
+
+.co-vip-step {
+    position: relative;
+    margin-bottom: 22px;
+}
+
+/* Point rond sur la ligne */
+.co-vip-step-marker {
+    position: absolute;
+    left: -32px;
+    top: 6px;
+    width: 14px;
+    height: 14px;
+    background: #ffffff;
+    border: 2.5px solid var(--etb-theme-primary);
+    border-radius: 50%;
+    z-index: 2;
+}
+
+.co-vip-step-marker.filled {
+    background: var(--etb-theme-primary);
+}
+
+/* Ligne d'en-tête de l'étape : Titre à gauche, Flèche à droite */
+.co-vip-step-header {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    width: 100%;
+    cursor: pointer;
+    user-select: none;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.co-vip-step-title {
+    font-family: var(--etb-theme-font-head) !important;
+    color: var(--etb-theme-secondary) !important;
+    font-size: 19px !important; /* Taille ajustée pour ne pas saturer */
+    line-height: 1.3 !important;
+    margin: 0 !important;
+    padding-right: 15px;
+    flex: 1;
+}
+
+.co-vip-step-icon {
+    color: var(--etb-theme-primary);
+    flex-shrink: 0;
+    transition: transform 0.25s ease;
+}
+
+.co-vip-step.is-open .co-vip-step-icon {
+    transform: rotate(180deg);
+}
+
+/* Par défaut : contenu masqué */
+.co-vip-step-body {
+    display: none;
+    padding-top: 14px;
+}
+
+/* Affiché uniquement lorsque l'étape a la classe .is-open */
+.co-vip-step.is-open .co-vip-step-body {
+    display: block !important;
+}
+
+/* Rotation fluide de la flèche chevron (doublon supprimé) */
+.co-vip-step.is-open .co-vip-step-icon {
+    transform: rotate(180deg);
+}
+
+/* Sous-sections détaillées (Sous-titre + Paragraphe) */
+.co-vip-step-subblocks {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+    margin-top: 15px !important;
+    padding-top: 15px !important;
+    border-top: 1px dashed #e2e8f0 !important;
+}
+
+.co-vip-subblock-item h5 {
+    font-family: var(--etb-theme-font-head) !important;
+    color: var(--etb-theme-secondary) !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    margin: 0 0 6px 0 !important;
+    line-height: 1.35 !important;
+}
+
+.co-vip-subblock-item p {
+    color: var(--etb-theme-text) !important;
+    font-size: 14.5px !important;
+    line-height: 1.65 !important;
+    margin-bottom: 15px !important;
+}
+
+/* Inclus / Non Inclus (Design aligné Photo 2) */
+.co-vip-inclusions-section {
+    width: 100% !important;
+    border-top: 1px solid #f1f5f9 !important;
+    padding-top: 35px !important;
+    margin-top: 35px !important;
+}
+
+.co-vip-inclusions-wrap {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 35px !important;
+}
+
+@media (max-width: 768px) {
+
+    .co-vip-highlights-card{
+    margin-top: 0;
+    }
+    .co-vip-inclusions-wrap {
+        grid-template-columns: 1fr !important;
+        gap: 24px !important;
+    }
+
+    .co-circuit-wrapper {
+        padding: 0!important;
+    }
+
+    .co-vip-timeline {
+        padding-left: 25px;
+        margin-top: 25px;
+        width: 95vw;
+    }
+
+    .co-vip-step-body {
+        padding-right: 20px;
+    }
+
+
+}
+
+@media (max-width: 768px) {
+
+    .co-timeline-head-bar {
+        width: 90vw;
+    }
+
+    .co-timeline-block {
+
+        width: 80%;
+    }
+
+}
+
+.co-vip-inc-list {
+    list-style: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+}
+
+.co-vip-inc-list li {
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+    color: var(--etb-theme-text) !important;
+    font-size: 15px !important;
+    line-height: 1.5 !important;
+}
+
+
+
+/* Responsive 2 colonnes Overview & Highlights */
+@media (max-width: 860px) {
+    .co-hero-overview-grid {
+        grid-template-columns: 1fr !important;
+        gap: 24px !important;
+    }
+}
+
+
+/* ==========================================================================
+   MOSAÏQUE PHOTO VIP (BENTO GRID - CALIBRAGE STRICT 360PX)
+   ========================================================================== */
+.co-vip-bento-gallery {
+    width: 100% !important;
+    margin-bottom: 35px !important;
+    display: block !important;
+    clear: both !important;
+}
+
+/* Cadre parent de chaque image avec masquage STRICT pour le zoom */
+.co-bento-item {
+    position: relative !important;
+    overflow: hidden !important;
+    border-radius: 12px !important;
+    background: #f1f5f9 !important;
+    display: block !important;
+}
+
+/* Image parfaitement centrée, en absolu pour ne jamais déformer la grille */
+.co-bento-item img {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    object-position: center !important;
+    display: block !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transition: transform 0.45s ease-in-out !important;
+}
+
+.co-bento-item:hover img {
+    transform: scale(1.1) !important;
+}
+
+/* Cas 1 image */
+.co-bento-single {
+    height: 552px !important;
+}
+
+/* Cas 2 images */
+.co-bento-duo {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 12px !important;
+    height: 552px !important;
+}
+
+/* Grille Mosaïque Principale (1 gauche / 3 droite) */
+.co-bento-grid {
+    display: grid !important;
+    grid-template-columns: 1.25fr 1fr !important;
+    gap: 12px !important;
+    height: 552px !important;
+    width: 100% !important;
+}
+
+.co-bento-main {
+    height: 552px !important;
+    width: 100% !important;
+}
+
+/* 🔴 CORRECTION : Forcer la division 50/50 stricte de la colonne droite */
+.co-bento-side {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    height: 552px !important;
+    width: 100% !important;
+}
+
+.co-bento-sub-top {
+    height: calc(50% - 6px) !important; /* Moitié exacte moins le gap */
+    width: 100% !important;
+}
+
+.co-bento-sub-bottom {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important; 
+    gap: 12px !important;
+    height: calc(50% - 6px) !important; /* Moitié exacte moins le gap */
+    width: 100% !important;
+}
+
+.co-bento-thumb {
+    height: 100% !important;
+    width: 100% !important;
+}
+
+/* Badge flottant "Gallery" */
+.co-bento-badge {
+    position: absolute !important;
+    bottom: 12px !important;
+    right: 12px !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    color: #1e293b !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    padding: 6px 12px !important;
+    border-radius: 50px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15) !important;
+    backdrop-filter: blur(4px) !important;
+    user-select: none !important;
+}
+
+/* Responsive Mosaïque sur Mobile */
+@media (max-width: 768px) {
+    .co-bento-grid {
+        grid-template-columns: 1fr !important;
+        height: auto !important;
+    }
+    .co-bento-main {
+        height: 280px !important;
+    }
+    .co-bento-side {
+        display: none !important; /* Sur mobile, seule la grande photo reste visible */
+    }
+}
+
+
+/* ==========================================================================
+   LIGHTBOX (GALERIE PHOTO VIP)
+   ========================================================================== */
+.etb-lightbox-overlay {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 999999 !important;
+    background: rgba(15, 23, 42, 0.92) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s ease !important;
+}
+
+.etb-lightbox-overlay.etb-lightbox-active {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+.etb-lightbox-img {
+    max-width: 90vw !important;
+    max-height: 85vh !important;
+    object-fit: contain !important;
+    border-radius: 6px !important;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6) !important;
+    transform: scale(0.95);
+    transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.2s ease !important;
+}
+
+.etb-lightbox-overlay.etb-lightbox-active .etb-lightbox-img {
+    transform: scale(1);
+}
+
+/* Contrôles de la Lightbox */
+.etb-lightbox-close,
+.etb-lightbox-nav {
+    position: absolute !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: #ffffff !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    border-radius: 50% !important;
+    transition: all 0.2s ease !important;
+    z-index: 10 !important;
+}
+
+.etb-lightbox-close:hover,
+.etb-lightbox-nav:hover {
+    background: var(--etb-theme-primary, #ba6827) !important;
+    border-color: var(--etb-theme-primary, #ba6827) !important;
+    transform: scale(1.08) !important;
+}
+
+.etb-lightbox-close {
+    top: 25px !important;
+    right: 30px !important;
+    width: 44px !important;
+    height: 44px !important;
+}
+
+.etb-lightbox-nav {
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 54px !important;
+    height: 54px !important;
+}
+
+.etb-lightbox-nav:hover {
+    transform: translateY(-50%) scale(1.08) !important;
+}
+
+.etb-lightbox-prev {
+    left: 30px !important;
+}
+
+.etb-lightbox-next {
+    right: 30px !important;
+}
+
+.etb-lightbox-counter {
+    position: absolute !important;
+    bottom: 25px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    color: #ffffff !important;
+    font-family: var(--etb-theme-font-head, sans-serif) !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    letter-spacing: 2px !important;
+    background: rgba(0, 0, 0, 0.4) !important;
+    padding: 6px 16px !important;
+    border-radius: 50px !important;
+    backdrop-filter: blur(4px) !important;
+}
+
+@media (max-width: 768px) {
+    .etb-lightbox-img {
+        max-width: 100vw !important;
+        max-height: 70vh !important;
+        border-radius: 0 !important;
+    }
+    .etb-lightbox-nav {
+        width: 40px !important;
+        height: 40px !important;
+    }
+    .etb-lightbox-prev { left: 10px !important; }
+    .etb-lightbox-next { right: 10px !important; }
+    .etb-lightbox-close { top: 15px !important; right: 15px !important; width: 36px !important; height: 36px !important; }
+}
+
+
+/* ===== AUTRES CIRCUITS (cartes) ===== */
+.etb-related { margin: 56px 0 24px; width: 100%; clear: both; }
+.etb-related__header { margin-bottom: 24px; }
+.etb-related__title {
+    margin: 0 0 6px; font-size: 26px; line-height: 1.25; font-weight: 600;
+    font-family: var(--etb-theme-font-head, 'Sunsive-Medium', sans-serif);
+    color: var(--etb-theme-secondary, #5b3516);
+}
+.etb-related__subtitle { margin: 0; font-size: 14.5px; color: var(--etb-theme-text, #797979); }
+
+.etb-related__grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 24px; list-style: none; margin: 0; padding: 0;
+}
+.etb-related__card {
+    position: relative; display: flex; flex-direction: column; overflow: hidden;
+    background: #fff; border: 1px solid #f1e9e0; border-radius: 16px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .05);
+    transition: transform .25s ease, box-shadow .25s ease;
+}
+.etb-related__card:hover { transform: translateY(-4px); box-shadow: 0 14px 30px rgba(91, 53, 22, .14); }
+
+.etb-related__media {
+    aspect-ratio: 4 / 3; overflow: hidden;
+    background: linear-gradient(135deg, #f3ebe2, #e6d6c4);
+}
+.etb-related__media img {
+    display: block; width: 100%; height: 100%; object-fit: cover;
+    transition: transform .5s ease;
+}
+.etb-related__card:hover .etb-related__media img { transform: scale(1.06); }
+
+.etb-related__body { display: flex; flex-direction: column; gap: 10px; flex: 1; padding: 18px 20px 20px; }
+.etb-related__cities {
+    font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--etb-theme-primary, #ba6827);
+}
+.etb-related__name {
+    margin: 0; font-size: 19px; line-height: 1.3; font-weight: 600;
+    font-family: var(--etb-theme-font-head, 'Sunsive-Medium', sans-serif);
+}
+.etb-related__link { color: var(--etb-theme-secondary, #5b3516); text-decoration: none; }
+/* Toute la carte est cliquable, avec un seul lien pour les lecteurs d'écran */
+.etb-related__link::after { content: ""; position: absolute; inset: 0; border-radius: 16px; }
+.etb-related__link:focus-visible { outline: none; }
+.etb-related__link:focus-visible::after { outline: 3px solid var(--etb-theme-primary, #ba6827); outline-offset: 2px; }
+
+.etb-related__meta { font-size: 13.5px; color: var(--etb-theme-text, #797979); }
+.etb-related__cta {
+    margin-top: auto; padding-top: 6px; font-size: 14px; font-weight: 600;
+    color: var(--etb-theme-primary, #ba6827); transition: letter-spacing .25s ease;
+}
+.etb-related__card:hover .etb-related__cta { letter-spacing: .03em; }
+
+/* Mobile : carrousel horizontal avec accroche (swipe) */
+@media (max-width: 600px) {
+    .etb-related__grid {
+        display: flex; overflow-x: auto; gap: 16px; padding-bottom: 14px;
+        scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+    }
+    .etb-related__card { flex: 0 0 82%; scroll-snap-align: start; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .etb-related__card, .etb-related__media img, .etb-related__cta { transition: none; }
+    .etb-related__card:hover { transform: none; }
+    .etb-related__card:hover .etb-related__media img { transform: none; }
 }

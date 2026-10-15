@@ -49,14 +49,30 @@ $now_time = '';
         <h2 class="etb-quick-title-thinking">Fare Calculator</h2>
     </div>
 
-    <!-- 1. TOGGLE CAPSULE NOIRE (One way / By the hour) -->
-    <div class="etb-quick-mode-capsule">
-        <button type="button" class="etb-quick-mode-btn active" data-mode="transfer">
-            <span>One way</span>
-        </button>
-        <button type="button" class="etb-quick-mode-btn" data-mode="hourly">
-            <span>By the hour</span>
-        </button>
+    <!-- 1. CONTRÔLES SUPÉRIEURS (Bascule Multi-Trajets & Mode de Réservation) -->
+    <div class="etb-quick-top-controls">
+        
+        <!-- Checkbox Multi-Booking VIP (Désactivée par défaut) -->
+        <label class="etb-multi-booking-checkbox-wrap">
+            <input type="checkbox" id="etb-multi-trip-toggle">
+            <span class="etb-mb-custom-box">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </span>
+            <span class="etb-mb-label">Multi-Trips</span>
+        </label>
+
+        <!-- Capsule Noire (One way / By the hour) au CENTRE -->
+        <div class="etb-quick-mode-capsule">
+            <button type="button" class="etb-quick-mode-btn active" data-mode="transfer">
+                <span>One way</span>
+            </button>
+            <button type="button" class="etb-quick-mode-btn" data-mode="hourly">
+                <span>By the hour</span>
+            </button>
+        </div>
+
+        <!-- Espace vide à droite pour un centrage absolu parfait -->
+        <div class="etb-quick-top-spacer"></div>
     </div>
 
     <!-- 2. BARRE HORIZONTALE FLOTTANTE (GLASSMORPHISM BLACKLANE) -->
@@ -360,28 +376,57 @@ $now_time = '';
         </div>
         </div>
 
+        <!-- CONTENEUR DU PANIER MULTI-TRAJETS VIP ÉPURÉ -->
+        <div class="etb-quick-trips-cart" id="etb-quick-trips-cart" style="display: none; margin: 20px 0 14px 0; background: var(--etb-bg-card, rgba(15, 23, 42, 0.85)); border: 1px solid var(--etb-accent-gold, #fbac18); border-radius: 12px; padding: 14px 18px; box-shadow: 0 8px 32px rgba(0,0,0,0.12); backdrop-filter: blur(12px);">
+            <div style="display: flex; align-items: center; margin-bottom: 12px; border-bottom: 1px solid var(--etb-border-light, rgba(255,255,255,0.08)); padding-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--etb-accent-gold, #fbac18)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                    </svg>
+                    <span style="color: var(--etb-accent-gold, #fbac18); font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap;">
+                        Planned Itineraries (<span id="etb-cart-trips-count">0</span>)
+                    </span>
+                </div>
+            </div>
+            <!-- Liste dynamique des trajets injectée par JavaScript -->
+            <div id="etb-cart-trips-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
+        </div>
 
        
-        <!-- 4. BARRE DE CONFIRMATION / RÉSERVATION EN 3 COLONNES -->
+        <!-- BOUTON DORÉ VIP POSITIONNÉ JUSTE AU-DESSUS DE LA BARRE DE CONFIRMATION -->
+        <div id="etb-bridge-trip-wrap">
+            <button type="button" id="etb-bridge-trip-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span id="etb-bridge-trip-label">Add another trip</span>
+            </button>
+        </div>
+
+        <!-- 4. BARRE DE CONFIRMATION / RÉSERVATION (ÉPURÉE SANS SURCHARGE) -->
         <div class="etb-quick-confirm-bar" id="etb-quick-booking-bar" style="display: none;">
             
             <!-- Injection JS dynamique des Colonnes 1 (Véhicule) et 2 (Prix) -->
             <div id="etb-quick-dynamic-bar-content" class="etb-bar-dynamic-wrapper"></div>
             
-            <!-- Colonne 3 : Boutons d'action -->
-            <div class="etb-quick-actions-row" style="display: flex; align-items: center; gap: 12px;">
+            <!-- Colonne 3 : Boutons d'action (Duo Contacts + Bouton Commande Principal) -->
+            <div class="etb-quick-actions-row">
 
-                <!-- Bouton Email Inquiry direct (mailto) -->
-                <a href="#" class="etb-quick-email-btn" id="etb-quick-email-btn">
-                    <span class="dashicons dashicons-email-alt"></span>
-                    <span>Email Inquiry</span>
-                </a>
+                <!-- DUO CONTACT VIP -->
+                <div class="etb-quick-contact-duo">
+                    <a href="#" class="etb-quick-email-btn" id="etb-quick-email-btn">
+                        <span class="dashicons dashicons-email-alt"></span>
+                        <span>Email</span>
+                    </a>
 
-                <!-- Bouton secondaire Option C : Contact direct WhatsApp / Dispatch -->
-                <a href="#" target="_blank" class="etb-quick-whatsapp-btn" id="etb-quick-whatsapp-btn" style="display: none;">
-                    <span class="dashicons dashicons-whatsapp"></span>
-                    <span>Quick Inquiry</span>
-                </a>
+                    <a href="#" target="_blank" class="etb-quick-whatsapp-btn" id="etb-quick-whatsapp-btn">
+                        <span class="dashicons dashicons-whatsapp"></span>
+                        <span>WhatsApp</span>
+                    </a>
+                </div>
+
                 <!-- Bouton principal : Réservation / Demande LimoExpress -->
                 <button type="button" class="etb-quick-book-trip-btn" id="etb-quick-book-now-btn">
                     <span id="etb-quick-book-btn-label">Book this Trip</span>

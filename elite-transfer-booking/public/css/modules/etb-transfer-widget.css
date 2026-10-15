@@ -104,6 +104,93 @@
     color: #000000 !important;
 }
 
+/* ── ORGANISATION DE L'EN-TÊTE ET TOGGLE MULTI-BOOKING ── */
+.etb-quick-top-controls {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    width: 100% !important;
+    margin-bottom: 16px !important;
+    position: relative !important;
+}
+
+.etb-quick-top-controls .etb-quick-mode-capsule {
+    margin: 0 !important;
+    position: absolute !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+}
+
+.etb-quick-top-spacer {
+    width: 120px !important;
+    visibility: hidden !important;
+}
+
+/* La Checkbox Multi-Booking VIP */
+.etb-multi-booking-checkbox-wrap {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    cursor: pointer !important;
+    z-index: 10 !important;
+    user-select: none !important;
+    margin-left: 20px !important;
+}
+
+.etb-multi-booking-checkbox-wrap input {
+    display: none !important;
+}
+
+.etb-mb-custom-box {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 18px !important;
+    height: 18px !important;
+    background-color: var(--etb-bg-input, rgba(255, 255, 255, 0.05)) !important;
+    border: 1.5px solid var(--etb-border-main, rgba(255, 255, 255, 0.15)) !important;
+    border-radius: 4px !important;
+    transition: all 0.2s ease !important;
+}
+
+.etb-mb-custom-box svg {
+    width: 12px !important;
+    height: 12px !important;
+    color: #0f172a !important; /* Couleur de la coche noire sur fond or */
+    opacity: 0 !important;
+    transform: scale(0.5) !important;
+    transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1) !important;
+}
+
+.etb-multi-booking-checkbox-wrap input:checked + .etb-mb-custom-box {
+    background-color: var(--etb-accent-gold, #fbac18) !important;
+    border-color: var(--etb-accent-gold, #fbac18) !important;
+}
+
+.etb-multi-booking-checkbox-wrap input:checked + .etb-mb-custom-box svg {
+    opacity: 1 !important;
+    transform: scale(1) !important;
+}
+
+.etb-mb-label {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    color: #f7fcff !important;
+    transition: color 0.2s ease !important;
+}
+
+.etb-multi-booking-checkbox-wrap input:checked ~ .etb-mb-label {
+    color: #fefefe /*var(--etb-accent-gold, #fbac18)*/ !important;
+}
+
+/* Light Mode Checkbox */
+[data-etb-theme="light"] .etb-mb-custom-box {
+    background-color: #f1f5f9 !important;
+    border-color: #cbd5e1 !important;
+}
+
 /* 2. Barre Horizontale Flottante Translucide */
 .etb-quick-glass-bar {
     position: relative !important;
@@ -387,7 +474,7 @@
     font-family: 'calibri', sans-serif !important;
     font-size: 20px !important;
     font-weight: 800 !important;
-    color: #343434 !important;
+    color: #fefefe !important;
     margin-bottom: 22px !important;
     text-transform: uppercase !important;
     letter-spacing: 0.08em !important;
@@ -899,29 +986,29 @@
 }
 
 
-/* État déployé : glissement ascendant et fondu soyeux */
+/* État déployé : respiration sans coupure de bordure */
 .etb-quick-confirm-bar.is-visible {
     display: flex !important;
     position: relative !important;
-    max-height: 600px !important;
     z-index: 50 !important;
     width: 100% !important;
     background: var(--etb-bg-card, #0b0f19) !important;
     border: 1.5px solid var(--etb-border-main, #232a3b) !important;
     box-shadow: var(--etb-shadow-base, 0 10px 30px rgba(0, 0, 0, 0.1)) !important;
     border-radius: 16px !important;
-    padding: 18px 26px !important;
-    margin-top: 40px !important; 
+    padding: 16px 20px !important;
+    margin-top: 15px !important; 
     margin-bottom: 20px !important;
     opacity: 1 !important;
     border-color: var(--etb-border-main, #232a3b) !important;
     transform: translateY(0) scale(1) !important;
     pointer-events: auto !important;
-    max-height: 180px !important;
+    max-height: 220px !important;
     justify-content: space-between !important;
     align-items: center !important;
-    gap: 16px !important;
+    gap: 14px !important;
     box-sizing: border-box !important;
+    overflow: visible !important; /* Évite toute coupure du bouton sur le bord droit */
     clear: both !important;
 }
 
@@ -968,15 +1055,16 @@
     color: #0f172a !important;
     border: none !important;
     border-radius: 50px !important;
-    padding: 13px 28px !important;
-    font-size: 14px !important;
+    padding: 11px 20px !important;
+    font-size: 13.5px !important;
     font-weight: 800 !important;
     cursor: pointer !important;
     display: inline-flex !important;
     align-items: center !important;
-    gap: 8px !important;
+    gap: 7px !important;
     transition: all 0.25s ease !important;
     white-space: nowrap !important;
+    flex-shrink: 0 !important;
 }
 
 .etb-quick-book-trip-btn:hover {
@@ -1031,79 +1119,96 @@
 }
 
 
-/* Bouton Email Inquiry (Dark Mode VIP) */
-.etb-quick-email-btn {
+/* ── DUO CONTACT VIP (EMAIL & WHATSAPP) ── */
+.etb-quick-contact-duo {
     display: inline-flex !important;
     align-items: center !important;
     gap: 8px !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
+}
+
+/* Bouton Email VIP (Compact & Raffiné) */
+.etb-quick-email-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 7px !important;
     background: transparent !important;
     border: 1px solid #333f57 !important;
     color: var(--etb-text-primary, #ffffff) !important;
-    padding: 13px 22px !important;
+    padding: 10px 16px !important;
     border-radius: 50px !important;
-    font-size: 14px !important;
-    font-weight: 700 !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
     cursor: pointer !important;
-    transition: all 0.25s ease !important;
+    transition: all 0.3s ease-in-out !important;
     white-space: nowrap !important;
+    text-decoration: none !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
 }
 
 .etb-quick-email-btn:hover {
     background: #28334b !important;
     border-color: #475569 !important;
     color: #ffffff !important;
-    /*transform: translateY(-2px) !important;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35) !important;*/
-}
-.eb-qtuick-email-btn:hover .dashicons{
-    color: var(--etb-text-primary, #cbd5e1) !important;
 }
 
-.eb-qtuick-email-btn .dashicons {
-    font-size: 17px !important;
-    width: 17px !important;
-    height: 17px !important;
-   color: #ffffff !important;
+.etb-quick-email-btn:hover .dashicons{
+    color: #ffffff !important;
+}
+
+.etb-quick-email-btn .dashicons {
+    font-size: 15px !important;
+    width: 15px !important;
+    height: 15px !important;
+    color: var(--etb-text-primary) !important;
 }
 
 
-/* 3. Bouton WhatsApp Option C (affiché dans la barre de confirmation) */
+
+/* Bouton WhatsApp VIP (Compact & Raffiné) */
 .etb-quick-whatsapp-btn {
     display: inline-flex !important;
     align-items: center !important;
-    gap: 8px !important;
+    justify-content: center !important;
+    gap: 7px !important;
     background: transparent !important;
     border: 1px solid #333f57 !important;
     color: var(--etb-text-primary, #ffffff) !important;
     text-decoration: none !important;
-    padding: 13px 22px !important;
+    padding: 10px 16px !important;
     border-radius: 50px !important;
-    font-size: 14px !important;
-    font-weight: 700 !important;
-    transition: all 0.25s ease !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+   transition: all 0.3s ease-in-out !important;
     white-space: nowrap !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
 }
 
-.etb-quick-whatsapp-btn:hover {
+.etb-quick-whatsapp-btn:hover{
     background: #27D366 !important;
-    /*transform: translateY(-2px) !important;*/
-    /*box-shadow: 0 6px 18px rgba(37, 211, 102, 0.35) !important;*/
-    color: #ffffff !important;
+    border-color: #27D366 !important;
+    color: var(--etb-text-primary) !important;
 }
 
 .etb-quick-whatsapp-btn .dashicons {
-    font-size: 18px !important;
-    width: 18px !important;
-    height: 18px !important;
+    font-size: 16px !important;
+    width: 16px !important;
+    height: 16px !important;
 }
 
+/* Rangée d'actions sur Desktop : alignement strict sur une seule ligne */
 .etb-quick-actions-row {
     display: flex !important;
     align-items: center !important;
-    gap: 12px !important;
-    flex-wrap: wrap !important;
+    justify-content: flex-end !important;
+    gap: 10px !important;
+    flex-wrap: nowrap !important;
+    flex-shrink: 0 !important;
 }
-
 
 /* Boîte de suggestions (Priorité absolue et capture totale des événements souris) */
 .etb-quick-suggestions-box {
@@ -1603,28 +1708,44 @@
         white-space: normal !important;
     }
 
-    /* Actions : rangée fluide et équilibrée */
+    /* Actions sur Mobile : hiérarchie et respirations parfaites */
     .etb-quick-actions-row {
         display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: wrap !important;
-        align-items: center !important;
-        justify-content: stretch !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
         width: 100% !important;
-        gap: 10px !important;
+        gap: 8px !important;
     }
 
-    .etb-quick-actions-row a,
-    .etb-quick-actions-row button {
-        flex: 1 1 auto !important;
-        min-width: 160px !important;
+    /* Le duo Email & WhatsApp : 50% / 50% sur la 1ère rangée */
+    .etb-quick-actions-row .etb-quick-contact-duo {
+        display: flex !important;
+        width: 100% !important;
+        gap: 8px !important;
+    }
+
+    .etb-quick-actions-row .etb-quick-contact-duo a {
+        flex: 1 1 50% !important;
+        min-width: 0 !important;
         justify-content: center !important;
         box-sizing: border-box !important;
+        padding: 10px 12px !important;
     }
 
-    /* Le bouton principal Book this Trip prend toute la largeur pour convertir au maximum */
+   /* Boutons de réservation en pleine largeur cadree sans debordement */
+    .etb-quick-actions-row .etb-quick-add-trip-btn,
+    .etb-quick-actions-row .etb-quick-book-trip-btn,
     .etb-quick-actions-row #etb-quick-book-now-btn {
+        width: 100% !important;
+        max-width: 100% !important;
         flex: 1 1 100% !important;
+        justify-content: center !important;
+        box-sizing: border-box !important;
+        padding: 12px 14px !important;
+        font-size: 13px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
     }
 }
 
@@ -1681,7 +1802,47 @@
 
 }
 
+/* ── BOUTON DORÉ FLOTTANT AU-DESSUS DE LA BARRE (VIP DARK & LIGHT) ── */
+#etb-bridge-trip-wrap {
+    display: none;
+    justify-content: center;
+    margin: 16px 0 12px 0;
+    width: 100%;
+}
 
+#etb-bridge-trip-btn {
+    background: #000000 !important;
+    border: 1.5px solid var(--etb-accent-gold, #fbac18) !important;
+    color: var(--etb-accent-gold, #fbac18) !important;
+    padding: 10px 26px !important;
+    border-radius: 50px !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 7px !important;
+    transition: all 0.25s ease !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+}
+
+#etb-bridge-trip-btn:hover {
+    background:var(--etb-accent-gold, #fbac18) !important;
+    color: #000000 !important;
+    transform: translateY(-1px) !important;
+}
+
+/* Adaptation en Light Mode */
+[data-etb-theme="light"] #etb-bridge-trip-btn {
+    background: #ffffff !important;
+    border: 1.5px solid #d97706 !important;
+    color: #b45309 !important;
+    /*box-shadow: 0 4px 14px rgba(217, 119, 6, 0.15) !important;*/
+}
+
+[data-etb-theme="light"] #etb-bridge-trip-btn:hover {
+    background: #fffbeb !important;
+}
 
 /* ==========================================================================
    BARRE DE CONFIRMATION EN 3 COLONNES (STYLE HAUTE COUTURE)
@@ -1791,14 +1952,44 @@
     color: var(--etb-text-secondary, #94a3b8) !important;
 }
 
-/* ── Colonne 2 : Tarification ── */
+/* ── DÉTAILS ITINÉRAIRE DANS LA BARRE DE SÉLECTION ── */
+.etb-bar-route-info {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 5px !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+    padding: 0 16px !important;
+    border-left: 1px solid var(--etb-border-light, rgba(255, 255, 255, 0.1)) !important;
+}
+
+.etb-route-line {
+    display: flex !important;
+    align-items: center !important;
+    gap: 7px !important;
+    font-size: 12px !important;
+    color: var(--etb-text-secondary, #cbd5e1) !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+.etb-route-date {
+    font-size: 11.5px !important;
+    color: var(--etb-text-secondary, #94a3b8) !important;
+    margin-top: 2px !important;
+}
+
+
+/* ── Colonne 2 : Tarification souple ── */
 .etb-bar-col2 {
     display: flex !important;
     flex-direction: column !important;
     justify-content: center !important;
     border-left: 1px solid var(--etb-border-light, rgba(255, 255, 255, 0.1)) !important;
-    padding-left: 25px !important;
-    min-width: 200px !important;
+    padding-left: 18px !important;
+    min-width: auto !important;
+    flex-shrink: 0 !important;
 }
 
 .etb-bar-price {
@@ -1862,6 +2053,36 @@
         align-items: center !important;
         text-align: center !important;
     }
+
+    .etb-quick-top-controls {
+        flex-direction: column-reverse !important;
+        justify-content: center !important;
+        gap: 12px !important;
+    }
+    .etb-quick-top-controls .etb-quick-mode-capsule {
+        position: relative !important;
+        left: 0 !important;
+        transform: none !important;
+    }
+    .etb-quick-top-spacer {
+        display: none !important;
+    }
+
+
+    /* Adaptation de l'itinéraire sur mobile (centré et empilé) */
+    .etb-bar-route-info {
+        border-left: none !important;
+        border-top: 1px dashed var(--etb-border-light, rgba(255, 255, 255, 0.15)) !important;
+        padding: 12px 0 0 0 !important;
+        margin-top: 4px !important;
+        width: 100% !important;
+        align-items: center !important;
+    }
+    .etb-route-line {
+        justify-content: center !important;
+        width: 100% !important;
+    }
+
 }
 
 

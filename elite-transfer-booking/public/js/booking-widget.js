@@ -413,6 +413,94 @@
         }
 
         // ------------------------------------------------------------------------
+        // 4bis. GESTION ACCORDÉON TIMELINE & INTERRUPTEUR EXPAND / COLLAPSE ALL
+        // ------------------------------------------------------------------------
+        
+        // 1. Clic sur une étape individuelle (Ouvrir / Fermer)
+        document.addEventListener('click', function (e) {
+            const header = e.target.closest('.co-vip-step-header');
+            if (!header) return;
+
+            const step = header.closest('.co-vip-step');
+            if (step) {
+                step.classList.toggle('is-open');
+
+                // Met à jour l'état visuel du bouton global "Expand all"
+                const activePane = header.closest('.co-option-pane');
+                if (activePane) {
+                    updateExpandAllSwitchState(activePane);
+                }
+            }
+        });
+
+        // 2. Clic sur le switch global "Expand all / Collapse all"
+        document.addEventListener('click', function (e) {
+            const wrap = e.target.closest('.co-expand-all-wrap');
+            if (!wrap) return;
+
+            e.preventDefault();
+            const activePane = wrap.closest('.co-option-pane') || document.querySelector('.co-option-pane.active');
+            if (!activePane) return;
+
+            const steps = activePane.querySelectorAll('.co-vip-step');
+            const switchBtn = wrap.querySelector('.co-expand-toggle-switch');
+            const thumb = wrap.querySelector('.co-expand-switch-thumb');
+            const label = wrap.querySelector('.co-expand-all-label');
+
+            const isCurrentlyExpanded = switchBtn && switchBtn.classList.contains('is-active');
+
+            if (isCurrentlyExpanded) {
+                // Tout fermer
+                steps.forEach(s => s.classList.remove('is-open'));
+                if (switchBtn) {
+                    switchBtn.classList.remove('is-active');
+                    switchBtn.style.background = '#cbd5e1';
+                }
+                if (thumb) thumb.style.transform = 'translateX(0)';
+                if (label) label.textContent = 'Expand all';
+            } else {
+                // Tout ouvrir
+                steps.forEach(s => s.classList.add('is-open'));
+                if (switchBtn) {
+                    switchBtn.classList.add('is-active');
+                    switchBtn.style.background = 'var(--etb-theme-primary, #ba6827)';
+                }
+                if (thumb) thumb.style.transform = 'translateX(18px)';
+                if (label) label.textContent = 'Collapse all';
+            }
+        });
+
+        // Fonction utilitaire pour synchroniser le switch si l'utilisateur ouvre/ferme manuellement
+        function updateExpandAllSwitchState(pane) {
+            const wrap = pane.querySelector('.co-expand-all-wrap');
+            if (!wrap) return;
+
+            const steps = pane.querySelectorAll('.co-vip-step');
+            const openSteps = pane.querySelectorAll('.co-vip-step.is-open');
+            const switchBtn = wrap.querySelector('.co-expand-toggle-switch');
+            const thumb = wrap.querySelector('.co-expand-switch-thumb');
+            const label = wrap.querySelector('.co-expand-all-label');
+
+            const allAreOpen = (steps.length > 0 && steps.length === openSteps.length);
+
+            if (allAreOpen) {
+                if (switchBtn) {
+                    switchBtn.classList.add('is-active');
+                    switchBtn.style.background = 'var(--etb-theme-primary, #ba6827)';
+                }
+                if (thumb) thumb.style.transform = 'translateX(18px)';
+                if (label) label.textContent = 'Collapse all';
+            } else {
+                if (switchBtn) {
+                    switchBtn.classList.remove('is-active');
+                    switchBtn.style.background = '#cbd5e1';
+                }
+                if (thumb) thumb.style.transform = 'translateX(0)';
+                if (label) label.textContent = 'Expand all';
+            }
+        }
+
+        // ------------------------------------------------------------------------
         // 5. GESTION DU DROP-OFF ET DU PICKUP
         // ------------------------------------------------------------------------
         if (diffDropoffCb && dropoffContainer && dropoffInfo) {
@@ -763,6 +851,74 @@
         const bookBtnLabel   = quickRoot.querySelector('#etb-quick-book-btn-label');
         const urgentNoticeEl = quickRoot.querySelector('#etb-quick-urgent-notice');
 
+        
+// Éléments du panier Multi-booking et du bouton doré flottant au-dessus de la barre
+        const bridgeTripWrap  = quickRoot.querySelector('#etb-bridge-trip-wrap');
+        const bridgeTripBtn   = quickRoot.querySelector('#etb-bridge-trip-btn');
+        const bridgeTripLabel = quickRoot.querySelector('#etb-bridge-trip-label');
+        const tripsCartEl     = quickRoot.querySelector('#etb-quick-trips-cart');
+        const tripsCountEl    = quickRoot.querySelector('#etb-cart-trips-count');
+        const tripsListEl     = quickRoot.querySelector('#etb-cart-trips-list');
+        let cartTrips         = [];
+        
+        
+        // Sécurité anti-crash pour purger définitivement l'ancienne variable
+        const addTripBtn      = null;
+
+        // Toggle d'activation Multi-Booking
+        const multiTripToggle = quickRoot.querySelector('#etb-multi-trip-toggle');
+        let isMultiBookingEnabled = false; // Désactivé par défaut
+
+        if (multiTripToggle) {
+            multiTripToggle.addEventListener('change', (e) => {
+                isMultiBookingEnabled = e.target.checked;
+                sessionStorage.setItem('etb_multi_booking_enabled', isMultiBookingEnabled ? '1' : '0');
+                
+                if (!isMultiBookingEnabled) {
+                    // Désactivation : On vide le panier et on masque les boutons
+                    cartTrips = [];
+                    saveCartToStorage();
+                    renderTripsCart();
+                    
+                    if (selectedCar) {
+                        if (bridgeTripWrap) bridgeTripWrap.style.display = 'none';
+                        if (bookBtnLabel) bookBtnLabel.textContent = selectedCar.isQuote ? 'Request this Quote' : 'Book this Trip';
+                    }
+                } else {
+                    // Activation : On réaffiche le bouton d'ajout si une voiture est déjà sélectionnée
+                    if (selectedCar && bridgeTripWrap && bridgeTripLabel) {
+                        bridgeTripWrap.style.display = 'flex';
+                        bridgeTripLabel.textContent = 'Add another trip';
+                    }
+                }
+            });
+        }
+
+        // ── GESTION DE LA PERSISTANCE VIP (SESSIONSTORAGE) ──
+        const saveCartToStorage = () => {
+            try {
+                sessionStorage.setItem('etb_cart_trips', JSON.stringify(cartTrips));
+            } catch (e) {}
+        };
+
+        const saveFormState = () => {
+            try {
+                const formState = {
+                    mode: currentMode,
+                    pickup: pickupInput ? pickupInput.value : '',
+                    pickupLat: pickupLatEl ? pickupLatEl.value : '',
+                    pickupLng: pickupLngEl ? pickupLngEl.value : '',
+                    dropoff: dropoffInput ? dropoffInput.value : '',
+                    dropoffLat: dropoffLatEl ? dropoffLatEl.value : '',
+                    dropoffLng: dropoffLngEl ? dropoffLngEl.value : '',
+                    date: dateInput ? dateInput.value : '',
+                    time: timeInput ? timeInput.value : '',
+                    duration: durationSelect ? durationSelect.value : '4'
+                };
+                sessionStorage.setItem('etb_quick_form_state', JSON.stringify(formState));
+            } catch (e) {}
+        };
+
         // Vérifie si la date et l'heure sélectionnées sont dans le passé
         const isDateTimeInPast = (dateStr, timeStr) => {
             if (!dateStr || !timeStr || timeStr === '-- : --') return false;
@@ -934,14 +1090,23 @@
             return `${parts[2]} ${months[monthIdx] || parts[1]} ${parts[0]}`;
         };
 
-        /// Mise à jour du texte de date dès le chargement et à chaque clic
+        // ── ACTUALISATION EN DIRECT DU BANDEAU D'URGENCE (< 24H) ──
+        const updateUrgentNoticeLive = () => {
+            if (urgentNoticeEl && fleetSection && fleetSection.style.display !== 'none') {
+                urgentNoticeEl.style.display = checkIsUrgent() ? 'block' : 'none';
+            }
+        };
+
+        /// Mise à jour du texte de date et réévaluation instantanée de l'urgence (< 24h)
         if (dateInput && dateTextEl) {
             dateTextEl.textContent = formatCustomDate(dateInput.value);
             dateInput.addEventListener('change', function () {
                 dateTextEl.textContent = formatCustomDate(this.value);
+                updateUrgentNoticeLive();
             });
             dateInput.addEventListener('input', function () {
                 dateTextEl.textContent = formatCustomDate(this.value);
+                updateUrgentNoticeLive();
             });
         }
 
@@ -1026,12 +1191,15 @@
                 }
             });
 
-            /// Fonction interne de mise à jour de la valeur 12h formatée
+            /// Fonction interne de mise à jour de la valeur 12h formatée et réévaluation de l'urgence en direct
             const update12hTime = () => {
                 const activeH     = timePopup.querySelector('.etb-hour-opt.active')?.dataset.val || '09';
                 const activeM     = timePopup.querySelector('.etb-minute-opt.active')?.dataset.val || '00';
                 const activeAmpm  = timePopup.querySelector('.etb-ampm-btn.active')?.dataset.val || 'AM';
                 timeInput.value   = `${activeH}:${activeM} ${activeAmpm}`;
+                
+                // Réévaluation immédiate du bandeau rouge (< 24h) en direct
+                updateUrgentNoticeLive();
             };
 
             // 1. Bascule AM / PM avec rafraîchissement immédiat des heures disponibles
@@ -1376,6 +1544,20 @@
         }
             
 
+        // ── DÉCLENCHEMENT DU RECALCUL EN TEMPS RÉEL LORS DU CHANGEMENT D'ADRESSE ──
+        const handleAddressChangeLive = () => {
+            if (currentMode === 'transfer') {
+                refreshLiveTransferPricing();
+            } else if (currentMode === 'hourly') {
+                if (fleetSection && fleetSection.style.display !== 'none') {
+                    recalculateHourlyFleet();
+                }
+            }
+        };
+
+        if (pickupInput)  pickupInput.addEventListener('change', handleAddressChangeLive);
+        if (dropoffInput) dropoffInput.addEventListener('change', handleAddressChangeLive);
+
 
         // 2. Bascule de Mode : Trajet simple vs À l'heure
         modeBtns.forEach(btn => {
@@ -1392,25 +1574,55 @@
                     if (durationCol) durationCol.style.display = 'none';
                 }
 
-                // Réinitialise la flotte, les bandeaux et les capsules si on change de mode
+                // Réinitialise l'état pour le nouveau mode
                 isQuoteMode = false;
                 if (quoteNoticeEl) quoteNoticeEl.classList.remove('is-visible');
-                if (fleetSection) fleetSection.style.display = 'none';
-                if (bookingBar) bookingBar.classList.remove('is-visible');
                 if (errorNotice) errorNotice.style.display = 'none';
+
+                // Si le panier contient des trajets, le conteneur principal reste TOUJOURS visible
+                if (cartTrips.length > 0) {
+                    if (fleetSection) fleetSection.style.display = 'block';
+                } else {
+                    if (fleetSection) fleetSection.style.display = 'none';
+                }
+
+                // En mode horaire, recalcul direct et affichage instantané de la flotte
+                if (currentMode === 'hourly' && fleetSection && fleetSection.style.display !== 'none') {
+                    recalculateHourlyFleet();
+                }
                 selectedCar = null;
                 carCards.forEach(c => {
                     c.classList.remove('selected');
                     const b = c.querySelector('.etb-quick-select-btn');
                     if (b) b.textContent = 'Select';
 
-                    // Purge systématique de la capsule km pour ne laisser aucun résidu
                     const km = c.querySelector('.etb-quick-km-info');
                     if (km) {
                         km.textContent = '';
                         km.classList.remove('is-visible');
                     }
                 });
+
+                // PRÉSERVATION CRITIQUE DU PANIER ET DE LA BARRE LORS DU CHANGEMENT DE MODE
+                if (cartTrips.length > 0) {
+                    if (fleetSection) fleetSection.style.display = 'block';
+                } else {
+                    if (fleetSection) fleetSection.style.display = 'none';
+                }
+
+                // En mode horaire : recalcul et réveil IMMÉDIATS des cartes sur la durée active (ex: 4h)
+                if (currentMode === 'hourly') {
+                    recalculateHourlyFleet();
+                    if (fleetSection && fleetSection.style.display !== 'none') {
+                        carCards.forEach(c => {
+                            if (!c.classList.contains('etb-hidden')) c.style.display = 'flex';
+                        });
+                    }
+                } else if (currentMode === 'transfer' && fleetSection && fleetSection.style.display !== 'none') {
+                    // Si on repasse en transfert et que des coordonnées existent, rafraîchir en direct
+                    refreshLiveTransferPricing();
+                }
+                saveFormState();
             });
         });
 
@@ -1506,6 +1718,9 @@
                     }
                 }
 
+
+
+
                 // 3. Remise du bouton sur Select
                 const selBtn = card.querySelector('.etb-quick-select-btn');
                 if (selBtn) {
@@ -1540,6 +1755,129 @@
         };
 
       
+        // ── RAFRAÎCHISSEMENT EN DIRECT DU PRIX TRANSFERT (BASCULE FLUIDE PRIX ⇄ DEVIS) ──
+        const refreshLiveTransferPricing = () => {
+            // Uniquement si la flotte est affichée et en mode transfert
+            if (currentMode !== 'transfer' || !fleetSection || fleetSection.style.display === 'none') {
+                return;
+            }
+
+            const fromLat = pickupLatEl ? pickupLatEl.value : '';
+            const fromLng = pickupLngEl ? pickupLngEl.value : '';
+            const toLat   = dropoffLatEl ? dropoffLatEl.value : '';
+            const toLng   = dropoffLngEl ? dropoffLngEl.value : '';
+
+            // Si les deux coordonnées GPS ne sont pas complètes, on attend
+            if (!fromLat || !fromLng || !toLat || !toLng) {
+                return;
+            }
+
+            // 1. État de chargement satiné VIP sur les cartes
+            carCards.forEach(c => {
+                c.style.pointerEvents = 'none';
+                const priceBox = c.querySelector('.etb-quick-price-display');
+                if (priceBox) {
+                    priceBox.style.transition = 'opacity 0.2s ease, filter 0.2s ease';
+                    priceBox.style.opacity = '0.35';
+                    priceBox.style.filter = 'blur(1px)';
+                }
+            });
+
+            if (getPriceBtn) {
+                getPriceBtn.classList.add('etb-loading-glow');
+            }
+
+            const formData = new FormData();
+            formData.append('action', 'etb_quick_pricing');
+            formData.append('nonce', etbAjax.nonce);
+            formData.append('from_lat', fromLat);
+            formData.append('from_lng', fromLng);
+            formData.append('to_lat', toLat);
+            formData.append('to_lng', toLng);
+
+            fetch(etbAjax.ajax_url, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(res => {
+                if (getPriceBtn) getPriceBtn.classList.remove('etb-loading-glow');
+
+                // 2. Réactivation des cartes
+                carCards.forEach(c => {
+                    c.style.pointerEvents = 'auto';
+                    const priceBox = c.querySelector('.etb-quick-price-display');
+                    if (priceBox) {
+                        priceBox.style.opacity = '1';
+                        priceBox.style.filter = 'none';
+                    }
+                });
+
+                if (res.success && res.data.pricing_data && res.data.pricing_data.length > 0) {
+                    const pricingData = res.data.pricing_data;
+                    let availableCarsCount = 0;
+
+                    // A. RÉINITIALISATION DU MODE DEVIS -> RETOUR EN MODE TARIF NORMAL
+                    isQuoteMode = false;
+                    if (quoteNoticeEl) quoteNoticeEl.classList.remove('is-visible');
+
+                    pricingData.forEach(item => {
+                        if (!item || !item.vehicle_class || !item.vehicle_class.id || !item.prices || item.prices.length === 0) return;
+                        const limoUuid = String(item.vehicle_class.id).trim().toLowerCase();
+                        const targetCard = document.getElementById('limo-car-' + limoUuid) 
+                                      || document.getElementById('limo-car-' + item.vehicle_class.id)
+                                      || quickRoot.querySelector('[data-limo-class-id="' + limoUuid + '"]');
+
+                        if (targetCard) {
+                            const limoPrice = Math.round(item.prices[0].price);
+                            const priceBox  = targetCard.querySelector('.etb-quick-price-display');
+                            const detailBox = targetCard.querySelector('.etb-quick-price-detail');
+                            const selBtn    = targetCard.querySelector('.etb-quick-select-btn');
+                            const allInclEl = targetCard.querySelector('.etb-quick-all-inclusive');
+
+                            if (limoPrice > 0) {
+                                targetCard.dataset.calculatedPrice = limoPrice;
+                                targetCard.dataset.isQuote = '0';
+
+                                if (priceBox) {
+                                    priceBox.innerHTML = `<span class="etb-quick-amount">${limoPrice}</span> <span class="etb-quick-currency">${currency}</span> <span class="etb-quick-all-inclusive">All inclusive</span>`;
+                                }
+                                if (detailBox) {
+                                    detailBox.style.display = 'none';
+                                    detailBox.innerHTML = '';
+                                }
+                                if (selBtn) selBtn.textContent = 'Select';
+                                if (allInclEl) allInclEl.style.display = 'flex';
+
+                                targetCard.style.display = 'flex';
+                                targetCard.classList.remove('etb-hidden');
+                                availableCarsCount++;
+                            }
+                        }
+                    });
+
+                    if (availableCarsCount === 0) {
+                        // Trajet non chiffrable ➔ Bascule automatique en Devis
+                        triggerCustomQuoteMode();
+                    }
+                } else {
+                    // Hors zone (ex: Nice ➔ Paris) ➔ Bascule automatique en Devis en direct !
+                    triggerCustomQuoteMode();
+                }
+            })
+            .catch(() => {
+                if (getPriceBtn) getPriceBtn.classList.remove('etb-loading-glow');
+                carCards.forEach(c => {
+                    c.style.pointerEvents = 'auto';
+                    const priceBox = c.querySelector('.etb-quick-price-display');
+                    if (priceBox) {
+                        priceBox.style.opacity = '1';
+                        priceBox.style.filter = 'none';
+                    }
+                });
+                triggerCustomQuoteMode();
+            });
+        };
        
 
         // Fonction d'activation du mode Devis Sur Mesure (Custom Quote)
@@ -1778,7 +2116,73 @@
             }
         };
 
-        // 4. Sélection exclusive d'un véhicule
+
+        // ── GÉNÉRATION DYNAMIQUE DES LIENS WHATSAPP ET EMAIL ──
+        const updateInquiryLinks = () => {
+            const waPhone   = (typeof etbAjax !== 'undefined' && etbAjax.company_whatsapp) ? etbAjax.company_whatsapp : '';
+            const adminMail = (typeof etbAjax !== 'undefined' && etbAjax.admin_email) ? etbAjax.admin_email : '';
+            const emailInquiryBtn = quickRoot.querySelector('#etb-quick-email-btn');
+
+            let message = '';
+            const waveEmoji = String.fromCodePoint(0x1F44B);
+
+            if (selectedCar) {
+                // Message pour le véhicule actuellement sélectionné
+                const pVal      = pickupInput ? pickupInput.value.trim() : '—';
+                const isHourly  = (currentMode === 'hourly');
+                const dVal      = isHourly ? `By the hour (${durationSelect ? durationSelect.value : 4}h)` : (dropoffInput ? dropoffInput.value.trim() : '—');
+                const rawDate   = dateInput ? dateInput.value.trim() : '';
+                const tmVal     = timeInput ? timeInput.value.trim() : '';
+                const rateText  = selectedCar.isQuote ? 'Custom Quote' : `${selectedCar.price} ${currency}`;
+
+                message = `Hello team ${waveEmoji},\n\n`
+                    + `I would like to inquire about booking a transfer:\n\n`
+                    + `*${selectedCar.name}*\n`
+                    + `• Pickup: ${pVal}\n`
+                    + `• Destination: ${dVal}\n`
+                    + `• Date & Time: ${rawDate} at ${tmVal}\n`
+                    + `• Rate: ${rateText}\n\n`
+                    + `Thank you!`;
+            } else if (cartTrips.length > 0) {
+                // Message groupé pour l'ensemble du panier
+                message = `Hello team ${waveEmoji},\n\n`
+                    + `I would like to inquire about my scheduled itinerary (${cartTrips.length} transfers):\n\n`;
+
+                let totalSum = 0;
+                let hasQuote = false;
+
+                cartTrips.forEach((t, i) => {
+                    const rText = t.isQuote ? 'Quote' : `${t.price} ${currency}`;
+                    if (t.isQuote) hasQuote = true; else totalSum += parseFloat(t.price) || 0;
+                    message += `*Transfer #${i + 1} (${t.vehicle_name})*\n`
+                        + `  • Route: ${t.pickup} ➔ ${t.dropoff}\n`
+                        + `  • Date: ${t.date} at ${t.time}\n`
+                        + `  • Rate: ${rText}\n\n`;
+                });
+
+                const finalSumText = hasQuote ? 'Custom Quote' : `${totalSum.toFixed(0)} ${currency}`;
+                message += `*Estimated Total: ${finalSumText}*\n\nThank you!`;
+            }
+
+            if (!message) return;
+
+            // 1. Mise à jour du lien WhatsApp
+            if (whatsappBtn) {
+                const waText = encodeURIComponent(message);
+                whatsappBtn.href = waPhone 
+                    ? `https://api.whatsapp.com/send?phone=${waPhone}&text=${waText}` 
+                    : `https://api.whatsapp.com/send?text=${waText}`;
+            }
+
+            // 2. Mise à jour du lien Email (mailto)
+            if (emailInquiryBtn) {
+                const emailSubject = encodeURIComponent(`[Inquiry] VIP Transfer Booking`);
+                const emailBody    = encodeURIComponent(message.replace(/\*/g, ''));
+                emailInquiryBtn.href = `mailto:${adminMail}?subject=${emailSubject}&body=${emailBody}`;
+            }
+        };
+
+        // 4. Sélection d'une voiture : Illumination, mise à jour des détails et affichage du bouton doré
         carCards.forEach(card => {
             card.addEventListener('click', function () {
                 const isCarQuote = (this.dataset.isQuote === '1' || isQuoteMode);
@@ -1787,11 +2191,14 @@
                 if (this.classList.contains('selected')) {
                     this.classList.remove('selected');
                     selectedCar = null;
-                    if (bookingBar) bookingBar.classList.remove('is-visible');
-                    if (urgentNoticeEl) urgentNoticeEl.style.display = 'none';
                     const btn = this.querySelector('.etb-quick-select-btn');
-                    if (btn) {
-                        btn.textContent = (this.dataset.isQuote === '1' || isQuoteMode) ? 'Request Quote' : 'Select';
+                    if (btn) btn.textContent = isCarQuote ? 'Request Quote' : 'Select';
+
+                    if (cartTrips.length > 0) {
+                        renderTripsCart();
+                    } else {
+                        if (bookingBar) bookingBar.classList.remove('is-visible');
+                        if (bridgeTripWrap) bridgeTripWrap.style.display = 'none';
                     }
                     return;
                 }
@@ -1800,185 +2207,485 @@
                 carCards.forEach(c => {
                     c.classList.remove('selected');
                     const b = c.querySelector('.etb-quick-select-btn');
-                    if (b) {
-                        b.textContent = (c.dataset.isQuote === '1' || isQuoteMode) ? 'Request Quote' : 'Select';
-                    }
+                    if (b) b.textContent = (c.dataset.isQuote === '1' || isQuoteMode) ? 'Request Quote' : 'Select';
                 });
 
-                // Active la carte cliquée
+                // Illumine la carte cliquée
                 this.classList.add('selected');
                 const activeBtn = this.querySelector('.etb-quick-select-btn');
-                if (activeBtn) {
-                    activeBtn.textContent = 'Selected';
-                }
+                if (activeBtn) activeBtn.textContent = 'Selected';
 
-                
-               
-
-                const carName  = this.querySelector('h4')?.textContent.trim() || 'Vehicle';
-                const carPrice = this.dataset.calculatedPrice || '0';
+                const carName    = this.querySelector('h4')?.textContent.trim() || 'Vehicle';
+                const carPrice   = this.dataset.calculatedPrice || '0';
+                const carImgSrc  = this.querySelector('.etb-img-static')?.src || '';
+                const maxPax     = this.dataset.maxPax || '1';
+                const maxBag     = this.dataset.maxBag || '0';
+                const amenitiesEl= this.querySelector('.etb-quick-amenities');
+                const amenitiesHtml = amenitiesEl ? amenitiesEl.innerHTML : '';
 
                 selectedCar = {
                     id: this.dataset.id,
                     name: carName,
                     price: carPrice,
-                    isQuote: isCarQuote
+                    isQuote: isCarQuote,
+                    img: carImgSrc,
+                    maxPax: maxPax,
+                    maxBag: maxBag
                 };
 
-            
-                // Affiche la barre de confirmation inférieure en 3 colonnes
-                if (bookingBar) {
-                    let priceMainHtml = '';
-                    let priceSubHtml  = '';
-                    let priceKmHtml   = '';
+                // 1. Mise à jour de la barre du bas avec ce véhicule précis ET les détails de l'itinéraire
+                const dynamicContentEl = quickRoot.querySelector('#etb-quick-dynamic-bar-content');
+                if (dynamicContentEl) {
+                    const priceHtml = isCarQuote 
+                        ? '<span style="color: var(--etb-accent-gold, #fbac18); font-size: 20px; font-weight: 800;">Custom Quote</span>' 
+                        : `<span style="color: var(--etb-accent-gold, #fbac18); font-size: 26px; font-weight: 900;">${carPrice} <span style="font-size: 18px;">${currency}</span></span>`;
 
-                    if (isCarQuote) {
-                        if (bookBtnLabel) bookBtnLabel.textContent = 'Request this Quote';
-                        priceMainHtml = '<span style="color: #fbac18; font-size: 20px; font-weight: 800;">Custom Quote</span>';
-                        priceSubHtml  = 'Pending dispatch review';
-                    } else {
-                        if (bookBtnLabel) bookBtnLabel.textContent = 'Book this Trip';
-                        priceMainHtml = `<span style="color: #fbac18; font-size: 26px; font-weight: 900; letter-spacing: -0.5px;">${carPrice} <span style="font-size: 18px;">${currency}</span></span>`;
-                        
-                        // Condition de mode pour la ligne 2 et 3
-                        if (currentMode === 'hourly') {
-                            const detailEl = this.querySelector('.etb-quick-price-detail');
-                            // Extrait et nettoie le texte (ex: "10h Package + 2 extra hour(s) • 125 € per extra hour")
-                            priceSubHtml = detailEl ? detailEl.innerHTML.replace(/<br\s*[\/]?>/gi, ' • ').replace(/<\/?strong>/gi, '') : '';
-                            
-                            const kmInfoEl = this.querySelector('.etb-quick-km-info');
-                            priceKmHtml = kmInfoEl ? kmInfoEl.textContent : '';
-                        } else {
-                            priceSubHtml = 'All inclusive (Fixed rate)';
-                            priceKmHtml  = '';
-                        }
-                    }
+                    // Récupération des informations de trajet en direct
+                    const pInputEl   = quickRoot.querySelector('#etb-quick-pickup');
+                    const dInputEl   = quickRoot.querySelector('#etb-quick-dropoff');
+                    const pickupVal  = pInputEl ? pInputEl.value.trim() : '';
+                    const dropoffVal = (currentMode === 'transfer' && dInputEl) ? dInputEl.value.trim() : '';
+                    const dateVal    = dateInput ? dateInput.value.trim() : '';
+                    const timeVal    = timeInput ? timeInput.value.trim() : '';
+                    const durVal     = (currentMode === 'hourly' && durationSelect) ? durationSelect.value : '4';
+                    
+                    const formattedDateTime = (typeof formatLuxuryDateText === 'function') ? formatLuxuryDateText(dateVal, timeVal) : `${dateVal} • ${timeVal}`;
 
-                   
-                    // Extraction de l'image miniature du véhicule
-                    const carImgEl  = this.querySelector('.etb-img-static');
-                    const carImgSrc = carImgEl ? carImgEl.src : '';
+                    // Construction de la colonne itinéraire
+                    const routeHtml = (currentMode === 'hourly')
+                        ? `<div class="etb-route-line">
+                               <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="var(--etb-accent-gold, #fbac18)" stroke-width="2" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                               <strong style="color: #ffffff; font-weight: 600;">By the hour (${durVal}h)</strong>
+                           </div>
+                           <div class="etb-route-line">
+                               <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; flex-shrink: 0;"></span>
+                               <span>${pickupVal || '—'}</span>
+                           </div>`
+                        : `<div class="etb-route-line">
+                               <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; flex-shrink: 0;"></span>
+                               <span>${pickupVal || '—'}</span>
+                           </div>
+                           <div class="etb-route-line">
+                               <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--etb-accent-gold, #fbac18); flex-shrink: 0;"></span>
+                               <span>${dropoffVal || '—'}</span>
+                           </div>`;
 
-                    // Extraction des capacités et du HTML des icônes
-                    const maxPax = this.dataset.maxPax || '1';
-                    const maxBag = this.dataset.maxBag || '0';
-                    const amenitiesBox = this.querySelector('.etb-quick-amenities');
-                    const amenitiesHtml = amenitiesBox ? amenitiesBox.innerHTML : '';
-
-                    // Assemblage selon la maquette (Ligne 1: Titre | Ligne 2: Pax/Bag | Ligne 3: Amenities)
-                    const barContentHtml = `
-                        <!-- Colonne 0 : Miniature Image (Optionnelle, masquée sur mobile) -->
-                        ${carImgSrc ? `<div class="etb-bar-col-img"><img src="${carImgSrc}" alt="${carName}"></div>` : ''} 
-
-
-                        <!-- Colonne 1 : Véhicule, Pax & Équipements -->
-                        <div class="etb-bar-col1">
-                            <div class="etb-bar-v-title">
-                                <strong>${carName}</strong>
+                    dynamicContentEl.innerHTML = `
+                        <div class="etb-bar-col1" style="display: flex; flex-direction: column; justify-content: center; flex-shrink: 0;">
+                            <div class="etb-bar-v-title" style="white-space: nowrap;">
+                                <strong style="color: var(--etb-text-primary, #ffffff); font-size: 15px;">${carName}</strong>
                             </div>
-                            <div class="etb-bar-pax-bag">
-                                <span class="etb-pax-bag-item">
-                                    <svg viewBox="0 0 100 95" width="14" height="14" fill="var(--etb-accent-gold, #fbac18)"><path d="m88.484 31.117c0 8.0312-6.5117 14.539-14.539 14.539-8.0312 0-14.543-6.5078-14.543-14.539s6.5117-14.539 14.543-14.543c8.0273 0 14.539 6.5117 14.539 14.543z"/><path d="m0.90234 73.273c-3.0547 6.2812 2.0391 15.633 9.6914 17.562 16.133 3.6016 32.57 3.6016 48.703 0 7.6562-1.9336 12.75-11.281 9.6914-17.562-5.7109-11.867-18.844-22.293-34.047-22.391-15.203 0.10156-28.336 10.523-34.047 22.391z"/><path d="m54.445 25.965c0 10.77-8.7305 19.504-19.5 19.504-10.77 0-19.504-8.7344-19.504-19.504 0-10.77 8.7344-19.5 19.504-19.5 10.77-0.003906 19.5 8.7305 19.5 19.5z"/><path d="m99.328 66.391c-4.2578-8.8516-14.051-16.625-25.383-16.695-5.1719 0.03125-10.023 1.6719-14.176 4.2812 6.0273 4.4648 11.02 10.426 14.141 16.91 1.5391 3.1641 1.8438 6.8906 0.93359 10.605 5.7734-0.0625 11.539-0.73047 17.258-2.0078 5.707-1.4414 9.5078-8.4141 7.2266-13.094z"/></svg>
-                                    ${maxPax} Pax
-                                </span>
-                                <span class="etb-sep"></span> 
-                                <span class="etb-pax-bag-item">
-                                    <svg viewBox="20 15 60 88" width="14" height="14" fill="var(--etb-accent-gold, #fbac18)"><path d="M70.75,26.75H60.028l1.056,5.476c2.108-0.315,4.109,1.073,4.517,3.185l0.868,4.5c0.418,2.169-1.001,4.267-3.171,4.685 l-1.227,0.237c-2.169,0.418-4.268-1.001-4.686-3.17l-0.867-4.5c-0.408-2.113,0.936-4.146,3.01-4.637l-1.113-5.775H54.75v-14 c0-0.019-0.01-0.034-0.011-0.052c0.002-0.032,0.01-0.062,0.01-0.095c0-0.773-0.626-1.397-1.397-1.397h-6.705 c-0.771,0-1.397,0.624-1.397,1.397c0,0.034,0.008,0.065,0.01,0.098c0,0.017-0.01,0.031-0.01,0.049v14h-16c-2.209,0-4,1.791-4,4v59 c0,2.209,1.791,4,4,4h6V94c0,0.69,0.559,1.25,1.25,1.25c0.689,0,1.25-0.56,1.25-1.25v-0.25h24.5V94c0,0.69,0.559,1.25,1.25,1.25 c0.689,0,1.25-0.56,1.25-1.25v-0.25h6c2.209,0,4-1.791,4-4v-59C74.75,28.541,72.959,26.75,70.75,26.75z M47.75,14h4.5v12.75h-4.5V14 z M63.39,84.078h-26.78c-1.027,0-1.86-0.834-1.86-1.859c0-1.028,0.833-1.859,1.86-1.859h26.78c1.026,0,1.859,0.831,1.859,1.859 C65.249,83.244,64.416,84.078,63.39,84.078z"/></svg>
-                                    ${maxBag} Bag.
-                                </span>
+                            <div class="etb-bar-pax-bag" style="color: var(--etb-text-secondary, #94a3b8); font-size: 11.5px; margin-top: 3px;">
+                                <span>${maxPax} Pax • ${maxBag} Luggage</span>
                             </div>
-                            <div class="etb-quick-amenities etb-bar-amenities">${amenitiesHtml}</div>
                         </div>
-                        
-                        <!-- Colonne 2 : Lignes de Tarif -->
-                        <div class="etb-bar-col2">
-                            <div class="etb-bar-price">${priceMainHtml}</div>
-                            <div class="etb-bar-sub">${priceSubHtml}</div>
-                            ${priceKmHtml ? `<div class="etb-bar-km">${priceKmHtml}</div>` : ''}
+
+                        <!-- DÉTAILS ITINÉRAIRE (DATE EN 1ER / PICKUP / DROPOFF) -->
+                        <div class="etb-bar-route-info">
+                            <div class="etb-route-line etb-route-date" style="margin-bottom: 2px;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--etb-accent-gold, #fbac18)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                <span>${formattedDateTime}</span>
+                            </div>
+                            ${routeHtml}
+                        </div>
+
+                        <div class="etb-bar-col2" style="display: flex; flex-direction: column; justify-content: center;">
+                            <div class="etb-bar-price">${priceHtml}</div>
+                            <div class="etb-bar-sub" style="color: var(--etb-text-secondary, #94a3b8); font-size: 11px; text-transform: uppercase;">
+                                ${currentMode === 'hourly' ? 'Hourly Charter' : 'All Inclusive (Fixed rate)'}
+                            </div>
                         </div>
                     `;
+                }
 
-                    const dynamicContentEl = quickRoot.querySelector('#etb-quick-dynamic-bar-content');
-                    if (dynamicContentEl) {
-                        dynamicContentEl.innerHTML = barContentHtml;
+                // 2. Gestion des boutons selon l'activation du Multi-Booking
+                if (bridgeTripWrap && bridgeTripLabel) {
+                    if (isMultiBookingEnabled) {
+                        bridgeTripWrap.style.display = 'flex';
+                        bridgeTripLabel.textContent = (cartTrips.length === 0) ? 'Add another trip' : 'Add this trip';
+                    } else {
+                        bridgeTripWrap.style.display = 'none';
                     }
-
-
-                    // Données de la course pour WhatsApp et Mailto
-                    const pVal      = pickupInput ? pickupInput.value.trim() : '';
-                    const isHourly  = (currentMode === 'hourly');
-                    const dVal      = isHourly ? `By the hour (${durationSelect ? durationSelect.value : 4} Hours rental)` : (dropoffInput ? dropoffInput.value.trim() : '');
-                    const rawDate   = dateInput ? dateInput.value.trim() : '';
-                    const tmVal     = timeInput ? timeInput.value.trim() : '';
-                    const waPhone   = (typeof etbAjax !== 'undefined' && etbAjax.company_whatsapp) ? etbAjax.company_whatsapp : '';
-                    const adminMail = (typeof etbAjax !== 'undefined' && etbAjax.admin_email) ? etbAjax.admin_email : '';
-
-                    // Formatage compact WhatsApp / Email (ex: 2026-10-03 -> 03-Oct-26)
-                    const formatPrettyDate = (dStr) => {
-                        if (!dStr) return '';
-                        const parts = dStr.split('-');
-                        if (parts.length !== 3) return dStr;
-                        const monthsEn = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                        const mIdx      = parseInt(parts[1], 10) - 1;
-                        const monthStr  = monthsEn[mIdx] || parts[1];
-                        const shortYear = parts[0].slice(-2);
-                        return `${parts[2]}-${monthStr}-${shortYear}`;
-                    };
-
-                    const prettyDate = formatPrettyDate(rawDate);
-                    const formattedDateTime = (prettyDate && tmVal) ? `${prettyDate} at ${tmVal}` : (prettyDate || tmVal || '—');
-
-                    const dropoffSymbol = isHourly ? '↻🄷🄾🅄🅁🄻🅈' : '➘🄳🄾□';
-                    const rateText      = isCarQuote ? 'Custom Quote (Pending dispatch)' : `${carPrice} ${currency}`;
-
-                    // Émoji main qui salue 👋
-                    const waveEmoji = String.fromCodePoint(0x1F44B);
-
-                    // Mise en forme officielle rigoureuse demandée
-                    const formattedMessage = `Hey *EDEN CAB* team ${waveEmoji},\n\n`
-                        + `I would like to inquire about booking a transfer with:\n\n`
-                        + `*${carName}*\n\n`
-                        + `➚🄿🅄■ ${pVal}\n\n`
-                        + `> ${dropoffSymbol} ${dVal}\n\n`
-                        + `➔ ${formattedDateTime}\n\n`
-                        + `❏ Indicative rate: ${rateText}`;
-
-
-                    // 1. Injection WhatsApp via l'API directe (élimine le bug de wa.me sur PC)
-                    if (whatsappBtn) {
-                        const waText = encodeURIComponent(formattedMessage);
-                        whatsappBtn.href = waPhone 
-                            ? `https://api.whatsapp.com/send?phone=${waPhone}&text=${waText}` 
-                            : `https://api.whatsapp.com/send?text=${waText}`;
+                    
+                    if (bookBtnLabel) {
+                        if (!isMultiBookingEnabled || cartTrips.length === 0) {
+                            // Mono-trajet pur : le bouton principal engage ce véhicule unique
+                            bookBtnLabel.textContent = isCarQuote ? 'Request this Quote' : 'Book this Trip';
+                        } else {
+                            // Panier rempli : le bouton principal ne concerne QUE le panier existant
+                            const hasQuoteInCart = cartTrips.some(t => t.isQuote);
+                            bookBtnLabel.textContent = hasQuoteInCart ? `Request Quote (${cartTrips.length} Transfers)` : `Checkout (${cartTrips.length} Transfers)`;
+                        }
                     }
+                }
 
-                    // 2. Injection E-mail (Mailto avec le même résultat stylisé)
-                    const emailInquiryBtn = quickRoot.querySelector('#etb-quick-email-btn');
-                    if (emailInquiryBtn) {
-                        const emailSubject = encodeURIComponent(`[Inquiry] ${carName} — ${formattedDateTime}`);
-                        // Version lisible pour l'e-mail avec les mêmes symboles
-                        const emailBody = encodeURIComponent(formattedMessage.replace(/\*/g, ''));
-                        emailInquiryBtn.href = `mailto:${adminMail}?subject=${emailSubject}&body=${emailBody}`;
-                    }
-
-
-                    // Affichage du bandeau < 24h si le trajet est urgent
-                    if (urgentNoticeEl) {
-                        urgentNoticeEl.style.display = checkIsUrgent() ? 'block' : 'none';
-                    }
-
+               // 3. Affichage et scroll fluide vers le bas
+                if (bookingBar) {
                     bookingBar.classList.add('is-visible');
-
-                    // Auto-scroll fluide vers le bouton "Book this trip"
                     setTimeout(() => {
                         bookingBar.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }, 220);
+                    }, 180);
                 }
+
+                // Active les liens WhatsApp et Email pour cette voiture
+                updateInquiryLinks();
             });
         });
 
+        // 4bis. Clic sur le bouton doré flottant ("Add this trip" ou "Add another trip")
+        if (bridgeTripBtn) {
+            bridgeTripBtn.addEventListener('click', function(e) {
+                e.preventDefault();
 
-        
+                // Fonction magique pour vider l'ardoise avant le prochain trajet
+                const resetFieldsForNewTrip = () => {
+                    const pInputEl = quickRoot.querySelector('#etb-quick-pickup');
+                    const dInputEl = quickRoot.querySelector('#etb-quick-dropoff');
+                    
+                    if (pInputEl) pInputEl.value = '';
+                    if (dInputEl) dInputEl.value = '';
+                    if (pickupLatEl) pickupLatEl.value = '';
+                    if (pickupLngEl) pickupLngEl.value = '';
+                    if (dropoffLatEl) dropoffLatEl.value = '';
+                    if (dropoffLngEl) dropoffLngEl.value = '';
+                    if (timeInput) timeInput.value = ''; 
+                    
+                    if (pickupClearBtn) pickupClearBtn.classList.remove('is-visible');
+                    if (dropoffClearBtn) dropoffClearBtn.classList.remove('is-visible');
+
+                    // Masquer les véhicules pour forcer un nouveau calcul
+                    carCards.forEach(c => {
+                        c.style.display = 'none';
+                        c.classList.remove('selected');
+                    });
+                    if (quoteNoticeEl) quoteNoticeEl.classList.remove('is-visible');
+                    if (errorNotice) errorNotice.style.display = 'none';
+                    
+                    saveFormState();
+                };
+
+                // Si un véhicule est sélectionné : on l'enregistre d'abord dans le panier
+                if (selectedCar) {
+                    const pInputEl   = quickRoot.querySelector('#etb-quick-pickup');
+                    const dInputEl   = quickRoot.querySelector('#etb-quick-dropoff');
+                    const pickupVal  = pInputEl ? pInputEl.value.trim() : '';
+                    const dropoffVal = (currentMode === 'transfer' && dInputEl) ? dInputEl.value.trim() : '';
+                    const durVal     = (currentMode === 'hourly' && durationSelect) ? durationSelect.value : '4';
+                    const dateVal    = dateInput ? dateInput.value.trim() : '';
+                    const timeVal    = timeInput ? timeInput.value.trim() : '';
+
+                    if (!pickupVal) return showError('Please enter a pickup location.');
+                    if (currentMode === 'transfer' && !dropoffVal) return showError('Please enter a drop-off location.');
+                    if (!dateVal) return showError('Please select a date.');
+                    if (!timeVal || timeVal === '-- : --') return showError('Please select a pickup time.');
+
+                    cartTrips.push({
+                        id: 'trip_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                        mode: currentMode,
+                        pickup: pickupVal,
+                        dropoff: dropoffVal,
+                        duration: durVal,
+                        date: dateVal,
+                        time: timeVal,
+                        vehicle_id: selectedCar.id,
+                        vehicle_name: selectedCar.name,
+                        vehicle_img: selectedCar.img || '',
+                        price: selectedCar.price,
+                        isQuote: selectedCar.isQuote,
+                        maxPax: selectedCar.maxPax || '1',
+                        maxBag: selectedCar.maxBag || '0'
+                    });
+
+                    saveCartToStorage();
+
+                    const wasAddingThisTrip = bridgeTripLabel && bridgeTripLabel.textContent.includes('this trip');
+
+                    // Réinitialisation de la sélection
+                    selectedCar = null;
+                    carCards.forEach(c => c.classList.remove('selected'));
+                    renderTripsCart();
+
+                    // Si c'était "Add another trip" (1er trajet), on vide les champs et on remonte
+                    if (!wasAddingThisTrip) {
+                        resetFieldsForNewTrip();
+                        const searchBar = quickRoot.querySelector('.etb-quick-glass-bar') || quickRoot;
+                        searchBar.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                } else if (cartTrips.length > 0) {
+                    // Clic direct sur "Add another trip" depuis le panier
+                    resetFieldsForNewTrip();
+                    const searchBar = quickRoot.querySelector('.etb-quick-glass-bar') || quickRoot;
+                    searchBar.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            });
+        }
+        // ── FORMATAGE DE DATE HAUTE CONCIERGERIE VIP ──
+        const formatLuxuryDateText = (dateStr, timeStr) => {
+            if (!dateStr) return '—';
+            const parts = dateStr.split('-');
+            if (parts.length !== 3) return dateStr + (timeStr ? ` • ${timeStr}` : '');
+            
+            const dateObj = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+            const daysShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const monthsShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            
+            const dayName   = daysShort[dateObj.getDay()] || '';
+            const monthName = monthsShort[dateObj.getMonth()] || parts[1];
+            const dayNum    = String(parts[2]).padStart(2, '0');
+            
+            const cleanTime = (timeStr && timeStr !== '-- : --') ? ` • ${timeStr}` : '';
+            return `${dayName}, ${dayNum} ${monthName} ${parts[0]}${cleanTime}`;
+        };
+
+        // ── GESTION DU PANIER MULTI-TRAJETS (VIP CART ENGINE) ──
+        const renderTripsCart = () => {
+            if (!tripsCartEl || !tripsListEl) return;
+
+            // 1. SI LE PANIER EST VIDE
+            if (cartTrips.length === 0) {
+                tripsCartEl.style.display = 'none';
+                tripsListEl.innerHTML = '';
+                if (tripsCountEl) tripsCountEl.textContent = '0';
+                if (bookBtnLabel) bookBtnLabel.textContent = 'Book this Trip';
+                
+                // Masque la barre du bas et le bouton doré uniquement si aucune voiture n'est en cours de sélection
+                if (!selectedCar) {
+                    if (bookingBar) bookingBar.classList.remove('is-visible');
+                    if (bridgeTripWrap) bridgeTripWrap.style.display = 'none';
+                }
+                return;
+            }
+
+            // 2. SI LE PANIER CONTIENT DES TRAJETS
+            // Dévoile immédiatement le conteneur parent, le panier ET la barre de confirmation
+            if (fleetSection) fleetSection.style.display = 'block';
+            tripsCartEl.style.display = 'block';
+            if (bookingBar) bookingBar.classList.add('is-visible');
+            if (tripsCountEl) tripsCountEl.textContent = cartTrips.length;
+
+            let html = '';
+            let cumulativeTotal = 0;
+            let hasCustomQuoteInCart = false;
+
+            cartTrips.forEach((trip, index) => {
+                const isQuote = trip.isQuote;
+                if (isQuote) {
+                    hasCustomQuoteInCart = true;
+                } else {
+                    cumulativeTotal += parseFloat(trip.price) || 0;
+                }
+
+                const priceDisplay = isQuote 
+                    ? '<span style="color: var(--etb-accent-gold, #fbac18); font-weight: 800; font-size: 13px;">Quote Upon Request</span>' 
+                    : `<strong style="color: var(--etb-text-primary, #ffffff); font-size: 15px; font-weight: 800;">${parseFloat(trip.price).toFixed(0)} <span style="font-size: 12px; color: var(--etb-accent-gold, #fbac18);">${currency}</span></strong>`;
+
+                const formattedDateTime = formatLuxuryDateText(trip.date, trip.time);
+
+                // Ligne d'itinéraire responsive VIP (2 lignes empilées)
+                const routeHtml = (trip.mode === 'hourly')
+                    ? `<div style="display: flex; flex-direction: column; gap: 4px; margin-top: 3px;">
+                         <div style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--etb-accent-gold, #fbac18);">
+                           <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                           <strong>By the hour (${trip.duration} Hours Charter)</strong>
+                         </div>
+                         <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--etb-text-secondary, #cbd5e1); overflow: hidden;">
+                           <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; flex-shrink: 0;"></span>
+                           <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">${trip.pickup}</span>
+                         </div>
+                       </div>`
+                    : `<div style="display: flex; flex-direction: column; gap: 4px; margin-top: 3px; width: 100%; overflow: hidden;">
+                         <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--etb-text-secondary, #cbd5e1); overflow: hidden;">
+                           <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; flex-shrink: 0;" title="Pickup"></span>
+                           <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">${trip.pickup}</span>
+                         </div>
+                         <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--etb-text-secondary, #cbd5e1); overflow: hidden;">
+                           <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--etb-accent-gold, #fbac18); flex-shrink: 0;" title="Drop-off"></span>
+                           <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">${trip.dropoff}</span>
+                         </div>
+                       </div>`;
+
+                html += `
+                    <div class="etb-cart-trip-item" style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); border: 1px solid var(--etb-border-light, rgba(255,255,255,0.08)); border-radius: 9px; padding: 12px 16px; gap: 14px; transition: all 0.2s ease;">
+                        <div style="display: flex; flex-direction: column; gap: 3px; overflow: hidden; flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; overflow: hidden; width: 100%;">
+                                <span style="background: var(--etb-accent-gold, #fbac18); color: #0f172a; font-size: 10px; font-weight: 900; padding: 2px 7px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0;">Leg #${index + 1}</span>
+                                <strong style="color: var(--etb-text-primary, #ffffff); font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1;">${trip.vehicle_name}</strong>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--etb-text-secondary, #94a3b8); flex-wrap: wrap;">
+                                <span style="color: var(--etb-accent-gold, #fbac18); font-weight: 700;">${trip.maxPax} Pax • ${trip.maxBag} Bags</span>
+                                <span>•</span>
+                                <span>${formattedDateTime}</span>
+                            </div>
+                            ${routeHtml}
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 14px; flex-shrink: 0;">
+                            <div>${priceDisplay}</div>
+                            <button type="button" class="etb-cart-remove-trip-btn" data-index="${index}" title="Remove this transfer" style="background: rgba(239, 68, 68, 0.12) !important; border: 1px solid rgba(239, 68, 68, 0.4) !important; width: 30px !important; height: 30px !important; border-radius: 8px !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; cursor: pointer !important; padding: 0 !important; transition: all 0.2s ease !important;">
+                                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block; width: 11px; height: 11px; flex-shrink: 0;">
+                                    <path d="M1.5 1.5L10.5 10.5M10.5 1.5L1.5 10.5" stroke="#f87171" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            tripsListEl.innerHTML = html;
+
+            // Écouteurs de suppression
+            tripsListEl.querySelectorAll('.etb-cart-remove-trip-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const idx = parseInt(this.dataset.index, 10);
+                    if (!isNaN(idx) && idx >= 0 && idx < cartTrips.length) {
+                        cartTrips.splice(idx, 1);
+                        saveCartToStorage();
+                        renderTripsCart();
+                    }
+                });
+            });
+
+            // Libellé intelligent du bouton d'action principal et déverrouillage systématique
+            if (bookNowBtn) {
+                bookNowBtn.disabled = false;
+                const currentLabelEl = bookNowBtn.querySelector('#etb-quick-book-btn-label') || bookBtnLabel;
+
+                if (currentLabelEl) {
+                    if (cartTrips.length === 0) {
+                        currentLabelEl.textContent = selectedCar ? (selectedCar.isQuote ? 'Request this Quote' : 'Book this Trip') : 'Book this Trip';
+                    } else {
+                        currentLabelEl.textContent = hasCustomQuoteInCart ? `Request Quote (${cartTrips.length} Transfers)` : `Checkout (${cartTrips.length} Transfers)`;
+                    }
+                }
+            }
+
+            const dynamicContentEl = quickRoot.querySelector('#etb-quick-dynamic-bar-content');
+            if (dynamicContentEl && !selectedCar) {
+                // Le bouton doré flottant au-dessus reste affiché SI multi-booking est actif
+                if (bridgeTripWrap && bridgeTripLabel) {
+                    if (isMultiBookingEnabled) {
+                        bridgeTripWrap.style.display = 'flex';
+                        bridgeTripLabel.textContent = 'Add another trip';
+                    } else {
+                        bridgeTripWrap.style.display = 'none';
+                    }
+                }
+
+                dynamicContentEl.innerHTML = `
+                    <div class="etb-bar-col1" style="display: flex; flex-direction: column; justify-content: center; flex-shrink: 0;">
+                        <div class="etb-bar-v-title" style="white-space: nowrap;">
+                            <strong style="color: var(--etb-text-primary, #ffffff); font-size: 15px; letter-spacing: 0.02em;">
+                                ${cartTrips.length} Scheduled Transfers
+                            </strong>
+                        </div>
+                    </div>
+                    <div class="etb-bar-col2" style="display: flex; flex-direction: column; justify-content: center;">
+                        <div class="etb-bar-price">
+                            ${hasCustomQuoteInCart 
+                                ? '<span style="color: var(--etb-accent-gold, #fbac18); font-size: 22px; font-weight: 800;">Custom Quote</span>' 
+                                : `<span style="color: var(--etb-accent-gold, #fbac18); font-size: 28px; font-weight: 900; letter-spacing: -0.5px;">${cumulativeTotal.toFixed(0)} <span style="font-size: 18px;">${currency}</span></span>`}
+                        </div>
+                        <div class="etb-bar-sub" style="color: var(--etb-text-secondary, #94a3b8); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;">
+                            Fixed All-Inclusive Rate
+                        </div>
+                    </div>
+                `;
+            } else if (dynamicContentEl && selectedCar) {
+                const priceBox = dynamicContentEl.querySelector('.etb-bar-price');
+                const subBox   = dynamicContentEl.querySelector('.etb-bar-sub');
+                const kmBox    = dynamicContentEl.querySelector('.etb-bar-km');
+
+                if (priceBox) {
+                    priceBox.innerHTML = hasCustomQuoteInCart 
+                        ? '<span style="color: var(--etb-accent-gold, #fbac18); font-size: 22px; font-weight: 800;">Custom Quote</span>' 
+                        : `<span style="color: var(--etb-accent-gold, #fbac18); font-size: 28px; font-weight: 900; letter-spacing: -0.5px;">${cumulativeTotal.toFixed(0)} <span style="font-size: 18px;">${currency}</span></span>`;
+                }
+                if (subBox) {
+                    subBox.innerHTML = `<span style="color: var(--etb-text-secondary, #94a3b8); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;">Fixed All-Inclusive Rate</span>`;
+                }
+                if (kmBox) kmBox.style.display = 'none';
+            }
+
+            // Met à jour les liens WhatsApp et Email pour le récapitulatif du panier
+            updateInquiryLinks();
+        };
+
+       // 4bis. Clic sur "Add this Trip" / "Add another trip"
+        if (addTripBtn) {
+            addTripBtn.style.setProperty('background', 'rgba(251, 172, 24, 0.1)', 'important');
+            addTripBtn.style.setProperty('border', '1.5px solid #fbac18', 'important');
+            addTripBtn.style.setProperty('color', '#fbac18', 'important');
+
+            addTripBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+
+                // Si aucun nouveau véhicule n'est sélectionné et que le panier a déjà des trajets :
+                // Le client veut enchaîner sur un autre trajet -> Auto-scroll fluide vers la barre du haut !
+                if (!selectedCar && cartTrips.length > 0) {
+                    const searchBar = quickRoot.querySelector('.etb-quick-glass-bar') || quickRoot;
+                    searchBar.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    return;
+                }
+
+                if (!selectedCar) {
+                    showError('Please select a vehicle above before adding this trip.');
+                    return;
+                }
+
+                const pInputEl = quickRoot.querySelector('#etb-quick-pickup');
+                const dInputEl = quickRoot.querySelector('#etb-quick-dropoff');
+                const pickupVal  = pInputEl ? pInputEl.value.trim() : '';
+                const dropoffVal = (currentMode === 'transfer' && dInputEl) ? dInputEl.value.trim() : '';
+                const durVal     = (currentMode === 'hourly' && durationSelect) ? durationSelect.value : '4';
+                const dateVal    = dateInput ? dateInput.value.trim() : '';
+                const timeVal    = timeInput ? timeInput.value.trim() : '';
+
+                if (!pickupVal) return showError('Please enter a pickup location.');
+                if (currentMode === 'transfer' && !dropoffVal) return showError('Please enter a drop-off location.');
+                if (!dateVal) return showError('Please select a date.');
+                if (!timeVal || timeVal === '-- : --') return showError('Please select a pickup time.');
+
+                const newTrip = {
+                    id: 'trip_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                    mode: currentMode,
+                    pickup: pickupVal,
+                    dropoff: dropoffVal,
+                    duration: durVal,
+                    date: dateVal,
+                    time: timeVal,
+                    vehicle_id: selectedCar.id,
+                    vehicle_name: selectedCar.name,
+                    vehicle_img: selectedCar.img || '',
+                    price: selectedCar.price,
+                    isQuote: selectedCar.isQuote,
+                    maxPax: selectedCar.maxPax || '1',
+                    maxBag: selectedCar.maxBag || '0'
+                };
+
+                cartTrips.push(newTrip);
+                saveCartToStorage();
+
+                // 1. Désélectionne la carte véhicule dans la grille au-dessus
+                carCards.forEach(c => {
+                    c.classList.remove('selected');
+                    const b = c.querySelector('.etb-quick-select-btn');
+                    if (b) b.textContent = (c.dataset.isQuote === '1' || isQuoteMode) ? 'Request Quote' : 'Select';
+                });
+
+                // 2. Remet selectedCar à null AVANT d'actualiser le panier
+                selectedCar = null;
+
+                // 3. Bascule instantanément la barre en mode Récapitulatif officiel
+                renderTripsCart();
+
+                // 4. Défilement fluide automatique vers le haut pour configurer le trajet suivant
+                setTimeout(() => {
+                    const searchBar = quickRoot.querySelector('.etb-quick-glass-bar') || quickRoot;
+                    searchBar.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 300);
+            });
+        }
         
 
         // 5. Clic sur "Book this Trip" : Génération du Quote Token sécurisé et redirection
@@ -1986,51 +2693,77 @@
             bookNowBtn.addEventListener('click', function (e) {
                 e.preventDefault();
 
-                if (!selectedCar) {
-                    showError('Please select a vehicle from the list above before proceeding.');
+                // Si aucun trajet n'est au panier et aucune voiture n'est sélectionnée : erreur
+                if (cartTrips.length === 0 && !selectedCar) {
+                    showError('Please select a vehicle or add at least one trip to your booking.');
                     return;
                 }
 
-                // Lecture directe et robuste du champ pickup dans le widget
-                const pInputEl   = quickRoot.querySelector('#etb-quick-pickup');
-                const dInputEl   = quickRoot.querySelector('#etb-quick-dropoff');
-                
-                const pickupVal  = pInputEl ? pInputEl.value.trim() : '';
-                const dropoffVal = (currentMode === 'transfer' && dInputEl) ? dInputEl.value.trim() : '';
-                const durVal     = (currentMode === 'hourly' && durationSelect) ? durationSelect.value : '4';
-                const dateVal    = dateInput ? dateInput.value.trim() : '';
-                const timeVal    = timeInput ? timeInput.value.trim() : '';
+                // Ajout automatique UNIQUEMENT si le panier est vide (Flux direct du 1er trajet)
+                // Si le panier contient déjà des trajets, le véhicule en cours de sélection est ignoré.
+                if (cartTrips.length === 0 && selectedCar) {
+                    const pInputEl   = quickRoot.querySelector('#etb-quick-pickup');
+                    const dInputEl   = quickRoot.querySelector('#etb-quick-dropoff');
+                    const pickupVal  = pInputEl ? pInputEl.value.trim() : '';
+                    const dropoffVal = (currentMode === 'transfer' && dInputEl) ? dInputEl.value.trim() : '';
+                    const durVal     = (currentMode === 'hourly' && durationSelect) ? durationSelect.value : '4';
+                    const dateVal    = dateInput ? dateInput.value.trim() : '';
+                    const timeVal    = timeInput ? timeInput.value.trim() : '';
 
-                // Sécurité front-end immédiate avec message clair avant l'appel AJAX
-                if (!pickupVal) {
-                    showError('Please enter a pickup location.');
-                    if (pInputEl) pInputEl.focus();
-                    return;
-                }
-                if (currentMode === 'transfer' && !dropoffVal) {
-                    showError('Please enter a drop-off location.');
-                    if (dInputEl) dInputEl.focus();
-                    return;
+                    if (!pickupVal) {
+                        showError('Please enter a pickup location.');
+                        if (pInputEl) pInputEl.focus();
+                        return;
+                    }
+                    if (currentMode === 'transfer' && !dropoffVal) {
+                        showError('Please enter a drop-off location.');
+                        if (dInputEl) dInputEl.focus();
+                        return;
+                    }
+
+                    cartTrips.push({
+                        id: 'trip_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                        mode: currentMode,
+                        pickup: pickupVal,
+                        dropoff: dropoffVal,
+                        duration: durVal,
+                        date: dateVal,
+                        time: timeVal,
+                        vehicle_id: selectedCar.id,
+                        vehicle_name: selectedCar.name,
+                        vehicle_img: selectedCar.img || '',
+                        price: selectedCar.price,
+                        isQuote: selectedCar.isQuote,
+                        maxPax: selectedCar.maxPax || '1',
+                        maxBag: selectedCar.maxBag || '0'
+                    });
                 }
 
-                // État de chargement discret sur le bouton
-                const originalBtnHtml = bookNowBtn.innerHTML;
+                // État de chargement discret sur le bouton (Sans détruire les balises internes)
                 bookNowBtn.disabled = true;
-                bookNowBtn.innerHTML = '<span>Securing quote...</span>';
+                const activeLabelEl = bookNowBtn.querySelector('#etb-quick-book-btn-label');
+                if (activeLabelEl) {
+                    activeLabelEl.textContent = 'Securing quote...';
+                }
 
                 // Préparation de la requête AJAX vers notre générateur de devis
                 const formData = new FormData();
                 formData.append('action', 'etb_create_quote');
                 formData.append('nonce', etbAjax.nonce);
-                formData.append('mode', currentMode);
-                formData.append('pickup', pickupVal);
-                formData.append('dropoff', dropoffVal);
-                formData.append('duration', durVal);
-                formData.append('date', dateVal);
-                formData.append('time', timeVal);
-                formData.append('vehicle_id', selectedCar.id);
-                formData.append('price', selectedCar.price);
 
+                // Envoi de l'ensemble des trajets du panier en JSON
+                formData.append('trips', JSON.stringify(cartTrips));
+
+                // Données de secours du premier trajet pour rétrocompatibilité
+                const firstTrip = cartTrips[0];
+                formData.append('mode', firstTrip.mode);
+                formData.append('pickup', firstTrip.pickup);
+                formData.append('dropoff', firstTrip.dropoff);
+                formData.append('duration', firstTrip.duration);
+                formData.append('date', firstTrip.date);
+                formData.append('time', firstTrip.time);
+                formData.append('vehicle_id', firstTrip.vehicle_id);
+                formData.append('price', firstTrip.price);
                 fetch(etbAjax.ajax_url, {
                     method: 'POST',
                     body: formData
@@ -2040,28 +2773,134 @@
                 })
                 .then(function (res) {
                     if (res.success && res.data.redirect_url) {
-                        // Redirection immédiate vers l'URL propre Blacklane : /checkout/?ref=q_XXXX
+                        // Redirection immédiate vers le Checkout
                         window.location.href = res.data.redirect_url;
                     } else {
                         bookNowBtn.disabled = false;
-                        bookNowBtn.innerHTML = originalBtnHtml;
+                        if (activeLabelEl) renderTripsCart();
                         showError(res.data.message || 'Could not initialize quote. Please try again.');
                     }
                 })
                 .catch(function (err) {
                     console.error('Quote generation error:', err);
                     bookNowBtn.disabled = false;
-                    bookNowBtn.innerHTML = originalBtnHtml;
+                    if (activeLabelEl) renderTripsCart();
                     showError('Communication error. Please try again.');
                 });
             });
         }
-                      
+         
+
+         // ── RESTAURATION AUTOMATIQUE DE LA SESSION (RETOUR DU CHECKOUT OU ACTUALISATION) ──
+        const restoreQuickSession = () => {
+
+                // 0. Restauration de l'état du switch Multi-Booking
+            try {
+                const storedMb = sessionStorage.getItem('etb_multi_booking_enabled');
+                if (storedMb === '1') {
+                    isMultiBookingEnabled = true;
+                    if (multiTripToggle) multiTripToggle.checked = true;
+                } else {
+                    isMultiBookingEnabled = false;
+                    if (multiTripToggle) multiTripToggle.checked = false;
+                }
+            } catch (e) {}
+
+            // 1. Restauration des champs du formulaire
+            try {
+                const savedState = sessionStorage.getItem('etb_quick_form_state');
+                if (savedState) {
+                    const st = JSON.parse(savedState);
+                    if (st) {
+                        if (st.pickup && pickupInput) {
+                            pickupInput.value = st.pickup;
+                            if (pickupClearBtn) pickupClearBtn.classList.add('is-visible');
+                        }
+                        if (st.pickupLat && pickupLatEl) pickupLatEl.value = st.pickupLat;
+                        if (st.pickupLng && pickupLngEl) pickupLngEl.value = st.pickupLng;
+                        if (st.dropoff && dropoffInput) {
+                            dropoffInput.value = st.dropoff;
+                            if (dropoffClearBtn) dropoffClearBtn.classList.add('is-visible');
+                        }
+                        if (st.dropoffLat && dropoffLatEl) dropoffLatEl.value = st.dropoffLat;
+                        if (st.dropoffLng && dropoffLngEl) dropoffLngEl.value = st.dropoffLng;
+                        if (st.date && dateInput) {
+                            dateInput.value = st.date;
+                            if (dateTextEl && typeof formatCustomDate === 'function') {
+                                dateTextEl.textContent = formatCustomDate(st.date);
+                            }
+                        }
+                        if (st.time && timeInput) {
+                            timeInput.value = st.time;
+                        }
+                        if (st.duration && durationSelect) {
+                            durationSelect.value = st.duration;
+                        }
+                        if (st.mode && st.mode !== currentMode) {
+                            const targetModeBtn = quickRoot.querySelector(`.etb-quick-mode-btn[data-mode="${st.mode}"]`);
+                            if (targetModeBtn) targetModeBtn.click();
+                        }
+                    }
+                }
+            } catch (e) {}
+
+            // 2. Restauration du panier
+            try {
+                const storedCart = sessionStorage.getItem('etb_cart_trips');
+                if (storedCart) {
+                    const parsedCart = JSON.parse(storedCart);
+                    if (Array.isArray(parsedCart) && parsedCart.length > 0) {
+                        cartTrips = parsedCart;
+                        renderTripsCart();
+                    }
+                }
+            } catch (e) {}
+
+           // 3. RÉVEIL AUTOMATIQUE DES PRIX ET DE LA FLOTTE
+            // (Simule intelligemment le clic sur "Show Prices" si les champs sont prêts)
+            setTimeout(() => {
+                const hasPickup = pickupInput && pickupInput.value.trim() !== '';
+                const hasDate   = dateInput && dateInput.value.trim() !== '';
+                const hasTime   = timeInput && timeInput.value.trim() !== '-- : --' && timeInput.value.trim() !== '';
+
+                if (hasPickup && hasDate && hasTime) {
+                    if (currentMode === 'hourly') {
+                        if (getPriceBtn) getPriceBtn.click();
+                    } else if (currentMode === 'transfer') {
+                        const fromLat    = pickupLatEl ? pickupLatEl.value : '';
+                        const toLat      = dropoffLatEl ? dropoffLatEl.value : '';
+                        const hasDropoff = dropoffInput && dropoffInput.value.trim() !== '';
+                        
+                        // Si les coordonnées GPS du point A et du point B sont bien restaurées
+                        if (fromLat && toLat && hasDropoff) {
+                            if (getPriceBtn) getPriceBtn.click();
+                        }
+                    }
+                }
+            }, 100);
+        };
+
+        // Sauvegarde de l'état du formulaire à chaque saisie
+        if (pickupInput)  pickupInput.addEventListener('change', saveFormState);
+        if (dropoffInput) dropoffInput.addEventListener('change', saveFormState);
+        if (dateInput)    dateInput.addEventListener('change', saveFormState);
+        if (timeInput)    timeInput.addEventListener('change', saveFormState);
+
+        // Lancement immédiat de la restauration
+        restoreQuickSession();
+
+        // Réveil forcé en cas de retour via le cache du navigateur (Bfcache / History Back)
+        window.addEventListener('pageshow', function () {
+            if (bookNowBtn) {
+                bookNowBtn.disabled = false;
+            }
+            if (cartTrips.length > 0) {
+                renderTripsCart();
+            }
+        });
     };
 
-    // ==========================================================================
-    // MOTEUR DU CHECKOUT BLACKLANE ([etb_checkout])
-    // ==========================================================================
+    
     // ==========================================================================
     // MOTEUR DU CHECKOUT BLACKLANE ([etb_checkout]) - SYNCHRONISÉ ET SÉCURISÉ
     // ==========================================================================
@@ -2481,28 +3320,33 @@
             if (vehicleIdInput) vehicleIdInput.value = vehicleId;
             if (priceInput) priceInput.value = rawPrice;
 
-            // Affichage de l'itinéraire dans le récapitulatif
-            if (sumPickup && pickupAddr) sumPickup.textContent = pickupAddr;
+            const isMultiTripEl = checkoutRoot.querySelector('#etb-chk-is-multi-trip');
+            const isMultiTrip   = isMultiTripEl && isMultiTripEl.value === '1';
 
-            if (tripMode === 'hourly') {
-                if (sumDropoffRow) {
-                    sumDropoffRow.classList.add('is-hidden');
-                    sumDropoffRow.style.setProperty('display', 'none', 'important');
-                }
-                if (sumDurationRow) {
-                    sumDurationRow.classList.remove('is-hidden');
-                    sumDurationRow.style.setProperty('display', 'flex', 'important');
-                    if (sumDuration) sumDuration.textContent = `${durVal} Hours rental`;
-                }
-            } else {
-                if (sumDurationRow) {
-                    sumDurationRow.classList.add('is-hidden');
-                    sumDurationRow.style.setProperty('display', 'none', 'important');
-                }
-                if (sumDropoffRow) {
-                    sumDropoffRow.classList.remove('is-hidden');
-                    sumDropoffRow.style.setProperty('display', 'flex', 'important');
-                    if (sumDropoff && dropoffAddr) sumDropoff.textContent = dropoffAddr;
+            // Affichage de l'itinéraire dans le récapitulatif (UNIQUEMENT si mono-trajet)
+            if (!isMultiTrip) {
+                if (sumPickup && pickupAddr) sumPickup.textContent = pickupAddr;
+
+                if (tripMode === 'hourly') {
+                    if (sumDropoffRow) {
+                        sumDropoffRow.classList.add('is-hidden');
+                        sumDropoffRow.style.setProperty('display', 'none', 'important');
+                    }
+                    if (sumDurationRow) {
+                        sumDurationRow.classList.remove('is-hidden');
+                        sumDurationRow.style.setProperty('display', 'flex', 'important');
+                        if (sumDuration) sumDuration.textContent = `${durVal} Hours rental`;
+                    }
+                } else {
+                    if (sumDurationRow) {
+                        sumDurationRow.classList.add('is-hidden');
+                        sumDurationRow.style.setProperty('display', 'none', 'important');
+                    }
+                    if (sumDropoffRow) {
+                        sumDropoffRow.classList.remove('is-hidden');
+                        sumDropoffRow.style.setProperty('display', 'flex', 'important');
+                        if (sumDropoff && dropoffAddr) sumDropoff.textContent = dropoffAddr;
+                    }
                 }
             }
 
@@ -2539,36 +3383,54 @@
             const totalLabelEl    = checkoutRoot.querySelector('.etb-chk-price-row.total-row span:first-child');
             const guaranteesBoxEl = checkoutRoot.querySelector('.etb-chk-guarantees');
 
-            // Détection dynamique en temps réel de la réservation urgente (< 24h)
+            // Détection dynamique de l'urgence (< 24h) sur TOUS les trajets du panier
             const checkIsUrgentCheckout = () => {
+                const evaluateHoursDiff = (dateStr, timeStr) => {
+                    if (!dateStr || !timeStr || timeStr === '-- : --') return 999;
+                    let h = 9, m = 0;
+                    const cleanTime = timeStr.toUpperCase();
+                    if (cleanTime.includes('AM') || cleanTime.includes('PM')) {
+                        const parts = cleanTime.split(/\s+/);
+                        const hm = (parts[0] || '').split(':');
+                        h = parseInt(hm[0], 10) || 0;
+                        m = parseInt(hm[1], 10) || 0;
+                        if (cleanTime.includes('PM') && h < 12) h += 12;
+                        if (cleanTime.includes('AM') && h === 12) h = 0;
+                    } else {
+                        const hm = cleanTime.split(':');
+                        h = parseInt(hm[0], 10) || 0;
+                        m = parseInt(hm[1], 10) || 0;
+                    }
+
+                    const dParts = dateStr.split('-');
+                    if (dParts.length !== 3) return 999;
+
+                    const pickupDate = new Date(parseInt(dParts[0], 10), parseInt(dParts[1], 10) - 1, parseInt(dParts[2], 10), h, m, 0);
+                    const now = new Date();
+                    return (pickupDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+                };
+
+                // 1. Analyse de chaque trajet du panier mémorisé en session
+                try {
+                    const storedCart = sessionStorage.getItem('etb_cart_trips');
+                    if (storedCart) {
+                        const trips = JSON.parse(storedCart);
+                        if (Array.isArray(trips) && trips.length > 0) {
+                            for (let i = 0; i < trips.length; i++) {
+                                const diffH = evaluateHoursDiff(trips[i].date, trips[i].time);
+                                if (diffH >= 0 && diffH < 24) {
+                                    return true; // AU MOINS UN trajet a lieu dans moins de 24h -> Urgent !
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {}
+
+                // 2. Repli classique si mono-trajet
                 const rawDate = dateInput ? dateInput.value.trim() : '';
                 const rawTime = timeInput ? timeInput.value.trim() : '';
-                if (!rawDate || !rawTime || rawTime === '-- : --') return false;
-
-                let h = 9, m = 0;
-                const cleanTime = rawTime.toUpperCase();
-                if (cleanTime.includes('AM') || cleanTime.includes('PM')) {
-                    const parts = cleanTime.split(/\s+/);
-                    const hm = (parts[0] || '').split(':');
-                    h = parseInt(hm[0], 10) || 0;
-                    m = parseInt(hm[1], 10) || 0;
-                    if (cleanTime.includes('PM') && h < 12) h += 12;
-                    if (cleanTime.includes('AM') && h === 12) h = 0;
-                } else {
-                    const hm = cleanTime.split(':');
-                    h = parseInt(hm[0], 10) || 0;
-                    m = parseInt(hm[1], 10) || 0;
-                }
-
-                const dParts = rawDate.split('-');
-                if (dParts.length !== 3) return false;
-
-                const pickupDate = new Date(parseInt(dParts[0], 10), parseInt(dParts[1], 10) - 1, parseInt(dParts[2], 10), h, m, 0);
-                const now = new Date();
-                const diffHours = (pickupDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-
-                // Urgent si la prise en charge a lieu entre maintenant et moins de 24h
-                return diffHours >= 0 && diffHours < 24;
+                const singleDiff = evaluateHoursDiff(rawDate, rawTime);
+                return singleDiff >= 0 && singleDiff < 24;
             };
 
             const isUrgentInput  = checkoutRoot.querySelector('#etb-chk-is-urgent');
@@ -2629,45 +3491,51 @@
             };
 
             if (airportCard) {
-                const isPickupAirport  = checkAirportKeywords(pickupAddr);
-                const isDropoffAirport = checkAirportKeywords(dropoffAddr);
+                const isMultiTripOrder = checkoutRoot.querySelector('#etb-chk-is-multi-trip')?.value === '1';
 
-                const airportTitle = checkoutRoot.querySelector('#etb-chk-airport-title');
-                const airportDesc  = checkoutRoot.querySelector('#etb-chk-airport-desc');
-                const flightLabel  = checkoutRoot.querySelector('#etb-chk-flight-label');
-                const flightHint   = checkoutRoot.querySelector('#etb-chk-flight-hint');
-                const signField    = checkoutRoot.querySelector('#etb-chk-sign-field');
-                const airportGrid  = checkoutRoot.querySelector('#etb-chk-airport-grid');
-                const waitTimeText = checkoutRoot.querySelector('#etb-chk-wait-time-text');
+                // Si Multi-Trajets : on ne touche à rien ici ! Les onglets (switchLegTab) gèrent l'affichage.
+                // Si Mono-Trajet : on applique la logique classique.
+                if (!isMultiTripOrder) {
+                    const isPickupAirport  = checkAirportKeywords(pickupAddr);
+                    const isDropoffAirport = checkAirportKeywords(dropoffAddr);
 
-                if (isPickupAirport) {
-                    airportCard.style.display = 'block';
-                    if (airportTitle) airportTitle.textContent = 'Airport Arrival & Greeting';
-                    if (airportDesc)  airportDesc.textContent  = 'Real-time flight tracking included. Your chauffeur tracks your flight and adjusts pickup time automatically.';
-                    if (flightLabel)  flightLabel.textContent  = 'Flight Number';
-                    if (flightHint)   flightHint.textContent   = '1 hour free waiting time after landing.';
-                    if (signField)    signField.style.display  = 'block';
-                    if (airportGrid)  airportGrid.style.gridTemplateColumns = '';
-                    if (waitTimeText) waitTimeText.textContent = '60 min complimentary wait time included (flight tracking)';
-                } else if (isDropoffAirport) {
-                    airportCard.style.display = 'block';
-                    if (airportTitle) airportTitle.textContent = 'Airport Drop-off & Departure Terminal';
-                    if (airportDesc)  airportDesc.textContent  = 'Helps your chauffeur drop you off directly in front of the correct departures terminal gate.';
-                    if (flightLabel)  flightLabel.textContent  = 'Flight Number or Departure Terminal (Optional)';
-                    if (flightHint)   flightHint.textContent   = 'e.g. Terminal 2E, AF 7704 — Ensures a seamless curbside drop-off.';
-                    if (signField) {
-                        signField.style.display = 'none';
-                        const signInput = signField.querySelector('input');
-                        if (signInput) signInput.value = '';
-                    }
-                    if (airportGrid)  airportGrid.style.gridTemplateColumns = '1fr';
-                    if (waitTimeText) waitTimeText.textContent = '15 min complimentary wait time included';
-                } else {
-                    airportCard.style.display = 'none';
-                    if (waitTimeText) waitTimeText.textContent = '15 min complimentary wait time included';
-                    if (signField) {
-                        const signInput = signField.querySelector('input');
-                        if (signInput) signInput.value = '';
+                    const airportTitle = checkoutRoot.querySelector('#etb-chk-airport-title');
+                    const airportDesc  = checkoutRoot.querySelector('#etb-chk-airport-desc');
+                    const flightLabel  = checkoutRoot.querySelector('#etb-chk-flight-label');
+                    const flightHint   = checkoutRoot.querySelector('#etb-chk-flight-hint');
+                    const signField    = checkoutRoot.querySelector('#etb-chk-sign-field');
+                    const airportGrid  = checkoutRoot.querySelector('#etb-chk-airport-grid');
+                    const waitTimeText = checkoutRoot.querySelector('#etb-chk-wait-time-text');
+
+                    if (isPickupAirport) {
+                        airportCard.style.display = 'block';
+                        if (airportTitle) airportTitle.textContent = 'Airport Arrival & Greeting';
+                        if (airportDesc)  airportDesc.textContent  = 'Real-time flight tracking included. Your chauffeur tracks your flight and adjusts pickup time automatically.';
+                        if (flightLabel)  flightLabel.textContent  = 'Flight Number';
+                        if (flightHint)   flightHint.textContent   = '1 hour free waiting time after landing.';
+                        if (signField)    signField.style.display  = 'block';
+                        if (airportGrid)  airportGrid.style.gridTemplateColumns = '';
+                        if (waitTimeText) waitTimeText.textContent = '60 min complimentary wait time included (flight tracking)';
+                    } else if (isDropoffAirport) {
+                        airportCard.style.display = 'block';
+                        if (airportTitle) airportTitle.textContent = 'Airport Drop-off & Departure Terminal';
+                        if (airportDesc)  airportDesc.textContent  = 'Helps your chauffeur drop you off directly in front of the correct departures terminal gate.';
+                        if (flightLabel)  flightLabel.textContent  = 'Flight Number or Departure Terminal (Optional)';
+                        if (flightHint)   flightHint.textContent   = 'e.g. Terminal 2E, AF 7704 — Ensures a seamless curbside drop-off.';
+                        if (signField) {
+                            signField.style.display = 'none';
+                            const signInput = signField.querySelector('input');
+                            if (signInput) signInput.value = '';
+                        }
+                        if (airportGrid)  airportGrid.style.gridTemplateColumns = '1fr';
+                        if (waitTimeText) waitTimeText.textContent = '15 min complimentary wait time included';
+                    } else {
+                        airportCard.style.display = 'none';
+                        if (waitTimeText) waitTimeText.textContent = '15 min complimentary wait time included';
+                        if (signField) {
+                            const signInput = signField.querySelector('input');
+                            if (signInput) signInput.value = '';
+                        }
                     }
                 }
             }
@@ -2826,6 +3694,213 @@
                     paxInputEl.value = val + 1;
                 }
             });
+        }
+
+        // ── GESTION DES ONGLETS DE TRAJETS ET CAPACITÉS INDÉPENDANTES (VIP PER-LEG) ──
+        const legTabBtns     = checkoutRoot.querySelectorAll('.etb-chk-leg-tab-btn');
+        const legInfoVehicle = checkoutRoot.querySelector('#etb-chk-leg-info-vehicle');
+        const legInfoRoute   = checkoutRoot.querySelector('#etb-chk-leg-info-route');
+        const legInfoDate    = checkoutRoot.querySelector('#etb-chk-leg-info-date');
+        const legsDataInput  = checkoutRoot.querySelector('#etb-chk-legs-data');
+
+        // Sécurité : Déclaration des éléments de l'Aéroport pour éviter les crashs (ReferenceError)
+        const flightInputEl  = checkoutRoot.querySelector('#etb-flight-number');
+        const signInputEl    = checkoutRoot.querySelector('#etb-pickup-sign');
+        const airportTitle   = checkoutRoot.querySelector('#etb-chk-airport-title');
+        const airportDesc    = checkoutRoot.querySelector('#etb-chk-airport-desc');
+        const flightLabel    = checkoutRoot.querySelector('#etb-chk-flight-label');
+        const flightHint     = checkoutRoot.querySelector('#etb-chk-flight-hint');
+        const signField      = checkoutRoot.querySelector('#etb-chk-sign-field');
+
+        let currentActiveLeg = 0;
+        let perLegState      = [];
+
+        // Initialisation de l'état pour chaque onglet
+        if (legTabBtns.length > 0) {
+            legTabBtns.forEach((btn, idx) => {
+                const maxPax = parseInt(btn.dataset.maxPax, 10) || 3;
+                const maxBag = parseInt(btn.dataset.maxBag, 10) || 2;
+                perLegState.push({
+                    pax: 1,
+                    checked: Math.min(1, maxBag),
+                    cabin: 0,
+                    maxPax: maxPax,
+                    maxBag: maxBag
+                });
+            });
+
+            const syncLegsDataInput = () => {
+                if (legsDataInput) {
+                    legsDataInput.value = JSON.stringify(perLegState);
+                }
+            };
+
+            const switchLegTab = (targetIdx) => {
+                if (targetIdx < 0 || targetIdx >= perLegState.length) return;
+
+                // 1. Sauvegarde des valeurs du trajet qui était ouvert (Capacités + Vol + Pancarte)
+                if (paxInputEl)      perLegState[currentActiveLeg].pax          = parseInt(paxInputEl.value, 10) || 1;
+                if (bagInputEl)      perLegState[currentActiveLeg].checked      = parseInt(bagInputEl.value, 10) || 0;
+                if (cabinBagInputEl) perLegState[currentActiveLeg].cabin        = parseInt(cabinBagInputEl.value, 10) || 0;
+                if (flightInputEl)   perLegState[currentActiveLeg].flightNumber = flightInputEl.value;
+                if (signInputEl)     perLegState[currentActiveLeg].greetingSign = signInputEl.value;
+
+                currentActiveLeg = targetIdx;
+                const targetBtn  = legTabBtns[targetIdx];
+                const legData    = perLegState[targetIdx];
+
+                // 2. Mise à jour visuelle des pilules d'onglets
+                legTabBtns.forEach((b, i) => {
+                    const isActive = (i === targetIdx);
+                    b.classList.toggle('active', isActive);
+                    b.style.border     = isActive ? '1.5px solid var(--etb-accent-gold, #fbac18)' : '1px solid var(--etb-border-light, rgba(255,255,255,0.12))';
+                    b.style.background = isActive ? 'rgba(251, 172, 24, 0.15)' : 'rgba(255,255,255,0.03)';
+                    b.style.color      = isActive ? 'var(--etb-accent-gold, #fbac18)' : 'var(--etb-text-secondary, #94a3b8)';
+                });
+
+                // 3. Mise à jour du bandeau contextuel (Véhicule, 2 lignes d'adresses, Date)
+                if (legInfoVehicle && targetBtn.dataset.vehicle) legInfoVehicle.textContent = targetBtn.dataset.vehicle;
+
+                if (legInfoRoute) {
+                    const p   = targetBtn.dataset.pickup || '';
+                    const d   = targetBtn.dataset.dropoff || '';
+                    const m   = targetBtn.dataset.mode || 'transfer';
+                    const dur = targetBtn.dataset.duration || '4';
+
+                    if (m === 'hourly') {
+                        legInfoRoute.innerHTML = `
+                            <div style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--etb-accent-gold, #fbac18);">
+                                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                <strong>By the hour (${dur} Hours Charter)</strong>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--etb-text-secondary, #64748b); overflow: hidden;">
+                                <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; flex-shrink: 0;" title="Pickup"></span>
+                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p}</span>
+                            </div>
+                        `;
+                    } else {
+                        legInfoRoute.innerHTML = `
+                            <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--etb-text-secondary, #64748b); overflow: hidden;">
+                                <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; flex-shrink: 0;" title="Pickup"></span>
+                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p}</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--etb-text-secondary, #64748b); overflow: hidden;">
+                                <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--etb-accent-gold, #fbac18); flex-shrink: 0;" title="Drop-off"></span>
+                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${d}</span>
+                            </div>
+                        `;
+                    }
+                }
+
+                if (legInfoDate && targetBtn.dataset.date) {
+                    legInfoDate.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> <span>${targetBtn.dataset.date}</span>`;
+                }
+
+                // 4. Adaptation dynamique des capacités MAX du véhicule actif
+                if (paxHint) paxHint.textContent = 'Max: ' + legData.maxPax;
+                if (paxInputEl) {
+                    paxInputEl.dataset.max = legData.maxPax;
+                    paxInputEl.value       = Math.min(legData.pax, legData.maxPax);
+                }
+
+                if (bagInputEl)      bagInputEl.value      = legData.checked;
+                if (cabinBagInputEl) cabinBagInputEl.value = legData.cabin;
+                if (flightInputEl)   flightInputEl.value   = legData.flightNumber || '';
+                if (signInputEl)     signInputEl.value     = legData.greetingSign || '';
+
+                // 5. Bascule dynamique et intelligente de la boîte Aéroport pour CE trajet
+                if (airportCard) {
+                    const checkApt = (str) => {
+                        if (!str) return false;
+                        return /\b(airport|aeroport|aéroport|terminal|aeropuerto|flughafen|nce|cdg|ory|heathrow|gatwick|jfk)\b/i.test(str);
+                    };
+
+                    const pickupStr  = targetBtn.dataset.pickup || '';
+                    const dropoffStr = targetBtn.dataset.dropoff || '';
+                    const routeStr   = targetBtn.dataset.route || '';
+
+                    // Détection arrivée ou départ aéroport
+                    const isPickupApt  = (targetBtn.dataset.airportPickup === '1') || checkApt(pickupStr) || (checkApt(routeStr) && !checkApt(dropoffStr));
+                    const isDropoffApt = (targetBtn.dataset.airportDropoff === '1') || checkApt(dropoffStr);
+
+                    const airportTitle = checkoutRoot.querySelector('#etb-chk-airport-title');
+                    const airportDesc  = checkoutRoot.querySelector('#etb-chk-airport-desc');
+                    const flightLabel  = checkoutRoot.querySelector('#etb-chk-flight-label');
+                    const flightHint   = checkoutRoot.querySelector('#etb-chk-flight-hint');
+                    const signField    = checkoutRoot.querySelector('#etb-chk-sign-field');
+
+                    if (isPickupApt) {
+                        airportCard.style.display = 'block';
+                        if (airportTitle) airportTitle.textContent = `Airport Arrival & Greeting (Trip #${targetIdx + 1})`;
+                        if (airportDesc)  airportDesc.textContent  = 'Real-time flight tracking included. Your chauffeur adjusts pickup time automatically.';
+                        if (flightLabel)  flightLabel.textContent  = 'Flight Number';
+                        if (flightHint)   flightHint.textContent   = '1 hour free waiting time after landing.';
+                        if (signField)    signField.style.display  = 'block';
+
+                        // Remplissage automatique de la pancarte si encore vide
+                        if (!legData.greetingSign && typeof updateGreetingSign === 'function') {
+                            updateGreetingSign();
+                        }
+                    } else if (isDropoffApt) {
+                        airportCard.style.display = 'block';
+                        if (airportTitle) airportTitle.textContent = `Airport Departure Terminal (Trip #${targetIdx + 1})`;
+                        if (airportDesc)  airportDesc.textContent  = 'Helps your chauffeur drop you off directly at the correct terminal gate.';
+                        if (flightLabel)  flightLabel.textContent  = 'Flight Number or Departure Terminal (Optional)';
+                        if (flightHint)   flightHint.textContent   = 'e.g. Terminal 2E, AF 7704';
+                        if (signField)    signField.style.display  = 'none';
+                    } else {
+                        // Trajet 100% ville : on masque complètement la boîte pour ce trajet
+                        airportCard.style.display = 'none';
+                    }
+                }
+
+                syncLegsDataInput();
+            };
+
+            // Écouteur de clic sur chaque onglet
+            legTabBtns.forEach((btn, idx) => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    switchLegTab(idx);
+                });
+            });
+
+            // Initialisation avec le premier onglet actif
+            switchLegTab(0);
+
+            // Synchronisation continue dès que l'utilisateur clique sur +/-
+            [paxMinusBtn, paxPlusBtn, bagMinusBtn, bagPlusBtn, cabinBagMinusBtn, cabinBagPlusBtn].forEach(btn => {
+                if (btn) {
+                    btn.addEventListener('click', () => {
+                        if (paxInputEl)      perLegState[currentActiveLeg].pax     = parseInt(paxInputEl.value, 10) || 1;
+                        if (bagInputEl)      perLegState[currentActiveLeg].checked = parseInt(bagInputEl.value, 10) || 0;
+                        if (cabinBagInputEl) perLegState[currentActiveLeg].cabin   = parseInt(cabinBagInputEl.value, 10) || 0;
+                        syncLegsDataInput();
+                    });
+                }
+            });
+
+            // Synchronisation en TEMPS RÉEL du vol et de la pancarte
+            if (flightInputEl) {
+                flightInputEl.addEventListener('input', () => {
+                    perLegState[currentActiveLeg].flightNumber = flightInputEl.value;
+                    syncLegsDataInput();
+                });
+            }
+            if (signInputEl) {
+                signInputEl.addEventListener('input', () => {
+                    perLegState[currentActiveLeg].greetingSign = signInputEl.value;
+                    syncLegsDataInput();
+                });
+            }
+
+            // Mémorise la fonction pour forcer la synchronisation au moment du clic final
+            window.etbForceSyncActiveLeg = () => {
+                if (paxInputEl)      perLegState[currentActiveLeg].pax     = parseInt(paxInputEl.value, 10) || 1;
+                if (flightInputEl)   perLegState[currentActiveLeg].flightNumber = flightInputEl.value;
+                if (signInputEl)     perLegState[currentActiveLeg].greetingSign = signInputEl.value;
+                syncLegsDataInput();
+            };
         }
 
         if (bagMinusBtn && bagPlusBtn && bagInputEl) {
@@ -3025,6 +4100,9 @@
 
         // 11bis. Fonction universelle de finalisation et dispatch (Accessible pour Étape 1 & Étape 2)
         const executeFinalOrderDispatch = (paymentLogsData, isPayLater = false) => {
+            // Force la synchronisation des données de l'onglet actif juste avant l'envoi
+            if (typeof window.etbForceSyncActiveLeg === 'function') window.etbForceSyncActiveLeg();
+
             const originalBtnText = isQuoteRide ? 'Submit Quote Request' : 'Continue to Payment';
             if (submitText) submitText.textContent = isPayLater ? 'Registering...' : 'Dispatching ...';
 
@@ -3074,11 +4152,12 @@
                         ? etbAjax.home_url 
                         : (window.location.origin + '/');
 
-                    const leftCol = checkoutRoot.querySelector('.etb-checkout-left-col');
+                   const leftCol = checkoutRoot.querySelector('.etb-checkout-left-col');
                     if (leftCol) {
-                        const finalDisplayRef = res.data.booking_ref || ('#' + res.data.booking_id);
+                        const rawRef = String(res.data.booking_ref || res.data.booking_id || '').replace(/^#+/, '');
+                        const finalDisplayRef = rawRef ? ('#' + rawRef) : ('#' + res.data.booking_id);
                         let successTitle    = 'Reservation Registered (Payment Pending)';
-                        let successSubtitle = 'Your reservation <strong>#' + finalDisplayRef + '</strong> has been registered.';
+                        let successSubtitle = 'Your reservation <strong>' + finalDisplayRef + '</strong> has been registered.';
                         let successDetails  = '<p style="margin: 6px 0;">An email with your secure payment link has been sent to <strong>' + emailVal + '</strong>.</p>'
                             + '<p style="margin: 6px 0;">You can complete your payment anytime before pickup to confirm your chauffeur.</p>';
 
@@ -4145,7 +5224,125 @@
     } else {
         startApp();
     }
+
+    // ==========================================================================
+    // MODULE LIGHTBOX : VISIONNEUSE PHOTO VIP (BENTO GALLERY)
+    // ==========================================================================
+    var lightbox = document.getElementById('etb-vip-lightbox');
+    if (lightbox) {
+        var lbImg     = lightbox.querySelector('.etb-lightbox-img');
+        var lbPrev    = lightbox.querySelector('.etb-lightbox-prev');
+        var lbNext    = lightbox.querySelector('.etb-lightbox-next');
+        var lbClose   = lightbox.querySelector('.etb-lightbox-close');
+        var lbCurrent = document.getElementById('etb-lb-current');
+        var lbTotal   = document.getElementById('etb-lb-total');
+        
+        var galleryImages = [];
+        var currentIndex = 0;
+
+        var galleryContainer = document.querySelector('.co-vip-bento-gallery');
+        if (galleryContainer) {
+            var rawGallery = galleryContainer.getAttribute('data-gallery');
+            if (rawGallery) {
+                try { 
+                    galleryImages = JSON.parse(rawGallery); 
+                } catch (e) {
+                    galleryImages = [];
+                }
+            }
+
+            if (galleryImages.length > 0) {
+                // Liaison directe sur les conteneurs Bento
+                var bentoItems = galleryContainer.querySelectorAll('.co-bento-item');
+                bentoItems.forEach(function(item, fallbackIdx) {
+                    item.style.cursor = 'pointer';
+                    item.addEventListener('click', function(e) {
+                        var idxAttr = item.getAttribute('data-index');
+                        var idx = (idxAttr !== null) ? parseInt(idxAttr, 10) : fallbackIdx;
+                        openLightbox(isNaN(idx) ? 0 : idx);
+                    });
+                });
+                
+                // Liaison sur le badge "Gallery"
+                var galleryBadge = galleryContainer.querySelector('.co-bento-badge');
+                if (galleryBadge) {
+                    galleryBadge.style.cursor = 'pointer';
+                    galleryBadge.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        var badgeIdxAttr = galleryBadge.getAttribute('data-index');
+                        var targetIdx = (badgeIdxAttr !== null) ? parseInt(badgeIdxAttr, 10) : (galleryImages.length > 3 ? 3 : 0);
+                        openLightbox(isNaN(targetIdx) ? 0 : targetIdx);
+                    });
+                }
+            }
+        }
+
+        function openLightbox(index) {
+            if (!galleryImages || galleryImages.length === 0) return;
+            if (index < 0) index = 0;
+            if (index >= galleryImages.length) index = galleryImages.length - 1;
+            currentIndex = index;
+            updateLightboxContent();
+            lightbox.classList.add('etb-lightbox-active');
+            document.body.style.overflow = 'hidden'; 
+        }
+
+        function closeLightbox() {
+            lightbox.classList.remove('etb-lightbox-active');
+            document.body.style.overflow = '';
+        }
+
+        function updateLightboxContent() {
+            if (!galleryImages[currentIndex]) return;
+            lbImg.style.opacity = '0';
+            setTimeout(function() {
+                lbImg.src = galleryImages[currentIndex];
+                lbImg.style.opacity = '1';
+            }, 120);
+            
+            if (lbCurrent) lbCurrent.textContent = currentIndex + 1;
+            if (lbTotal) lbTotal.textContent = galleryImages.length;
+            
+            if (lbPrev) lbPrev.style.display = (currentIndex === 0) ? 'none' : 'flex';
+            if (lbNext) lbNext.style.display = (currentIndex === galleryImages.length - 1) ? 'none' : 'flex';
+        }
+
+        if (lbClose) lbClose.addEventListener('click', closeLightbox);
+        if (lbNext) lbNext.addEventListener('click', function() { 
+            if (currentIndex < galleryImages.length - 1) { 
+                currentIndex++; 
+                updateLightboxContent(); 
+            } 
+        });
+        if (lbPrev) lbPrev.addEventListener('click', function() { 
+            if (currentIndex > 0) { 
+                currentIndex--; 
+                updateLightboxContent(); 
+            } 
+        });
+        
+        lightbox.addEventListener('click', function(e) {
+            if (e.target === lightbox) closeLightbox();
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (!lightbox.classList.contains('etb-lightbox-active')) return;
+            if (e.key === 'Escape') closeLightbox();
+            if (e.key === 'ArrowRight' && currentIndex < galleryImages.length - 1) { 
+                currentIndex++; 
+                updateLightboxContent(); 
+            }
+            if (e.key === 'ArrowLeft' && currentIndex > 0) { 
+                currentIndex--; 
+                updateLightboxContent(); 
+            }
+        });
+    }
 })();
+
+
+
+
 
 
 

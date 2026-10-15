@@ -26,10 +26,14 @@ class ETB_Meta_Manager {
     /* ------------------------------------------------------------------------
        METABOX CIRCUIT OPTIONS (_circuit_options_data)
     ------------------------------------------------------------------------ */
+    /* ------------------------------------------------------------------------
+       METABOX CIRCUIT OPTIONS (_circuit_options_data)
+    ------------------------------------------------------------------------ */
     public function render_circuit_options_box( $post ) {
         wp_nonce_field( 'co_save_options', 'co_nonce' );
 
         $options = get_post_meta( $post->ID, '_circuit_options_data', true );
+
         if ( empty( $options ) || ! is_array( $options ) ) {
             $default_id = 'opt_' . substr( md5( uniqid( rand(), true ) ), 0, 8 );
             $options = array(
@@ -38,21 +42,63 @@ class ETB_Meta_Manager {
                     'duration_hours'   => 4.0,
                     'departure_time'   => '09:00',
                     'additional_price' => 0.0,
-                    'badge_1'          => '⏱ 4h d\'excursion',
-                    'badge_2'          => '📍 Prise en charge hôtel',
-                    'badge_3'          => '👥 Visite privée',
-                    'badge_4'          => '🗣 Guide en français',
+                    'overview_title'   => 'Aperçu du Circuit',
+                    'overview_desc'    => '',
+                    'highlights'       => array(
+                        '⏱ 4h d\'excursion',
+                        '📍 Prise en charge hôtel',
+                        '👥 Visite privée',
+                        '🗣 Guide accompagnateur'
+                    ),
                     'timeline'         => array(
                         array( 'time' => '09:00', 'title' => 'Prise en charge', 'desc' => 'Départ de votre hôtel.' ),
                     ),
                     'inclusions'       => "Véhicule privé et chauffeur\nGuide\nEau à bord",
-                    'exclusions'       => "Repas\nBoissons supplémentaires",
+                    'exclusions'       => "Repas",
                 ),
             );
         }
+
+        // Champs « Autres circuits » (niveau circuit, pas par option de         // Champs « Autres circuits » (niveau circuit, pas par option de départ)
+        $related_title    = get_post_meta( $post->ID, '_circuit_related_title', true );
+        $related_subtitle = get_post_meta( $post->ID, '_circuit_related_subtitle', true );
+
+        // Interrupteur d'affichage : absence = '1' (rétrocompatibilité).
+        $related_enabled  = get_post_meta( $post->ID, '_circuit_related_enabled', true );
+        if ( '' === $related_enabled ) {
+            $related_enabled = '1';
+        }
         ?>
         <div class="co-admin-wrapper">
-            <div class="co-tabs-nav">
+                        <!-- Section « Autres circuits » (champs au niveau circuit) -->
+            <div style="background: #ffffff; border: 1.5px solid #ebd9cc; border-radius: 8px; padding: 18px; margin-bottom: 18px;">
+                <h3 style="margin: 0 0 6px 0; color: #5b3516; font-size: 15px; font-weight: 700;">
+                    🔗 Section « Autres circuits » (bas de page)
+                </h3>
+                <p style="font-size: 12px; color: #64748b; margin: 0 0 14px 0;">
+                    Personnalisez le titre et le sous-titre affichés sous la vue circuit. Laissez vide pour utiliser les valeurs par défaut.
+                </p>
+
+                                <!-- Interrupteur : afficher / masquer la section au front -->
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
+                        <input type="checkbox" name="etb_related_enabled" value="1" <?php checked( $related_enabled, '1' ); ?>>
+                        <span style="font-size: 13px; font-weight: 600; color: #334155;">Afficher la section sur la page</span>
+                    </label>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                    <div>
+                        <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">Titre :</label>
+                        <input type="text" name="etb_related_title" value="<?php echo esc_attr( $related_title ); ?>" class="widefat" placeholder="Découvrez nos autres circuits">
+                    </div>
+                    <div>
+                        <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">Sous-titre :</label>
+                        <input type="text" name="etb_related_subtitle" value="<?php echo esc_attr( $related_subtitle ); ?>" class="widefat" placeholder="Poursuivez l'aventure avec une autre expérience sur mesure.">
+                    </div>
+                </div>
+            </div>
+            <div class="co-tabs-nav" style="margin-bottom: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
                 <?php 
                 $first = true;
                 foreach ( $options as $opt_id => $opt_data ) : 
@@ -87,12 +133,11 @@ class ETB_Meta_Manager {
                 'duration_hours'   => 4.0,
                 'departure_time'   => '09:00',
                 'additional_price' => 0.0,
-                'badge_1'          => '⏱ 4h d\'excursion',
-                'badge_2'          => '📍 Prise en charge hôtel',
-                'badge_3'          => '👥 Visite privée',
-                'badge_4'          => '🗣 Guide en français',
+                'overview_title'   => 'Aperçu du Circuit',
+                'overview_desc'    => '',
+                'highlights'       => array( '⏱ Excursion privée', '📍 Prise en charge hôtel' ),
                 'timeline'         => array(),
-                'inclusions'       => "Véhicule privé et chauffeur\nGuide\nEau à bord",
+                'inclusions'       => "Véhicule privé\nChauffeur\nEau à bord",
                 'exclusions'       => "Repas",
             ), false ); 
             ?>
@@ -105,108 +150,421 @@ class ETB_Meta_Manager {
         $duration         = $data['duration_hours'] ?? 1.0;
         $departure_time   = $data['departure_time'] ?? '09:00';
         $additional_price = $data['additional_price'] ?? 0.0;
-        $badge_1          = $data['badge_1'] ?? '';
-        $badge_2          = $data['badge_2'] ?? '';
-        $badge_3          = $data['badge_3'] ?? '';
-        $badge_4          = $data['badge_4'] ?? '';
-        $timeline         = $data['timeline'] ?? array();
-        $inclusions       = $data['inclusions'] ?? '';
-        $exclusions       = $data['exclusions'] ?? '';
+        
+        // Rétrocompatibilité : migration des anciens badges vers "highlights" si vide
+        $highlights = $data['highlights'] ?? array();
+        if ( empty( $highlights ) ) {
+            $old_badges = array_filter( array(
+                $data['badge_1'] ?? '',
+                $data['badge_2'] ?? '',
+                $data['badge_3'] ?? '',
+                $data['badge_4'] ?? '',
+            ) );
+            if ( ! empty( $old_badges ) ) {
+                $highlights = array_values( $old_badges );
+            }
+        }
+
+        $overview_title = $data['overview_title'] ?? 'Aperçu du Circuit';
+        $overview_desc  = $data['overview_desc'] ?? '';
+        $timeline       = $data['timeline'] ?? array();
+        $inclusions     = $data['inclusions'] ?? '';
+        $exclusions     = $data['exclusions'] ?? '';
         ?>
         <div class="co-pane <?php echo $is_active ? 'active' : ''; ?>" id="<?php echo esc_attr( $opt_id ); ?>">
-            <div class="co-pane-header-actions">
-                <span style="font-weight: bold; color: #64748b;">ID Option : <code><?php echo esc_html( $opt_id ); ?></code></span>
-                <button type="button" class="co-btn-danger co-delete-option-btn">🗑 Supprimer cette option de départ</button>
+            <div class="co-pane-header-actions" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
+                <span style="font-weight: 600; color: #475569;">ID Option de départ : <code><?php echo esc_html( $opt_id ); ?></code></span>
+                <button type="button" class="co-btn-danger co-delete-option-btn" style="background: #ef4444; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">🗑 Supprimer cette option</button>
             </div>
 
-            <div class="co-section-card">
-                <h4><span class="dashicons dashicons-admin-settings"></span> 1. Paramètres & Liaison</h4>
-                <div class="co-grid-4">
-                    <div class="co-field">
-                        <label>Ville / Titre de départ * :</label>
-                        <input type="text" name="co_options[<?php echo esc_attr( $opt_id ); ?>][city_name]" value="<?php echo esc_attr( $city ); ?>" class="widefat co-city-input" placeholder="Ex: Cannes, Antsirabe...">
-                    </div>
-                    <div class="co-field">
-                        <label>Durée (en heures) * :</label>
-                        <input type="number" step="0.25" min="0.25" name="co_options[<?php echo esc_attr( $opt_id ); ?>][duration_hours]" value="<?php echo esc_attr( $duration ); ?>" class="widefat">
-                    </div>
-                    <div class="co-field">
-                        <label>Heure départ par défaut :</label>
-                        <input type="time" name="co_options[<?php echo esc_attr( $opt_id ); ?>][departure_time]" value="<?php echo esc_attr( $departure_time ); ?>" class="widefat">
-                    </div>
-                    <div class="co-field">
-                        <label>Prix additionnel (€) :</label>
-                        <input type="number" step="0.01" min="0" name="co_options[<?php echo esc_attr( $opt_id ); ?>][additional_price]" value="<?php echo esc_attr( $additional_price ); ?>" class="widefat" placeholder="0">
-                    </div>
+            <!-- CONTENEUR WP TRAVEL ENGINE AVEC ONGLETS VERTICAUX -->
+            <div class="etb-engine-container">
+                
+                <!-- NAVIGATION VERTICALE GAUCHE -->
+                <div class="etb-engine-sidebar">
+                    <button type="button" class="etb-engine-tab-btn active" data-target="engine-overview-<?php echo esc_attr( $opt_id ); ?>">
+                        <span class="dashicons dashicons-welcome-write-blog"></span> Présentation
+                    </button>
+                    <button type="button" class="etb-engine-tab-btn" data-target="engine-general-<?php echo esc_attr( $opt_id ); ?>">
+                        <span class="dashicons dashicons-admin-settings"></span> Général & Tarifs
+                    </button>
+                    <button type="button" class="etb-engine-tab-btn" data-target="engine-tripinfo-<?php echo esc_attr( $opt_id ); ?>">
+                        <span class="dashicons dashicons-info"></span> Trip Info
+                    </button>
+                    <button type="button" class="etb-engine-tab-btn" data-target="engine-itinerary-<?php echo esc_attr( $opt_id ); ?>">
+                        <span class="dashicons dashicons-location-alt"></span> Itinéraire
+                    </button>
+                    <button type="button" class="etb-engine-tab-btn" data-target="engine-mapgallery-<?php echo esc_attr( $opt_id ); ?>">
+                        <span class="dashicons dashicons-format-gallery"></span> Map & Gallery
+                    </button>
+                    <button type="button" class="etb-engine-tab-btn" data-target="engine-includes-<?php echo esc_attr( $opt_id ); ?>">
+                        <span class="dashicons dashicons-yes-alt"></span> Inclus / Exclus
+                    </button>
                 </div>
-            </div>
+                <!-- CONTENU DROIT -->
+                <div class="etb-engine-content">
+                    
+                    <!-- ONGLET UNIQUE : PRÉSENTATION & POINTS FORTS -->
+                    <div class="etb-engine-pane active" id="engine-overview-<?php echo esc_attr( $opt_id ); ?>">
+                        <h3 class="etb-engine-pane-title">Présentation du Circuit</h3>
+                        
+                        <div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 30px; align-items: start;">
+                            
+                            <!-- COLONNE GAUCHE (ÉDITEUR) : Sections de texte -->
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px;">
+                                <h4 style="margin: 0 0 10px 0; color: #0f172a; font-size: 14px;">📝 Texte (Colonne gauche)</h4>
+                                <p style="font-size: 12px; color: #64748b; margin-bottom: 15px;">Ajoutez des blocs (Titre + Paragraphe) pour présenter le circuit.</p>
+                                
+                                <div class="etb-overview-sections-list" id="etb-overview-sections-<?php echo esc_attr( $opt_id ); ?>" style="display: flex; flex-direction: column; gap: 14px;">
+                                    <?php 
+                                    $sections = $data['overview_sections'] ?? array();
+                                    
+                                    // Rétrocompatibilité : fusionne l'ancien hero_desc et overview_desc s'ils existent
+                                    if ( empty( $sections ) ) {
+                                        if ( ! empty( $data['hero_desc'] ) ) {
+                                            $sections[] = array( 'title' => $data['hero_title'] ?? '', 'desc' => $data['hero_desc'] );
+                                        }
+                                        if ( ! empty( $data['overview_desc'] ) ) {
+                                            $sections[] = array( 'title' => $data['overview_title'] ?? 'Overview', 'desc' => $data['overview_desc'] );
+                                        }
+                                        if ( empty( $sections ) ) {
+                                            $sections[] = array( 'title' => 'Overview', 'desc' => '' ); // Par défaut 1 bloc vide
+                                        }
+                                    }
 
-            <div class="co-section-card">
-                <h4><span class="dashicons dashicons-tag"></span> 2. Les 4 Badges récapitulatifs</h4>
-                <div class="co-grid-4">
-                    <div class="co-field">
-                        <label>Badge 1 :</label>
-                        <input type="text" name="co_options[<?php echo esc_attr( $opt_id ); ?>][badge_1]" value="<?php echo esc_attr( $badge_1 ); ?>" class="widefat">
-                    </div>
-                    <div class="co-field">
-                        <label>Badge 2 :</label>
-                        <input type="text" name="co_options[<?php echo esc_attr( $opt_id ); ?>][badge_2]" value="<?php echo esc_attr( $badge_2 ); ?>" class="widefat">
-                    </div>
-                    <div class="co-field">
-                        <label>Badge 3 :</label>
-                        <input type="text" name="co_options[<?php echo esc_attr( $opt_id ); ?>][badge_3]" value="<?php echo esc_attr( $badge_3 ); ?>" class="widefat">
-                    </div>
-                    <div class="co-field">
-                        <label>Badge 4 :</label>
-                        <input type="text" name="co_options[<?php echo esc_attr( $opt_id ); ?>][badge_4]" value="<?php echo esc_attr( $badge_4 ); ?>" class="widefat">
-                    </div>
-                </div>
-            </div>
+                                    foreach ( $sections as $s_idx => $sec ) : 
+                                    ?>
+                                        <div class="etb-overview-section-item" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 14px; position: relative;">
+                                            <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 10px;">
+                                                <input type="text" name="co_options[<?php echo esc_attr( $opt_id ); ?>][overview_sec_title][]" value="<?php echo esc_attr( $sec['title'] ); ?>" class="widefat" placeholder="Titre (ex: Overview)" style="font-weight: 600; font-size: 14px;">
+                                                <button type="button" class="etb-btn-danger-icon etb-remove-overview-sec-btn" title="Supprimer ce bloc" style="flex-shrink: 0;"><span class="dashicons dashicons-trash"></span></button>
+                                            </div>
+                                            <textarea name="co_options[<?php echo esc_attr( $opt_id ); ?>][overview_sec_desc][]" rows="4" class="widefat etb-rich-text" placeholder="Rédigez votre paragraphe..."><?php echo esc_textarea( $sec['desc'] ); ?></textarea>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                                <button type="button" class="button button-small etb-add-overview-sec-btn" data-optid="<?php echo esc_attr( $opt_id ); ?>" style="margin-top: 14px;">
+                                    + Ajouter une section (Titre & Texte)
+                                </button>
+                            </div>
 
-            <div class="co-section-card">
-                <h4><span class="dashicons dashicons-calendar-alt"></span> 3. Programme & Timeline des étapes</h4>
-                <table class="co-timeline-table">
-                    <thead>
-                        <tr>
-                            <th>Horaire</th>
-                            <th>Titre de l'étape</th>
-                            <th>Description</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if ( ! empty( $timeline ) ) : foreach ( $timeline as $step ) : ?>
-                            <tr>
-                                <td style="width: 100px;">
-                                    <input type="text" name="co_options[<?php echo esc_attr( $opt_id ); ?>][timeline_time][]" value="<?php echo esc_attr( $step['time'] ?? '' ); ?>" placeholder="09:00" class="widefat">
-                                </td>
-                                <td style="width: 200px;">
-                                    <input type="text" name="co_options[<?php echo esc_attr( $opt_id ); ?>][timeline_title][]" value="<?php echo esc_attr( $step['title'] ?? '' ); ?>" placeholder="Titre étape" class="widefat">
-                                </td>
-                                <td>
-                                    <textarea name="co_options[<?php echo esc_attr( $opt_id ); ?>][timeline_desc][]" rows="2" placeholder="Description..." class="widefat"><?php echo esc_textarea( $step['desc'] ?? '' ); ?></textarea>
-                                </td>
-                                <td style="width: 50px; text-align: center;">
-                                    <button type="button" class="co-btn-danger co-remove-step-btn">&times;</button>
-                                </td>
-                            </tr>
-                        <?php endforeach; endif; ?>
-                    </tbody>
-                </table>
-                <button type="button" class="co-btn-add-step" data-pane="<?php echo esc_attr( $opt_id ); ?>">+ Ajouter une étape au programme</button>
-            </div>
+                            <!-- COLONNE DROITE : Points forts -->
+                            <div style="background: #ffffff; border: 1.5px solid #ebd9cc; border-radius: 8px; padding: 18px; box-shadow: 0 2px 10px rgba(91, 53, 22, 0.04);">
+                                <h4 style="margin: 0 0 10px 0; color: #5b3516; font-size: 14px;">⭐ Highlights (Carte de droite)</h4>
+                                
+                                <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">Titre de la carte :</label>
+                                <input type="text" name="co_options[<?php echo esc_attr( $opt_id ); ?>][highlights_title]" value="<?php echo esc_attr( $data['highlights_title'] ?? 'Highlights' ); ?>" class="widefat" style="margin-bottom: 15px;">
 
-            <div class="co-section-card">
-                <h4><span class="dashicons dashicons-yes-alt"></span> 4. Ce qui est inclus / Non inclus</h4>
-                <div class="co-grid-2">
-                    <div class="co-field">
-                        <label>✅ Inclus (1 élément par ligne) :</label>
-                        <textarea name="co_options[<?php echo esc_attr( $opt_id ); ?>][inclusions]" rows="4" class="widefat"><?php echo esc_textarea( $inclusions ); ?></textarea>
+                                <div class="etb-highlights-list" id="etb-highlights-list-<?php echo esc_attr( $opt_id ); ?>" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
+                                    <?php 
+                                    // Rétrocompatibilité
+                                    $highlights = $data['highlights'] ?? array();
+                                    if ( empty( $highlights ) && ! empty( $data['hero_bullets'] ) ) {
+                                        $highlights = array_filter( array_map( 'trim', explode( "\n", $data['hero_bullets'] ) ) );
+                                    }
+                                    if ( ! empty( $highlights ) ) : foreach ( $highlights as $hl ) : ?>
+                                        <div class="etb-highlight-item" style="display: flex; gap: 6px;">
+                                            <input type="text" name="co_options[<?php echo esc_attr( $opt_id ); ?>][highlights][]" value="<?php echo esc_attr( $hl ); ?>" class="widefat" style="font-size: 13px;">
+                                            <button type="button" class="etb-btn-danger-icon etb-remove-highlight-btn" title="Supprimer" style="width: 26px; height: 26px;"><span class="dashicons dashicons-trash" style="font-size: 14px;"></span></button>
+                                        </div>
+                                    <?php endforeach; endif; ?>
+                                </div>
+                                <button type="button" class="etb-btn-secondary etb-add-highlight-btn" data-list="etb-highlights-list-<?php echo esc_attr( $opt_id ); ?>" data-optid="<?php echo esc_attr( $opt_id ); ?>">+ Add Highlight</button>
+                            </div>
+                        </div>
                     </div>
-                    <div class="co-field">
-                        <label>❌ Non Inclus (1 élément par ligne) :</label>
-                        <textarea name="co_options[<?php echo esc_attr( $opt_id ); ?>][exclusions]" rows="4" class="widefat"><?php echo esc_textarea( $exclusions ); ?></textarea>
+
+                    <!-- ONGLET : GÉNÉRAL & TARIFS -->
+                    <div class="etb-engine-pane" id="engine-general-<?php echo esc_attr( $opt_id ); ?>">
+                        <h3 class="etb-engine-pane-title">Général & Tarifs</h3>
+                        <div class="etb-engine-grid-2">
+                            <div class="etb-engine-row">
+                                <label>Ville / Titre de départ * :</label>
+                                <input type="text" name="co_options[<?php echo esc_attr( $opt_id ); ?>][city_name]" value="<?php echo esc_attr( $city ); ?>" class="widefat co-city-input" placeholder="Ex: Cannes, Antsirabe...">
+                            </div>
+                            <div class="etb-engine-row">
+                                <label>Durée (en heures) * :</label>
+                                <input type="number" step="0.25" min="0.25" name="co_options[<?php echo esc_attr( $opt_id ); ?>][duration_hours]" value="<?php echo esc_attr( $duration ); ?>" class="widefat">
+                            </div>
+                            <div class="etb-engine-row">
+                                <label>Heure départ par défaut :</label>
+                                <input type="time" name="co_options[<?php echo esc_attr( $opt_id ); ?>][departure_time]" value="<?php echo esc_attr( $departure_time ); ?>" class="widefat">
+                            </div>
+                            <div class="etb-engine-row">
+                                <label>Prix additionnel de départ (€) :</label>
+                                <input type="number" step="0.01" min="0" name="co_options[<?php echo esc_attr( $opt_id ); ?>][additional_price]" value="<?php echo esc_attr( $additional_price ); ?>" class="widefat" placeholder="0">
+                            </div>
+                        </div>
                     </div>
+
+                    <!-- ONGLET : TRIP INFO (MODULE PROFESSIONNEL STYLE WP TRAVEL ENGINE) -->
+                    <div class="etb-engine-pane" id="engine-tripinfo-<?php echo esc_attr( $opt_id ); ?>">
+                        <h3 class="etb-engine-pane-title">Trip Info & Caractéristiques Clés</h3>
+                        
+                        <div class="etb-engine-row">
+                            <label>Section Title :</label>
+                            <input type="text" name="co_options[<?php echo esc_attr( $opt_id ); ?>][trip_info_title]" value="<?php echo esc_attr( $data['trip_info_title'] ?? 'trip info' ); ?>" class="widefat" placeholder="trip info">
+                        </div>
+
+                        <!-- Barre d'action supérieure (Sélecteur rapide + Bouton Add Facts + Bouton Add Custom Info) -->
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px; margin: 20px 0;">
+                            <label style="font-weight: 700; color: #1e293b; display: block; margin-bottom: 8px;">Trip Info Selection :</label>
+                            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                                <select class="etb-tripinfo-type-select" style="min-width: 250px; height: 38px;">
+                                    <option value="transportation" data-icon="fas fa-bus" data-label="Transportation" data-default="Vtc">🚍 Transportation (VTC / Chauffeur)</option>
+                                    <option value="wifi" data-icon="fas fa-wifi" data-label="Wifi" data-default="Available">📶 Wifi</option>
+                                    <option value="cancellation" data-icon="far fa-calendar-xmark" data-label="Free Cancellation" data-default="Yes">📅 Free Cancellation</option>
+                                    <option value="language" data-icon="fas fa-language" data-label="Language" data-default="English, French">🗣 Language</option>
+                                    <option value="hotel_transfer" data-icon="fas fa-hotel" data-label="Hotel Transfer" data-default="Available">🏨 Hotel Transfer</option>
+                                    <option value="mineral_water" data-icon="fas fa-bottle-droplet" data-label="Mineral Water" data-default="Available">💧 Mineral Water</option>
+                                    <option value="guide" data-icon="fas fa-hands-praying" data-label="Guide" data-default="Guided">🙏 Guide</option>
+                                    <option value="meals" data-icon="fas fa-bowl-food" data-label="Meals" data-default="Breakfast and Dinner">🍽 Meals</option>
+                                    <option value="meeting_point" data-icon="fas fa-handshake-simple" data-label="Meeting Point" data-default="Hotel">🤝 Meeting Point</option>
+                                    <option value="payment_method" data-icon="fab fa-cc-mastercard" data-label="Payment Method" data-default="VISA, Master Card">💳 Payment Method</option>
+                                    <option value="group_size" data-icon="fas fa-user-group" data-label="Group Size" data-default="Private (1-7 pax)">👥 Group Size</option>
+                                    <option value="walking_hours" data-icon="far fa-clock" data-label="Walking Hours" data-default="5-6 Hours">⏱ Walking Hours / Duration</option>
+                                    <option value="admission_fee" data-icon="fas fa-tag" data-label="Admission Fee" data-default="Included">🏷 Admission Fee</option>
+                                    <option value="insurance" data-icon="fas fa-hospital-user" data-label="Insurance Coverage" data-default="Covered 80%">🏥 Insurance Coverage</option>
+                                    <option value="best_season" data-icon="fas fa-cloud-sun" data-label="Best Season" data-default="All year">⛅ Best Season</option>
+                                </select>
+                                
+                                <button type="button" class="button button-primary etb-add-fact-btn" data-optid="<?php echo esc_attr( $opt_id ); ?>" style="background: #2563eb; border-color: #2563eb; height: 38px; font-weight: 600;">
+                                    Add Facts
+                                </button>
+
+                                <button type="button" class="button etb-add-custom-info-btn" data-optid="<?php echo esc_attr( $opt_id ); ?>" style="height: 38px;">
+                                    + Add Custom Info
+                                </button>
+                            </div>
+                            <span class="description" style="font-size: 11.5px; color: #64748b; margin-top: 6px; display: block;">
+                                Sélectionnez une caractéristique dans la liste ou cliquez sur "+ Add Custom Info" pour en créer une sur-mesure.
+                            </span>
+                        </div>
+
+                       <!-- En-tête des colonnes de la liste -->
+                        <div style="display: grid; grid-template-columns: 28px 160px 220px 1fr 34px; gap: 10px; padding: 0 14px 6px 14px; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase;">
+                            <span></span>
+                            <span>Nom / Libellé</span>
+                            <span>Icône Font Awesome</span>
+                            <span>Valeur</span>
+                            <span></span>
+                        </div>
+
+                        <!-- Liste dynamique des faits enregistrés -->
+                        <div class="etb-tripinfo-list" id="etb-tripinfo-list-<?php echo esc_attr( $opt_id ); ?>" style="display: flex; flex-direction: column; gap: 10px;">
+                            <?php 
+                            $saved_facts = $data['trip_facts'] ?? array();
+                            if ( ! empty( $saved_facts ) && is_array( $saved_facts ) ) : 
+                                foreach ( $saved_facts as $f_idx => $fact ) : 
+                                    $f_type  = $fact['type'] ?? 'custom';
+                                    $f_icon  = $fact['icon'] ?? 'fas fa-info-circle';
+                                    $f_label = $fact['label'] ?? 'Info';
+                                    $f_val   = $fact['value'] ?? '';
+                            ?>
+                                <div class="etb-tripinfo-item" style="display: grid; grid-template-columns: 28px 160px 220px 1fr 34px; gap: 10px; align-items: center; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 14px;">
+                                    <span class="dashicons dashicons-menu" style="color: #94a3b8; cursor: grab;"></span>
+                                    <input type="hidden" name="co_options[<?php echo esc_attr( $opt_id ); ?>][trip_facts][<?php echo esc_attr( $f_idx ); ?>][type]" value="<?php echo esc_attr( $f_type ); ?>">
+                                    
+                                    <!-- Nom du champ -->
+                                    <input type="text" name="co_options[<?php echo esc_attr( $opt_id ); ?>][trip_facts][<?php echo esc_attr( $f_idx ); ?>][label]" value="<?php echo esc_attr( $f_label ); ?>" class="widefat" style="font-weight: 600;" placeholder="Name">
+                                    
+                                    <!-- Colonne Icône : Carré d'aperçu dynamique + Menu déroulant -->
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <span class="etb-fa-preview" style="width: 36px; height: 36px; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; color: #ba6827; flex-shrink: 0;">
+                                            <i class="<?php echo esc_attr( $f_icon ); ?>"></i>
+                                        </span>
+                                        
+                                        <select name="co_options[<?php echo esc_attr( $opt_id ); ?>][trip_facts][<?php echo esc_attr( $f_idx ); ?>][icon]" class="widefat etb-fa-icon-select" style="font-size: 12px; height: 36px; font-family: monospace;">
+                                            <option value="fas fa-hotel" <?php selected( $f_icon, 'fas fa-hotel' ); ?>>fas fa-hotel</option>
+                                            <option value="fas fa-bus" <?php selected( $f_icon, 'fas fa-bus' ); ?>>fas fa-bus</option>
+                                            <option value="fas fa-car-side" <?php selected( $f_icon, 'fas fa-car-side' ); ?>>fas fa-car-side</option>
+                                            <option value="fas fa-van-shuttle" <?php selected( $f_icon, 'fas fa-van-shuttle' ); ?>>fas fa-van-shuttle</option>
+                                            <option value="fas fa-wifi" <?php selected( $f_icon, 'fas fa-wifi' ); ?>>fas fa-wifi</option>
+                                            <option value="far fa-calendar-xmark" <?php selected( $f_icon, 'far fa-calendar-xmark' ); ?>>far fa-calendar-xmark</option>
+                                            <option value="fas fa-language" <?php selected( $f_icon, 'fas fa-language' ); ?>>fas fa-language</option>
+                                            <option value="fas fa-bottle-droplet" <?php selected( $f_icon, 'fas fa-bottle-droplet' ); ?>>fas fa-bottle-droplet</option>
+                                            <option value="fas fa-hands-praying" <?php selected( $f_icon, 'fas fa-hands-praying' ); ?>>fas fa-hands-praying</option>
+                                            <option value="fas fa-user-tie" <?php selected( $f_icon, 'fas fa-user-tie' ); ?>>fas fa-user-tie</option>
+                                            <option value="fas fa-bowl-food" <?php selected( $f_icon, 'fas fa-bowl-food' ); ?>>fas fa-bowl-food</option>
+                                            <option value="fas fa-handshake-simple" <?php selected( $f_icon, 'fas fa-handshake-simple' ); ?>>fas fa-handshake-simple</option>
+                                            <option value="fab fa-cc-mastercard" <?php selected( $f_icon, 'fab fa-cc-mastercard' ); ?>>fab fa-cc-mastercard</option>
+                                            <option value="fas fa-tag" <?php selected( $f_icon, 'fas fa-tag' ); ?>>fas fa-tag</option>
+                                            <option value="fas fa-user-group" <?php selected( $f_icon, 'fas fa-user-group' ); ?>>fas fa-user-group</option>
+                                            <option value="far fa-clock" <?php selected( $f_icon, 'far fa-clock' ); ?>>far fa-clock</option>
+                                            <option value="fas fa-cloud-sun" <?php selected( $f_icon, 'fas fa-cloud-sun' ); ?>>fas fa-cloud-sun</option>
+                                            <option value="fas fa-hospital-user" <?php selected( $f_icon, 'fas fa-hospital-user' ); ?>>fas fa-hospital-user</option>
+                                            <option value="fas fa-plane-arrival" <?php selected( $f_icon, 'fas fa-plane-arrival' ); ?>>fas fa-plane-arrival</option>
+                                            <option value="fas fa-suitcase-rolling" <?php selected( $f_icon, 'fas fa-suitcase-rolling' ); ?>>fas fa-suitcase-rolling</option>
+                                            <option value="fas fa-shield-halved" <?php selected( $f_icon, 'fas fa-shield-halved' ); ?>>fas fa-shield-halved</option>
+                                            <option value="fas fa-child" <?php selected( $f_icon, 'fas fa-child' ); ?>>fas fa-child</option>
+                                            <option value="fas fa-star" <?php selected( $f_icon, 'fas fa-star' ); ?>>fas fa-star</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Valeur -->
+                                    <input type="text" name="co_options[<?php echo esc_attr( $opt_id ); ?>][trip_facts][<?php echo esc_attr( $f_idx ); ?>][value]" value="<?php echo esc_attr( $f_val ); ?>" class="widefat" placeholder="Valeur (ex: Available, Yes...)">
+                                    
+                                    <!-- Bouton Supprimer -->
+                                    <button type="button" class="etb-btn-danger-icon etb-remove-fact-btn" title="Supprimer">
+                                        <span class="dashicons dashicons-trash"></span>
+                                    </button>
+                                </div>
+                            <?php endforeach; endif; ?>
+                        </div>
+                    </div>
+
+                    <!-- ONGLET 3 : ITINÉRAIRE (AVEC SOUS-SECTIONS DÉTAILLÉES) -->
+                    <div class="etb-engine-pane" id="engine-itinerary-<?php echo esc_attr( $opt_id ); ?>">
+                        <h3 class="etb-engine-pane-title">Itinéraire & Programme</h3>
+                        <div class="etb-itinerary-list" id="etb-itinerary-list-<?php echo esc_attr( $opt_id ); ?>">
+                            <?php if ( ! empty( $timeline ) ) : foreach ( $timeline as $index => $step ) : 
+                                $step_key = 'step_' . $index;
+                                $subblocks = $step['subblocks'] ?? array();
+                            ?>
+                                <div class="etb-itinerary-step" data-stepkey="<?php echo esc_attr( $step_key ); ?>">
+                                    <div class="etb-itinerary-header">
+                                        <div class="etb-itinerary-title-wrap">
+                                            <span class="dashicons dashicons-menu" style="color: #94a3b8; cursor: grab;"></span>
+                                            <span class="etb-step-header-text"><?php echo esc_html( $step['title'] ?: 'Étape ' . ($index + 1) ); ?></span>
+                                        </div>
+                                        <div class="etb-itinerary-actions">
+                                            <button type="button" class="etb-btn-danger-icon etb-remove-step-btn" title="Supprimer cette étape">
+                                                <span class="dashicons dashicons-trash"></span>
+                                            </button>
+                                            <span class="dashicons dashicons-arrow-down-alt2 etb-toggle-icon" style="color: #64748b;"></span>
+                                        </div>
+                                    </div>
+                                    <div class="etb-itinerary-body" style="display: none;">
+                                        <div class="etb-engine-grid-2" style="margin-bottom: 12px;">
+                                            <div>
+                                                <label style="font-size: 12px; font-weight: 600; display: block; margin-bottom: 4px;">Horaire ou Repère :</label>
+                                                <input type="text" name="co_options[<?php echo esc_attr( $opt_id ); ?>][timeline_time][<?php echo esc_attr( $step_key ); ?>]" value="<?php echo esc_attr( $step['time'] ?? '' ); ?>" placeholder="Ex: 09:00 ou Day 1" class="widefat">
+                                            </div>
+                                            <div>
+                                                <label style="font-size: 12px; font-weight: 600; display: block; margin-bottom: 4px;">Titre de l'étape * :</label>
+                                                <input type="text" name="co_options[<?php echo esc_attr( $opt_id ); ?>][timeline_title][<?php echo esc_attr( $step_key ); ?>]" value="<?php echo esc_attr( $step['title'] ?? '' ); ?>" placeholder="Ex: Prise en charge à l'hôtel" class="widefat etb-step-title-input">
+                                            </div>
+                                        </div>
+                                        <div style="margin-bottom: 16px;">
+                                            <label style="font-size: 12px; font-weight: 600; display: block; margin-bottom: 4px;">Paragraphe d'introduction de l'étape :</label>
+                                            <textarea name="co_options[<?php echo esc_attr( $opt_id ); ?>][timeline_desc][<?php echo esc_attr( $step_key ); ?>]" rows="3" class="widefat" placeholder="Détaillez le début de cette étape..."><?php echo esc_textarea( $step['desc'] ?? '' ); ?></textarea>
+                                        </div>
+
+                                        <!-- SOUS-BLOCS : SOUS-TITRE + PARAGRAPHE -->
+                                        <div class="etb-subblocks-wrapper" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px; margin-top: 14px;">
+                                            <label style="font-size: 12.5px; font-weight: 700; color: #334155; display: block; margin-bottom: 10px;">
+                                                Sous-sections détaillées (Sous-titre + Texte) :
+                                            </label>
+                                            <div class="etb-subblocks-list" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px;">
+                                                <?php if ( ! empty( $subblocks ) ) : foreach ( $subblocks as $sub ) : ?>
+                                                    <div class="etb-subblock-item" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; position: relative;">
+                                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                                            <input type="text" name="co_options[<?php echo esc_attr( $opt_id ); ?>][timeline_sub_title][<?php echo esc_attr( $step_key ); ?>][]" value="<?php echo esc_attr( $sub['title'] ?? '' ); ?>" placeholder="Sous-titre (ex: La Rue Saint-Antoine)" class="widefat" style="font-weight: 600;">
+                                                            <button type="button" class="etb-btn-danger-icon etb-remove-subblock-btn" style="margin-left: 8px; flex-shrink: 0;" title="Supprimer ce sous-titre">
+                                                                <span class="dashicons dashicons-trash"></span>
+                                                            </button>
+                                                        </div>
+                                                        <textarea name="co_options[<?php echo esc_attr( $opt_id ); ?>][timeline_sub_desc][<?php echo esc_attr( $step_key ); ?>][]" rows="2" class="widefat" placeholder="Paragraphe correspondant..."><?php echo esc_textarea( $sub['desc'] ?? '' ); ?></textarea>
+                                                    </div>
+                                                <?php endforeach; endif; ?>
+                                            </div>
+                                            <button type="button" class="button button-small etb-add-subblock-btn" data-optid="<?php echo esc_attr( $opt_id ); ?>" data-stepkey="<?php echo esc_attr( $step_key ); ?>">
+                                                + Ajouter un sous-titre & paragraphe
+                                            </button>
+                                        </div>
+
+                                    </div>
+                                </div>
+                            <?php endforeach; endif; ?>
+                        </div>
+                        <button type="button" class="etb-btn-secondary etb-add-itinerary-step-btn" data-list="etb-itinerary-list-<?php echo esc_attr( $opt_id ); ?>" data-optid="<?php echo esc_attr( $opt_id ); ?>">+ Add Itinerary Step</button>
+                    </div>
+
+                    <!-- ONGLET : MAP & GALLERY (DESIGN ÉPURÉ WP TRAVEL ENGINE) -->
+                    <div class="etb-engine-pane" id="engine-mapgallery-<?php echo esc_attr( $opt_id ); ?>">
+                        <h3 class="etb-engine-pane-title">Map & Gallery</h3>
+
+                        <!-- Sous-onglets horizontaux (Gallery | Map) -->
+                        <div class="etb-subtabs-bar">
+                            <button type="button" class="etb-subtab-btn active" data-subpane="subpane-gallery-<?php echo esc_attr( $opt_id ); ?>">Gallery</button>
+                            <button type="button" class="etb-subtab-btn" data-subpane="subpane-map-<?php echo esc_attr( $opt_id ); ?>">Map</button>
+                        </div>
+
+                        <!-- SOUS-PANNEAU 1 : GALLERY (CAPTURE 2) -->
+                        <div class="etb-subpane active" id="subpane-gallery-<?php echo esc_attr( $opt_id ); ?>">
+                            
+                            <!-- Toggle switch iOS "Enable Image Gallery" -->
+                            <div class="etb-ios-toggle-row">
+                                <span class="etb-ios-toggle-title">Enable Image Gallery</span>
+                                <label class="etb-ios-switch">
+                                    <input type="checkbox" name="co_options[<?php echo esc_attr( $opt_id ); ?>][gallery_enabled]" value="1" <?php checked( $data['gallery_enabled'] ?? '1', '1' ); ?>>
+                                    <span class="etb-ios-slider"></span>
+                                </label>
+                            </div>
+
+                            <!-- Champ caché stockant les IDs -->
+                            <?php 
+                            $raw_gallery_ids = $data['gallery_image_ids'] ?? '';
+                            $gallery_ids = array_filter( array_map( 'absint', explode( ',', (string) $raw_gallery_ids ) ) );
+                            ?>
+                            <input type="hidden" name="co_options[<?php echo esc_attr( $opt_id ); ?>][gallery_image_ids]" id="etb-gallery-ids-<?php echo esc_attr( $opt_id ); ?>" value="<?php echo esc_attr( implode( ',', $gallery_ids ) ); ?>">
+                            <input type="hidden" name="co_options[<?php echo esc_attr( $opt_id ); ?>][gallery_layout]" value="<?php echo esc_attr( $data['gallery_layout'] ?? 'mosaic_4' ); ?>">
+
+                            <!-- Zone de dépôt pointillée bleue avec bouton contour bleu (Capture 2) -->
+                            <div class="etb-gallery-dropzone">
+                                <button type="button" class="etb-btn-outline-blue etb-add-gallery-images-btn" data-optid="<?php echo esc_attr( $opt_id ); ?>">
+                                    <span class="dashicons dashicons-plus-alt2" style="font-size: 15px; width: 15px; height: 15px;"></span> Add Image
+                                </button>
+                                <div class="etb-dropzone-hint">
+                                    Max. file size 5MB Supports: JPG,PNG,WebP images
+                                </div>
+                            </div>
+
+                            <!-- Rangée des miniatures épurées (Capture 2) -->
+                            <div class="etb-gallery-thumbs-row etb-gallery-thumbs-grid" id="etb-gallery-thumbs-<?php echo esc_attr( $opt_id ); ?>">
+                                <?php foreach ( $gallery_ids as $img_id ) : 
+                                    $thumb_url = wp_get_attachment_image_url( $img_id, 'thumbnail' );
+                                    if ( ! $thumb_url ) continue;
+                                ?>
+                                    <div class="etb-gallery-thumb-card etb-gallery-thumb-item" data-id="<?php echo esc_attr( $img_id ); ?>">
+                                        <span class="etb-thumb-handle dashicons dashicons-menu" title="Déplacer"></span>
+                                        <img src="<?php echo esc_url( $thumb_url ); ?>">
+                                        <button type="button" class="etb-remove-gallery-img-btn" title="Supprimer">&times;</button>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+
+                        <!-- SOUS-PANNEAU 2 : MAP (CAPTURE 3) -->
+                        <div class="etb-subpane" id="subpane-map-<?php echo esc_attr( $opt_id ); ?>" style="display: none;">
+                            <div class="etb-engine-row">
+                                <label>Section Title :</label>
+                                <input type="text" name="co_options[<?php echo esc_attr( $opt_id ); ?>][map_title]" value="<?php echo esc_attr( $data['map_title'] ?? 'Map' ); ?>" class="widefat" placeholder="Map">
+                            </div>
+
+                            <div class="etb-engine-row" style="margin-bottom: 0;">
+                                <label>Map iframe Code :</label>
+                                <textarea name="co_options[<?php echo esc_attr( $opt_id ); ?>][map_iframe]" rows="5" class="widefat" style="font-family: monospace; font-size: 12px;" placeholder='<iframe src="https://www.google.com/maps?output=embed&saddr=...&daddr=..." width="100%"></iframe>'><?php echo esc_textarea( $data['map_iframe'] ?? '' ); ?></textarea>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- ONGLET 4 : INCLUS / EXCLUS -->
+                    <div class="etb-engine-pane" id="engine-includes-<?php echo esc_attr( $opt_id ); ?>">
+                        <h3 class="etb-engine-pane-title">Ce qui est inclus / Non inclus</h3>
+                        <div class="etb-engine-grid-2">
+                            <div class="etb-engine-row">
+                                <label style="color: #16a34a;">✅ Inclus (1 élément par ligne) :</label>
+                                <textarea name="co_options[<?php echo esc_attr( $opt_id ); ?>][inclusions]" rows="6" class="widefat" placeholder="Véhicule privé..."><?php echo esc_textarea( $inclusions ); ?></textarea>
+                            </div>
+                            <div class="etb-engine-row">
+                                <label style="color: #dc2626;">❌ Non Inclus (1 élément par ligne) :</label>
+                                <textarea name="co_options[<?php echo esc_attr( $opt_id ); ?>][exclusions]" rows="6" class="widefat" placeholder="Repas..."><?php echo esc_textarea( $exclusions ); ?></textarea>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -217,6 +575,21 @@ class ETB_Meta_Manager {
         if ( ! isset( $_POST['co_nonce'] ) || ! wp_verify_nonce( $_POST['co_nonce'], 'co_save_options' ) ) return;
         if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) return;
         if ( ! current_user_can( 'edit_post', $post_id ) ) return;
+
+                // Sauvegarde des champs « Autres circuits » (toujours effectuée, indépendamment des options)
+        if ( isset( $_POST['etb_related_title'] ) ) {
+            update_post_meta( $post_id, '_circuit_related_title', sanitize_text_field( $_POST['etb_related_title'] ) );
+        }
+
+        // Interrupteur d'affichage (checkbox non postée si décochée).
+        update_post_meta(
+            $post_id,
+            '_circuit_related_enabled',
+            isset( $_POST['etb_related_enabled'] ) ? '1' : '0'
+        );
+        if ( isset( $_POST['etb_related_subtitle'] ) ) {
+            update_post_meta( $post_id, '_circuit_related_subtitle', sanitize_text_field( $_POST['etb_related_subtitle'] ) );
+        }
 
         if ( ! isset( $_POST['co_options'] ) || ! is_array( $_POST['co_options'] ) ) {
             delete_post_meta( $post_id, '_circuit_options_data' );
@@ -230,14 +603,56 @@ class ETB_Meta_Manager {
 
             $timeline = array();
             if ( ! empty( $raw_data['timeline_time'] ) && is_array( $raw_data['timeline_time'] ) ) {
-                $count = count( $raw_data['timeline_time'] );
-                for ( $i = 0; $i < $count; $i++ ) {
-                    $t_time  = sanitize_text_field( $raw_data['timeline_time'][ $i ] ?? '' );
-                    $t_title = sanitize_text_field( $raw_data['timeline_title'][ $i ] ?? '' );
-                    $t_desc  = sanitize_textarea_field( $raw_data['timeline_desc'][ $i ] ?? '' );
+                foreach ( $raw_data['timeline_time'] as $step_key => $time_val ) {
+                    $t_time  = sanitize_text_field( $time_val );
+                    $t_title = sanitize_text_field( $raw_data['timeline_title'][ $step_key ] ?? '' );
+                    // Autorise la mise en forme riche sécurisée (Gras, liens, etc.)
+                    $t_desc  = wp_kses_post( $raw_data['timeline_desc'][ $step_key ] ?? '' );
+
+                    // Traitement des sous-sections (Sous-titre + Texte)
+                    $subblocks = array();
+                    if ( ! empty( $raw_data['timeline_sub_title'][ $step_key ] ) && is_array( $raw_data['timeline_sub_title'][ $step_key ] ) ) {
+                        foreach ( $raw_data['timeline_sub_title'][ $step_key ] as $sub_idx => $sub_title_val ) {
+                            $st_title = sanitize_text_field( $sub_title_val );
+                            // Autorise la mise en forme riche sécurisée
+                            $st_desc  = wp_kses_post( $raw_data['timeline_sub_desc'][ $step_key ][ $sub_idx ] ?? '' );
+                            if ( ! empty( $st_title ) || ! empty( $st_desc ) ) {
+                                $subblocks[] = array(
+                                    'title' => $st_title,
+                                    'desc'  => $st_desc,
+                                );
+                            }
+                        }
+                    }
 
                     if ( ! empty( $t_title ) || ! empty( $t_time ) ) {
-                        $timeline[] = array( 'time' => $t_time, 'title' => $t_title, 'desc' => $t_desc );
+                        $timeline[] = array(
+                            'time'      => $t_time,
+                            'title'     => $t_title,
+                            'desc'      => $t_desc,
+                            'subblocks' => $subblocks,
+                        );
+                    }
+                }
+            }
+
+            // Nettoyage des Highlights
+            $clean_highlights = array();
+            if ( ! empty( $raw_data['highlights'] ) && is_array( $raw_data['highlights'] ) ) {
+                foreach ( $raw_data['highlights'] as $hl ) {
+                    if ( ! empty( trim( $hl ) ) ) {
+                        $clean_highlights[] = sanitize_text_field( $hl );
+                    }
+                }
+            }
+
+            $overview_sections = array();
+            if ( ! empty( $raw_data['overview_sec_title'] ) && is_array( $raw_data['overview_sec_title'] ) ) {
+                foreach ( $raw_data['overview_sec_title'] as $idx => $sec_title ) {
+                    $s_title = sanitize_text_field( $sec_title );
+                    $s_desc  = wp_kses_post( $raw_data['overview_sec_desc'][ $idx ] ?? '' );
+                    if ( ! empty( $s_title ) || ! empty( $s_desc ) ) {
+                        $overview_sections[] = array( 'title' => $s_title, 'desc' => $s_desc );
                     }
                 }
             }
@@ -247,10 +662,63 @@ class ETB_Meta_Manager {
                 'duration_hours'   => max( 0.25, floatval( $raw_data['duration_hours'] ?? 1.0 ) ),
                 'departure_time'   => sanitize_text_field( $raw_data['departure_time'] ?? '09:00' ),
                 'additional_price' => max( 0.0, floatval( $raw_data['additional_price'] ?? 0.0 ) ),
-                'badge_1'          => sanitize_text_field( $raw_data['badge_1'] ?? '' ),
-                'badge_2'          => sanitize_text_field( $raw_data['badge_2'] ?? '' ),
-                'badge_3'          => sanitize_text_field( $raw_data['badge_3'] ?? '' ),
-                'badge_4'          => sanitize_text_field( $raw_data['badge_4'] ?? '' ),
+                
+                // Nouveaux blocs de texte dynamiques (Colonne gauche)
+                'overview_sections'=> $overview_sections,
+                'highlights_title' => sanitize_text_field( $raw_data['highlights_title'] ?? 'Highlights' ),
+                'highlights'       => $clean_highlights,
+
+                // Trip Info (Caractéristiques clés)
+                'trip_info_title'  => sanitize_text_field( $raw_data['trip_info_title'] ?? 'trip info' ),
+                'trip_facts'       => (function() use ($raw_data) {
+                    $facts = array();
+                    if ( ! empty( $raw_data['trip_facts'] ) && is_array( $raw_data['trip_facts'] ) ) {
+                        foreach ( $raw_data['trip_facts'] as $f ) {
+                            $label = sanitize_text_field( $f['label'] ?? '' );
+                            $value = sanitize_text_field( $f['value'] ?? '' );
+                            $icon  = sanitize_text_field( $f['icon'] ?? 'fas fa-info-circle' );
+                            $type  = sanitize_key( $f['type'] ?? 'custom' );
+                            if ( ! empty( $label ) || ! empty( $value ) ) {
+                                $facts[] = array(
+                                    'type'  => $type,
+                                    'icon'  => $icon,
+                                    'label' => $label,
+                                    'value' => $value,
+                                );
+                            }
+                        }
+                    }
+                    return $facts;
+                })(),
+
+                // Overview - Mise en forme autorisée sur la description
+                'overview_title'   => sanitize_text_field( $raw_data['overview_title'] ?? 'Aperçu du Circuit' ),
+                'overview_desc'    => wp_kses_post( $raw_data['overview_desc'] ?? '' ),
+                'highlights_title' => sanitize_text_field( $raw_data['highlights_title'] ?? 'Highlights' ),
+                'highlights'       => $clean_highlights,
+
+                // Map & Gallery
+                'gallery_enabled'   => ! empty( $raw_data['gallery_enabled'] ) ? '1' : '0',
+                'gallery_image_ids' => sanitize_text_field( $raw_data['gallery_image_ids'] ?? '' ),
+                'gallery_layout'    => sanitize_key( $raw_data['gallery_layout'] ?? 'mosaic_4' ),
+                'map_title'         => sanitize_text_field( $raw_data['map_title'] ?? 'Map' ),
+                'map_iframe'        => (function() use ($raw_data) {
+                    $raw_iframe = $raw_data['map_iframe'] ?? '';
+                    // Autorise l'iframe de carte en toute sécurité
+                    return wp_kses( $raw_iframe, array(
+                        'iframe' => array(
+                            'src'             => true,
+                            'width'           => true,
+                            'height'          => true,
+                            'frameborder'     => true,
+                            'style'           => true,
+                            'allowfullscreen' => true,
+                            'loading'         => true,
+                            'referrerpolicy'  => true,
+                        ),
+                    ) );
+                })(),
+                
                 'timeline'         => $timeline,
                 'inclusions'       => sanitize_textarea_field( $raw_data['inclusions'] ?? '' ),
                 'exclusions'       => sanitize_textarea_field( $raw_data['exclusions'] ?? '' ),
