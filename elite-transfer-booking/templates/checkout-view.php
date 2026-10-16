@@ -181,8 +181,8 @@ if ( $has_airport_pickup && ! $has_city_pickup ) {
                                 </svg>
                             </span>
                             <div>
-                                <h3 id="etb-chk-airport-title">Airport Arrival & Greeting</h3>
-                                <p id="etb-chk-airport-desc">Real-time flight tracking included. Your chauffeur adjusts pickup time automatically in case of flight delays.</p>
+                                <h3 id="etb-chk-airport-title">Airport Arrival</h3>
+                                <p id="etb-chk-airport-desc">Real-time flight tracking included.</p>
                             </div>
                         </div>
                         
@@ -220,7 +220,7 @@ if ( $has_airport_pickup && ! $has_city_pickup ) {
                             <label class="etb-chk-radio-pill" id="etb-toggle-guest">
                                 <input type="radio" name="etb_booker_type" value="guest">
                                 <span class="dashicons dashicons-businessman"></span>
-                                <span>Booking for someone else (Guest)</span>
+                                <span>Booking for someone else</span>
                             </label>
                         </div>
 
@@ -683,14 +683,14 @@ if ( $has_airport_pickup && ! $has_city_pickup ) {
                                             <path d="m54.445 25.965c0 10.77-8.7305 19.504-19.5 19.504-10.77 0-19.504-8.7344-19.504-19.504 0-10.77 8.7344-19.5 19.504-19.5 10.77-0.003906 19.5 8.7305 19.5 19.5z"/>
                                             <path d="m99.328 66.391c-4.2578-8.8516-14.051-16.625-25.383-16.695-5.1719 0.03125-10.023 1.6719-14.176 4.2812 6.0273 4.4648 11.02 10.426 14.141 16.91 1.5391 3.1641 1.8438 6.8906 0.93359 10.605 5.7734-0.0625 11.539-0.73047 17.258-2.0078 5.707-1.4414 9.5078-8.4141 7.2266-13.094z"/>
                                         </svg>
-                                        <span><strong id="etb-chk-pax-count"><?php echo esc_html( $pax_count ); ?></strong> Passengers</span>
+                                        <span><strong id="etb-chk-pax-count"><?php echo esc_html( $pax_count ); ?></strong> <span class="etb-spec-long">Passengers</span><span class="etb-spec-short">Pax</span></span>
                                     </span>
                                     <span class="etb-spec-dot">•</span>
                                     <span class="etb-summary-spec-item">
                                         <svg viewBox="20 8 60 88" width="20" height="20" fill="#fbac18">
                                             <path d="M70.75,26.75H60.028l1.056,5.476c2.108-0.315,4.109,1.073,4.517,3.185l0.868,4.5c0.418,2.169-1.001,4.267-3.171,4.685 l-1.227,0.237c-2.169,0.418-4.268-1.001-4.686-3.17l-0.867-4.5c-0.408-2.113,0.936-4.146,3.01-4.637l-1.113-5.775H54.75v-14 c0-0.019-0.01-0.034-0.011-0.052c0.002-0.032,0.01-0.062,0.01-0.095c0-0.773-0.626-1.397-1.397-1.397h-6.705 c-0.771,0-1.397,0.624-1.397,1.397c0,0.034,0.008,0.065,0.01,0.098c0,0.017-0.01,0.031-0.01,0.049v14h-16c-2.209,0-4,1.791-4,4v59 c0,2.209,1.791,4,4,4h6V94c0,0.69,0.559,1.25,1.25,1.25c0.689,0,1.25-0.56,1.25-1.25v-0.25h24.5V94c0,0.69,0.559,1.25,1.25,1.25 c0.689,0,1.25-0.56,1.25-1.25v-0.25h6c2.209,0,4-1.791,4-4v-59C74.75,28.541,72.959,26.75,70.75,26.75z M47.75,14h4.5v12.75h-4.5V14 z M63.39,84.078h-26.78c-1.027,0-1.86-0.834-1.86-1.859c0-1.028,0.833-1.859,1.86-1.859h26.78c1.026,0,1.859,0.831,1.859,1.859 C65.249,83.244,64.416,84.078,63.39,84.078z"/>
                                         </svg>
-                                        <span><strong id="etb-chk-bag-count"><?php echo esc_html( $bag_count ); ?></strong> Luggage</span>
+                                       <span><strong id="etb-chk-bag-count"><?php echo esc_html( $bag_count ); ?></strong> <span class="etb-spec-long">Luggage</span><span class="etb-spec-short">Bag</span></span>
                                     </span>
                                 </div>
                             </div>
@@ -807,7 +807,7 @@ if ( $has_airport_pickup && ! $has_city_pickup ) {
 
                     <!-- Bandeau de réservation urgente (< 24h) pilotable en PHP & JS -->
                     <div id="etb-chk-urgent-notice-box" style="<?php echo $is_urgent_booking ? 'display: block;' : 'display: none;'; ?> background: rgb(161 9 0 / 44%); border: 1px solid  rgb(227 0 0 / 35%); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; font-size: 12px; color: var(--etb-text-primary, #ffffff); line-height: 1.45; text-align:center;">
-                        <strong style="color: #fbac18; display: block; margin-bottom: 2px;">⏱️ Short-Notice Pickup (&lt; 24h)</strong>
+                        <strong style="color: #fbac18; display: block; margin-bottom: 2px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align: -2px; margin-right: 5px;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>Short-Notice Pickup (&lt; 24h)</strong>
                         For bookings scheduled within 24 hours, 
                         our dispatch team will confirm chauffeur 
                         availability before any payment is collected.

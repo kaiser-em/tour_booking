@@ -49,7 +49,7 @@ class ETB_Shortcode {
             Elite_Transfer_Booking::get_instance()->enqueue_public_assets();
         }
 
-        $atts = shortcode_atts( array( 'id' => 0 ), $atts, 'circuit_view' );
+        $atts = shortcode_atts( array( 'id' => 0, 'related' => 3, 'related_category' => '' ), $atts, 'circuit_view' );
         $circuit_id = absint( $atts['id'] );
 
         if ( ! $circuit_id ) {
@@ -80,8 +80,38 @@ class ETB_Shortcode {
         }
 
         ob_start();
-        include ETB_PATH . 'templates/circuit-view.php';
-        return ob_get_clean();
+            include ETB_PATH . 'templates/circuit-view.php';
+
+                       // Section « Autres circuits » (désactivable avec related="0").
+            $related_count = absint( $atts['related'] );
+
+            // Interrupteur par circuit : si explicitement désactivé, on force le masquage.
+            // Absence de méta = affichée (rétrocompatibilité).
+            if ( $circuit_id ) {
+                $related_enabled = get_post_meta( $circuit_id, '_circuit_related_enabled', true );
+                if ( '0' === $related_enabled ) {
+                    $related_count = 0;
+                }
+            }
+
+            // Filtrage par catégorie :
+            // - si 'related_category' est passé au shortcode, on l'utilise ;
+            // - sinon, on reprend la 1ʳᵉ catégorie du circuit courant (défaut) ;
+            // - si le circuit n'a aucune catégorie, on affiche tous les circuits publiés.
+            $related_category = sanitize_title( $atts['related_category'] );
+
+            if ( '' === $related_category && $circuit_id ) {
+                $current_terms = wp_get_post_terms( $circuit_id, 'circuit_category', array( 'fields' => 'slugs' ) );
+                if ( ! is_wp_error( $current_terms ) && ! empty( $current_terms ) ) {
+                    $related_category = sanitize_title( $current_terms[0] );
+                }
+            }
+
+            $related_file = ETB_PATH . 'templates/circuit-related.php';
+            if ( $related_count > 0 && file_exists( $related_file ) ) {
+                include $related_file;
+            }
+            return ob_get_clean();
     }
 
     /**

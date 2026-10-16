@@ -413,6 +413,94 @@
         }
 
         // ------------------------------------------------------------------------
+        // 4bis. GESTION ACCORDÉON TIMELINE & INTERRUPTEUR EXPAND / COLLAPSE ALL
+        // ------------------------------------------------------------------------
+        
+        // 1. Clic sur une étape individuelle (Ouvrir / Fermer)
+        document.addEventListener('click', function (e) {
+            const header = e.target.closest('.co-vip-step-header');
+            if (!header) return;
+
+            const step = header.closest('.co-vip-step');
+            if (step) {
+                step.classList.toggle('is-open');
+
+                // Met à jour l'état visuel du bouton global "Expand all"
+                const activePane = header.closest('.co-option-pane');
+                if (activePane) {
+                    updateExpandAllSwitchState(activePane);
+                }
+            }
+        });
+
+        // 2. Clic sur le switch global "Expand all / Collapse all"
+        document.addEventListener('click', function (e) {
+            const wrap = e.target.closest('.co-expand-all-wrap');
+            if (!wrap) return;
+
+            e.preventDefault();
+            const activePane = wrap.closest('.co-option-pane') || document.querySelector('.co-option-pane.active');
+            if (!activePane) return;
+
+            const steps = activePane.querySelectorAll('.co-vip-step');
+            const switchBtn = wrap.querySelector('.co-expand-toggle-switch');
+            const thumb = wrap.querySelector('.co-expand-switch-thumb');
+            const label = wrap.querySelector('.co-expand-all-label');
+
+            const isCurrentlyExpanded = switchBtn && switchBtn.classList.contains('is-active');
+
+            if (isCurrentlyExpanded) {
+                // Tout fermer
+                steps.forEach(s => s.classList.remove('is-open'));
+                if (switchBtn) {
+                    switchBtn.classList.remove('is-active');
+                    switchBtn.style.background = '#cbd5e1';
+                }
+                if (thumb) thumb.style.transform = 'translateX(0)';
+                if (label) label.textContent = 'Expand all';
+            } else {
+                // Tout ouvrir
+                steps.forEach(s => s.classList.add('is-open'));
+                if (switchBtn) {
+                    switchBtn.classList.add('is-active');
+                    switchBtn.style.background = 'var(--etb-theme-primary, #ba6827)';
+                }
+                if (thumb) thumb.style.transform = 'translateX(18px)';
+                if (label) label.textContent = 'Collapse all';
+            }
+        });
+
+        // Fonction utilitaire pour synchroniser le switch si l'utilisateur ouvre/ferme manuellement
+        function updateExpandAllSwitchState(pane) {
+            const wrap = pane.querySelector('.co-expand-all-wrap');
+            if (!wrap) return;
+
+            const steps = pane.querySelectorAll('.co-vip-step');
+            const openSteps = pane.querySelectorAll('.co-vip-step.is-open');
+            const switchBtn = wrap.querySelector('.co-expand-toggle-switch');
+            const thumb = wrap.querySelector('.co-expand-switch-thumb');
+            const label = wrap.querySelector('.co-expand-all-label');
+
+            const allAreOpen = (steps.length > 0 && steps.length === openSteps.length);
+
+            if (allAreOpen) {
+                if (switchBtn) {
+                    switchBtn.classList.add('is-active');
+                    switchBtn.style.background = 'var(--etb-theme-primary, #ba6827)';
+                }
+                if (thumb) thumb.style.transform = 'translateX(18px)';
+                if (label) label.textContent = 'Collapse all';
+            } else {
+                if (switchBtn) {
+                    switchBtn.classList.remove('is-active');
+                    switchBtn.style.background = '#cbd5e1';
+                }
+                if (thumb) thumb.style.transform = 'translateX(0)';
+                if (label) label.textContent = 'Expand all';
+            }
+        }
+
+        // ------------------------------------------------------------------------
         // 5. GESTION DU DROP-OFF ET DU PICKUP
         // ------------------------------------------------------------------------
         if (diffDropoffCb && dropoffContainer && dropoffInfo) {
@@ -773,8 +861,40 @@
         const tripsListEl     = quickRoot.querySelector('#etb-cart-trips-list');
         let cartTrips         = [];
         
-        // Sécurité anti-crash pour purger définitivement l'ancienne variable
+          // Note (#16 revert) : variable conservée pour éviter un ReferenceError
+        // dans le bloc `if (addTripBtn)` plus bas. Reste à null (jamais assignée),
+        // donc la branche est inerte — c'est du code mort inoffensif.
         const addTripBtn      = null;
+
+
+        // Toggle d'activation Multi-Booking
+        const multiTripToggle = quickRoot.querySelector('#etb-multi-trip-toggle');
+        let isMultiBookingEnabled = false; // Désactivé par défaut
+
+        if (multiTripToggle) {
+            multiTripToggle.addEventListener('change', (e) => {
+                isMultiBookingEnabled = e.target.checked;
+                sessionStorage.setItem('etb_multi_booking_enabled', isMultiBookingEnabled ? '1' : '0');
+                
+                if (!isMultiBookingEnabled) {
+                    // Désactivation : On vide le panier et on masque les boutons
+                    cartTrips = [];
+                    saveCartToStorage();
+                    renderTripsCart();
+                    
+                    if (selectedCar) {
+                        if (bridgeTripWrap) bridgeTripWrap.style.display = 'none';
+                        if (bookBtnLabel) bookBtnLabel.textContent = selectedCar.isQuote ? 'Request' : 'Book Trip';
+                    }
+                } else {
+                    // Activation : On réaffiche le bouton d'ajout si une voiture est déjà sélectionnée
+                    if (selectedCar && bridgeTripWrap && bridgeTripLabel) {
+                        bridgeTripWrap.style.display = 'flex';
+                        bridgeTripLabel.textContent = 'Add another trip';
+                    }
+                }
+            });
+        }
 
         // ── GESTION DE LA PERSISTANCE VIP (SESSIONSTORAGE) ──
         const saveCartToStorage = () => {
@@ -1426,8 +1546,32 @@
         }
             
 
-        // ── DÉCLENCHEMENT DU RECALCUL EN TEMPS RÉEL LORS DU CHANGEMENT D'ADRESSE ──
+                // ── DÉCLENCHEMENT DU RECALCUL EN TEMPS RÉEL LORS DU CHANGEMENT D'ADRESSE ──
         const handleAddressChangeLive = () => {
+            // 🔒 UX Fix : Toute modification d'adresse (pickup OU dropoff) invalide
+            // la sélection en cours et masque la barre de confirmation tant qu'aucun
+            // véhicule n'est re-sélectionné.
+            //
+            // ⚠️ Le panier multi-trajets (cartTrips) N'EST JAMAIS TOUCHÉ ici.
+            //    La barre n'est masquée QUE si le panier est vide, ce qui préserve
+            //    intégralement l'affichage multi-booking (le cas échéant).
+            selectedCar = null;
+
+            carCards.forEach(c => {
+                c.classList.remove('selected');
+                const btn = c.querySelector('.etb-quick-select-btn');
+                if (btn) {
+                    btn.textContent = (c.dataset.isQuote === '1' || isQuoteMode) ? 'Request Quote' : 'Select';
+                }
+            });
+
+            // Masquage conditionnel de la barre : uniquement si le panier est vide
+            if (cartTrips.length === 0) {
+                if (bookingBar) bookingBar.classList.remove('is-visible');
+                if (bridgeTripWrap) bridgeTripWrap.style.display = 'none';
+            }
+
+            // Recalcul en direct selon le mode actif
             if (currentMode === 'transfer') {
                 refreshLiveTransferPricing();
             } else if (currentMode === 'hourly') {
@@ -1599,6 +1743,9 @@
                         detailEl.style.display = 'none';
                     }
                 }
+
+
+
 
                 // 3. Remise du bouton sur Select
                 const selBtn = card.querySelector('.etb-quick-select-btn');
@@ -1995,6 +2142,72 @@
             }
         };
 
+
+        // ── GÉNÉRATION DYNAMIQUE DES LIENS WHATSAPP ET EMAIL ──
+        const updateInquiryLinks = () => {
+            const waPhone   = (typeof etbAjax !== 'undefined' && etbAjax.company_whatsapp) ? etbAjax.company_whatsapp : '';
+            const adminMail = (typeof etbAjax !== 'undefined' && etbAjax.admin_email) ? etbAjax.admin_email : '';
+            const emailInquiryBtn = quickRoot.querySelector('#etb-quick-email-btn');
+
+            let message = '';
+            const waveEmoji = String.fromCodePoint(0x1F44B);
+
+            if (selectedCar) {
+                // Message pour le véhicule actuellement sélectionné
+                const pVal      = pickupInput ? pickupInput.value.trim() : '—';
+                const isHourly  = (currentMode === 'hourly');
+                const dVal      = isHourly ? `By the hour (${durationSelect ? durationSelect.value : 4}h)` : (dropoffInput ? dropoffInput.value.trim() : '—');
+                const rawDate   = dateInput ? dateInput.value.trim() : '';
+                const tmVal     = timeInput ? timeInput.value.trim() : '';
+                const rateText  = selectedCar.isQuote ? 'Custom Quote' : `${selectedCar.price} ${currency}`;
+
+                message = `Hello team ${waveEmoji},\n\n`
+                    + `I would like to inquire about booking a transfer:\n\n`
+                    + `*${selectedCar.name}*\n`
+                    + `• Pickup: ${pVal}\n`
+                    + `• Destination: ${dVal}\n`
+                    + `• Date & Time: ${rawDate} at ${tmVal}\n`
+                    + `• Rate: ${rateText}\n\n`
+                    + `Thank you!`;
+            } else if (cartTrips.length > 0) {
+                // Message groupé pour l'ensemble du panier
+                message = `Hello team ${waveEmoji},\n\n`
+                    + `I would like to inquire about my scheduled itinerary (${cartTrips.length} transfers):\n\n`;
+
+                let totalSum = 0;
+                let hasQuote = false;
+
+                cartTrips.forEach((t, i) => {
+                    const rText = t.isQuote ? 'Quote' : `${t.price} ${currency}`;
+                    if (t.isQuote) hasQuote = true; else totalSum += parseFloat(t.price) || 0;
+                    message += `*Transfer #${i + 1} (${t.vehicle_name})*\n`
+                        + `  • Route: ${t.pickup} ➔ ${t.dropoff}\n`
+                        + `  • Date: ${t.date} at ${t.time}\n`
+                        + `  • Rate: ${rText}\n\n`;
+                });
+
+                const finalSumText = hasQuote ? 'Custom Quote' : `${totalSum.toFixed(0)} ${currency}`;
+                message += `*Estimated Total: ${finalSumText}*\n\nThank you!`;
+            }
+
+            if (!message) return;
+
+            // 1. Mise à jour du lien WhatsApp
+            if (whatsappBtn) {
+                const waText = encodeURIComponent(message);
+                whatsappBtn.href = waPhone 
+                    ? `https://api.whatsapp.com/send?phone=${waPhone}&text=${waText}` 
+                    : `https://api.whatsapp.com/send?text=${waText}`;
+            }
+
+            // 2. Mise à jour du lien Email (mailto)
+            if (emailInquiryBtn) {
+                const emailSubject = encodeURIComponent(`[Inquiry] VIP Transfer Booking`);
+                const emailBody    = encodeURIComponent(message.replace(/\*/g, ''));
+                emailInquiryBtn.href = `mailto:${adminMail}?subject=${emailSubject}&body=${emailBody}`;
+            }
+        };
+
         // 4. Sélection d'une voiture : Illumination, mise à jour des détails et affichage du bouton doré
         carCards.forEach(card => {
             card.addEventListener('click', function () {
@@ -2046,12 +2259,42 @@
                     maxBag: maxBag
                 };
 
-                // 1. Mise à jour de la barre du bas avec ce véhicule précis
+                // 1. Mise à jour de la barre du bas avec ce véhicule précis ET les détails de l'itinéraire
                 const dynamicContentEl = quickRoot.querySelector('#etb-quick-dynamic-bar-content');
                 if (dynamicContentEl) {
                     const priceHtml = isCarQuote 
                         ? '<span style="color: var(--etb-accent-gold, #fbac18); font-size: 20px; font-weight: 800;">Custom Quote</span>' 
                         : `<span style="color: var(--etb-accent-gold, #fbac18); font-size: 26px; font-weight: 900;">${carPrice} <span style="font-size: 18px;">${currency}</span></span>`;
+
+                    // Récupération des informations de trajet en direct
+                    const pInputEl   = quickRoot.querySelector('#etb-quick-pickup');
+                    const dInputEl   = quickRoot.querySelector('#etb-quick-dropoff');
+                    const pickupVal  = pInputEl ? pInputEl.value.trim() : '';
+                    const dropoffVal = (currentMode === 'transfer' && dInputEl) ? dInputEl.value.trim() : '';
+                    const dateVal    = dateInput ? dateInput.value.trim() : '';
+                    const timeVal    = timeInput ? timeInput.value.trim() : '';
+                    const durVal     = (currentMode === 'hourly' && durationSelect) ? durationSelect.value : '4';
+                    
+                    const formattedDateTime = (typeof formatLuxuryDateText === 'function') ? formatLuxuryDateText(dateVal, timeVal) : `${dateVal} • ${timeVal}`;
+
+                    // Construction de la colonne itinéraire
+                    const routeHtml = (currentMode === 'hourly')
+                        ? `<div class="etb-route-line">
+                               <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="var(--etb-accent-gold, #fbac18)" stroke-width="2" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                               <strong style="color: #ffffff; font-weight: 600;">By the hour (${durVal}h)</strong>
+                           </div>
+                           <div class="etb-route-line">
+                               <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; flex-shrink: 0;"></span>
+                               <span>${pickupVal || '—'}</span>
+                           </div>`
+                        : `<div class="etb-route-line">
+                               <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; flex-shrink: 0;"></span>
+                               <span>${pickupVal || '—'}</span>
+                           </div>
+                           <div class="etb-route-line">
+                               <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--etb-accent-gold, #fbac18); flex-shrink: 0;"></span>
+                               <span>${dropoffVal || '—'}</span>
+                           </div>`;
 
                     dynamicContentEl.innerHTML = `
                         <div class="etb-bar-col1" style="display: flex; flex-direction: column; justify-content: center; flex-shrink: 0;">
@@ -2062,6 +2305,16 @@
                                 <span>${maxPax} Pax • ${maxBag} Luggage</span>
                             </div>
                         </div>
+
+                        <!-- DÉTAILS ITINÉRAIRE (DATE EN 1ER / PICKUP / DROPOFF) -->
+                        <div class="etb-bar-route-info">
+                            <div class="etb-route-line etb-route-date" style="margin-bottom: 2px;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--etb-accent-gold, #fbac18)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                <span>${formattedDateTime}</span>
+                            </div>
+                            ${routeHtml}
+                        </div>
+
                         <div class="etb-bar-col2" style="display: flex; flex-direction: column; justify-content: center;">
                             <div class="etb-bar-price">${priceHtml}</div>
                             <div class="etb-bar-sub" style="color: var(--etb-text-secondary, #94a3b8); font-size: 11px; text-transform: uppercase;">
@@ -2071,34 +2324,73 @@
                     `;
                 }
 
-                // 2. Gestion du bouton doré et du bouton principal
+                // 2. Gestion des boutons selon l'activation du Multi-Booking
                 if (bridgeTripWrap && bridgeTripLabel) {
-                    bridgeTripWrap.style.display = 'flex';
-                    // Le bouton flottant
-                    bridgeTripLabel.textContent = (cartTrips.length === 0) ? 'Add another trip' : 'Add this trip';
+                    if (isMultiBookingEnabled) {
+                        bridgeTripWrap.style.display = 'flex';
+                        bridgeTripLabel.textContent = (cartTrips.length === 0) ? 'Add another trip' : 'Add this trip';
+                    } else {
+                        bridgeTripWrap.style.display = 'none';
+                    }
                     
-                    // Le bouton de la barre principale reflète TOUJOURS le véhicule en cours de sélection
                     if (bookBtnLabel) {
-                        bookBtnLabel.textContent = isCarQuote ? 'Request this Quote' : 'Book this Trip';
+                        if (!isMultiBookingEnabled || cartTrips.length === 0) {
+                            // Mono-trajet pur : le bouton principal engage ce véhicule unique
+                            bookBtnLabel.textContent = isCarQuote ? 'Request' : 'Book Trip';
+                        } else {
+                            // Panier rempli : le bouton principal ne concerne QUE le panier existant
+                            const hasQuoteInCart = cartTrips.some(t => t.isQuote);
+                            bookBtnLabel.textContent = hasQuoteInCart ? `Request (${cartTrips.length} Transfers)` : `Checkout (${cartTrips.length} Transfers)`;
+                        }
                     }
                 }
 
-                // 3. Affichage et scroll fluide vers le bas
+               // 3. Affichage et scroll fluide vers le bas
                 if (bookingBar) {
                     bookingBar.classList.add('is-visible');
                     setTimeout(() => {
                         bookingBar.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }, 180);
                 }
+
+                // Active les liens WhatsApp et Email pour cette voiture
+                updateInquiryLinks();
             });
         });
 
-        // 4bis. Clic sur le bouton doré flottant au-dessus de la barre (#etb-bridge-trip-btn)
+        // 4bis. Clic sur le bouton doré flottant ("Add this trip" ou "Add another trip")
         if (bridgeTripBtn) {
             bridgeTripBtn.addEventListener('click', function(e) {
                 e.preventDefault();
 
-                // Si un véhicule est sélectionné : on enregistre ce trajet dans le panier
+                // Fonction magique pour vider l'ardoise avant le prochain trajet
+                const resetFieldsForNewTrip = () => {
+                    const pInputEl = quickRoot.querySelector('#etb-quick-pickup');
+                    const dInputEl = quickRoot.querySelector('#etb-quick-dropoff');
+                    
+                    if (pInputEl) pInputEl.value = '';
+                    if (dInputEl) dInputEl.value = '';
+                    if (pickupLatEl) pickupLatEl.value = '';
+                    if (pickupLngEl) pickupLngEl.value = '';
+                    if (dropoffLatEl) dropoffLatEl.value = '';
+                    if (dropoffLngEl) dropoffLngEl.value = '';
+                    if (timeInput) timeInput.value = ''; 
+                    
+                    if (pickupClearBtn) pickupClearBtn.classList.remove('is-visible');
+                    if (dropoffClearBtn) dropoffClearBtn.classList.remove('is-visible');
+
+                    // Masquer les véhicules pour forcer un nouveau calcul
+                    carCards.forEach(c => {
+                        c.style.display = 'none';
+                        c.classList.remove('selected');
+                    });
+                    if (quoteNoticeEl) quoteNoticeEl.classList.remove('is-visible');
+                    if (errorNotice) errorNotice.style.display = 'none';
+                    
+                    saveFormState();
+                };
+
+                // Si un véhicule est sélectionné : on l'enregistre d'abord dans le panier
                 if (selectedCar) {
                     const pInputEl   = quickRoot.querySelector('#etb-quick-pickup');
                     const dInputEl   = quickRoot.querySelector('#etb-quick-dropoff');
@@ -2132,25 +2424,22 @@
 
                     saveCartToStorage();
 
-                    // Détermine si on était en train d'ajouter ce véhicule ("Add this trip")
                     const wasAddingThisTrip = bridgeTripLabel && bridgeTripLabel.textContent.includes('this trip');
 
                     // Réinitialisation de la sélection
                     selectedCar = null;
                     carCards.forEach(c => c.classList.remove('selected'));
-
-                    // Mise à jour de la barre et du panier
                     renderTripsCart();
 
-                    // RÈGLE DU SCROLL :
-                    // Si c'était "Add this trip" -> RESTE EN BAS (aucun scroll vers le haut)
-                    // Si c'était "Add another trip" (Trip 1) -> remonte vers la barre de recherche
+                    // Si c'était "Add another trip" (1er trajet), on vide les champs et on remonte
                     if (!wasAddingThisTrip) {
+                        resetFieldsForNewTrip();
                         const searchBar = quickRoot.querySelector('.etb-quick-glass-bar') || quickRoot;
                         searchBar.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }
                 } else if (cartTrips.length > 0) {
-                    // Consultation du panier : clic sur "Add another trip" -> scroll vers le haut
+                    // Clic direct sur "Add another trip" depuis le panier
+                    resetFieldsForNewTrip();
                     const searchBar = quickRoot.querySelector('.etb-quick-glass-bar') || quickRoot;
                     searchBar.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
@@ -2193,11 +2482,20 @@
                 return;
             }
 
-            // 2. SI LE PANIER CONTIENT DES TRAJETS
-            // Dévoile immédiatement le conteneur parent, le panier ET la barre de confirmation
+                       // 2. SI LE PANIER CONTIENT DES TRAJETS
+            // Dévoile immédiatement le conteneur parent et le panier (Planned Itineraries)
             if (fleetSection) fleetSection.style.display = 'block';
             tripsCartEl.style.display = 'block';
-            if (bookingBar) bookingBar.classList.add('is-visible');
+
+            // 🔒 UX Fix : la barre de confirmation n'apparaît QUE si :
+            //    - une voiture est en cours de sélection (single-trip), OU
+            //    - le mode multi-trajets est actif (actuellement masqué côté UI)
+            // Cela empêche la barre fantôme de s'afficher au refresh / retour checkout,
+            // quand un ancien panier est restauré depuis sessionStorage sans sélection active.
+            if (bookingBar && (isMultiBookingEnabled || selectedCar)) {
+                bookingBar.classList.add('is-visible');
+            }
+
             if (tripsCountEl) tripsCountEl.textContent = cartTrips.length;
 
             let html = '';
@@ -2285,28 +2583,28 @@
 
             // Libellé intelligent du bouton d'action principal et déverrouillage systématique
             if (bookNowBtn) {
-                bookNowBtn.disabled = false; // Réactive le bouton à chaque rendu
+                bookNowBtn.disabled = false;
                 const currentLabelEl = bookNowBtn.querySelector('#etb-quick-book-btn-label') || bookBtnLabel;
 
                 if (currentLabelEl) {
-                    if (selectedCar) {
-                        currentLabelEl.textContent = selectedCar.isQuote ? 'Request this Quote' : 'Book this Trip';
+                    if (cartTrips.length === 0) {
+                        currentLabelEl.textContent = selectedCar ? (selectedCar.isQuote ? 'Request this Quote' : 'Book this Trip') : 'Book this Trip';
                     } else {
-                        if (hasCustomQuoteInCart) {
-                        bookBtnLabel.textContent = (cartTrips.length === 1) ? 'Request Quote' : `Request Quote (${cartTrips.length} Transfers)`;
-                        } else {
-                            bookBtnLabel.textContent = (cartTrips.length === 1) ? 'Book this Trip' : `Checkout (${cartTrips.length} Transfers)`;
-                        }
+                        currentLabelEl.textContent = hasCustomQuoteInCart ? `Request Quote (${cartTrips.length} Transfers)` : `Checkout (${cartTrips.length} Transfers)`;
                     }
                 }
             }
 
             const dynamicContentEl = quickRoot.querySelector('#etb-quick-dynamic-bar-content');
             if (dynamicContentEl && !selectedCar) {
-                // Le bouton doré flottant au-dessus reste affiché pour ajouter d'autres courses
+                // Le bouton doré flottant au-dessus reste affiché SI multi-booking est actif
                 if (bridgeTripWrap && bridgeTripLabel) {
-                    bridgeTripWrap.style.display = 'flex';
-                    bridgeTripLabel.textContent = 'Add another trip';
+                    if (isMultiBookingEnabled) {
+                        bridgeTripWrap.style.display = 'flex';
+                        bridgeTripLabel.textContent = 'Add another trip';
+                    } else {
+                        bridgeTripWrap.style.display = 'none';
+                    }
                 }
 
                 dynamicContentEl.innerHTML = `
@@ -2343,6 +2641,9 @@
                 }
                 if (kmBox) kmBox.style.display = 'none';
             }
+
+            // Met à jour les liens WhatsApp et Email pour le récapitulatif du panier
+            updateInquiryLinks();
         };
 
        // 4bis. Clic sur "Add this Trip" / "Add another trip"
@@ -2433,7 +2734,16 @@
                     return;
                 }
 
-                // Si une voiture est actuellement sélectionnée mais pas encore ajoutée au panier, on l'ajoute automatiquement !
+                                // Ajout automatique du véhicule sélectionné — Modification #13.
+                //
+                // AVANT : seul le cas "panier vide" était géré. Si le panier contenait
+                // déjà des trajets et que l'utilisateur cliquait directement sur
+                // "Checkout", le véhicule en cours de sélection était perdu silencieusement.
+                //
+                // MAINTENANT : tout véhicule sélectionné est systématiquement ajouté au
+                // panier avant la soumission, quel que soit l'état du panier. L'utilisateur
+                // retrouve donc l'intégralité de ses trajets sur la page de checkout, et
+                // peut en supprimer un individuellement s'il le souhaite (bouton ×).
                 if (selectedCar) {
                     const pInputEl   = quickRoot.querySelector('#etb-quick-pickup');
                     const dInputEl   = quickRoot.querySelector('#etb-quick-dropoff');
@@ -2454,7 +2764,6 @@
                         return;
                     }
 
-                    // Ajout automatique au panier avant envoi
                     cartTrips.push({
                         id: 'trip_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
                         mode: currentMode,
@@ -2471,13 +2780,17 @@
                         maxPax: selectedCar.maxPax || '1',
                         maxBag: selectedCar.maxBag || '0'
                     });
+
+                    // Persiste le panier mis à jour avant l'envoi AJAX
+                    saveCartToStorage();
+                
                 }
 
                 // État de chargement discret sur le bouton (Sans détruire les balises internes)
                 bookNowBtn.disabled = true;
                 const activeLabelEl = bookNowBtn.querySelector('#etb-quick-book-btn-label');
                 if (activeLabelEl) {
-                    activeLabelEl.textContent = 'Securing quote...';
+                    activeLabelEl.textContent = 'Checkout...';
                 }
 
                 // Préparation de la requête AJAX vers notre générateur de devis
@@ -2506,7 +2819,12 @@
                     return response.json();
                 })
                 .then(function (res) {
-                    if (res.success && res.data.redirect_url) {
+                                       if (res.success && res.data.redirect_url) {
+                        // 🧹 Multi-Trip DÉSACTIVÉ : on vide le panier avant la redirection
+                        // pour que le BFCache (retour arrière) ne restaure rien du tout.
+                        cartTrips = [];
+                        saveCartToStorage();
+
                         // Redirection immédiate vers le Checkout
                         window.location.href = res.data.redirect_url;
                     } else {
@@ -2527,6 +2845,19 @@
 
          // ── RESTAURATION AUTOMATIQUE DE LA SESSION (RETOUR DU CHECKOUT OU ACTUALISATION) ──
         const restoreQuickSession = () => {
+
+                // 0. Restauration de l'état du switch Multi-Booking
+            try {
+                const storedMb = sessionStorage.getItem('etb_multi_booking_enabled');
+                if (storedMb === '1') {
+                    isMultiBookingEnabled = true;
+                    if (multiTripToggle) multiTripToggle.checked = true;
+                } else {
+                    isMultiBookingEnabled = false;
+                    if (multiTripToggle) multiTripToggle.checked = false;
+                }
+            } catch (e) {}
+
             // 1. Restauration des champs du formulaire
             try {
                 const savedState = sessionStorage.getItem('etb_quick_form_state');
@@ -2565,16 +2896,26 @@
                 }
             } catch (e) {}
 
-            // 2. Restauration du panier
+                       // 2. Restauration du panier — ⏸️ DÉSACTIVÉ (Multi-Trip OFF)
+            //    Le Multi-Trip est temporairement désactivé côté UI (toggle masqué).
+            //    Pour réactiver la fonctionnalité, décommenter simplement ce bloc.
+            //
+            // try {
+            //     const storedCart = sessionStorage.getItem('etb_cart_trips');
+            //     if (storedCart) {
+            //         const parsedCart = JSON.parse(storedCart);
+            //         if (Array.isArray(parsedCart) && parsedCart.length > 0) {
+            //             cartTrips = parsedCart;
+            //             renderTripsCart();
+            //         }
+            //     }
+            // } catch (e) {}
+
+            // Nettoyage préventif : purge toute donnée multi-trip résiduelle du sessionStorage
+            // pour éviter l'affichage fantôme du panier au retour du checkout.
             try {
-                const storedCart = sessionStorage.getItem('etb_cart_trips');
-                if (storedCart) {
-                    const parsedCart = JSON.parse(storedCart);
-                    if (Array.isArray(parsedCart) && parsedCart.length > 0) {
-                        cartTrips = parsedCart;
-                        renderTripsCart();
-                    }
-                }
+                sessionStorage.removeItem('etb_cart_trips');
+                sessionStorage.removeItem('etb_multi_booking_enabled');
             } catch (e) {}
 
            // 3. RÉVEIL AUTOMATIQUE DES PRIX ET DE LA FLOTTE
@@ -2610,14 +2951,31 @@
         // Lancement immédiat de la restauration
         restoreQuickSession();
 
-        // Réveil forcé en cas de retour via le cache du navigateur (Bfcache / History Back)
-        window.addEventListener('pageshow', function () {
+                // Réveil forcé en cas de retour via le cache du navigateur (Bfcache / History Back)
+                window.addEventListener('pageshow', function () {
             if (bookNowBtn) {
                 bookNowBtn.disabled = false;
+
+                // ♻️ Réinitialisation du libellé (évite qu'il reste bloqué
+                //    sur "Securing quote..." au retour du checkout via BFCache).
+                //    On recalcule le libellé selon l'état de sélection réel.
+                const labelEl = bookNowBtn.querySelector('#etb-quick-book-btn-label');
+                if (labelEl) {
+                    labelEl.textContent = (selectedCar && selectedCar.isQuote)
+                        ? 'Request'
+                        : 'Book Trip';
+                }
             }
-            if (cartTrips.length > 0) {
-                renderTripsCart();
-            }
+
+            // ⏸️ Multi-Trip DÉSACTIVÉ : plus d'affichage automatique du panier au retour.
+            //    Pour réactiver, décommenter simplement le bloc ci-dessous.
+            //
+            // if (cartTrips.length > 0) {
+            //     renderTripsCart();
+            // }
+
+            // Nettoyage préventif : purge tout panier résiduel (y compris en mémoire BFCache)
+            cartTrips = [];
         });
     };
 
@@ -2683,8 +3041,12 @@
         const boosterMinusBtn = checkoutRoot.querySelector('.etb-booster-minus');
         const boosterPlusBtn  = checkoutRoot.querySelector('.etb-booster-plus');
         const boosterInput    = checkoutRoot.querySelector('#etb-chk-booster-seats');
-
-        // Champs de carte bancaire & Initialisation Stripe
+   // Champs de carte bancaire & Initialisation Stripe
+        // Note (#17 revert) : ces 3 variables ciblent des sélecteurs qui n'existent
+        // pas dans le template (Stripe Elements est utilisé). Les querySelector
+        // retournent null → les blocs `if (cardNumInput)` plus bas sont inertes.
+        // MAIS leur suppression totale (déclaration + tous les if) est trop risquée
+        // pour un gain cosmétique → on les laisse en place.
         const cardNumInput    = checkoutRoot.querySelector('#etb-card-number');
         const cardExpInput    = checkoutRoot.querySelector('#etb-card-expiry');
         const cardCvcInput    = checkoutRoot.querySelector('#etb-card-cvc');
@@ -3230,8 +3592,8 @@
 
                     if (isPickupAirport) {
                         airportCard.style.display = 'block';
-                        if (airportTitle) airportTitle.textContent = 'Airport Arrival & Greeting';
-                        if (airportDesc)  airportDesc.textContent  = 'Real-time flight tracking included. Your chauffeur tracks your flight and adjusts pickup time automatically.';
+                        if (airportTitle) airportTitle.textContent = 'Airport Arrival';
+                        if (airportDesc)  airportDesc.textContent  = 'Real-time flight tracking included.';
                         if (flightLabel)  flightLabel.textContent  = 'Flight Number';
                         if (flightHint)   flightHint.textContent   = '1 hour free waiting time after landing.';
                         if (signField)    signField.style.display  = 'block';
@@ -3552,8 +3914,8 @@
 
                     if (isPickupApt) {
                         airportCard.style.display = 'block';
-                        if (airportTitle) airportTitle.textContent = `Airport Arrival & Greeting (Trip #${targetIdx + 1})`;
-                        if (airportDesc)  airportDesc.textContent  = 'Real-time flight tracking included. Your chauffeur adjusts pickup time automatically.';
+                        if (airportTitle) airportTitle.textContent = `Airport Arrival (Trip #${targetIdx + 1})`;
+                        if (airportDesc)  airportDesc.textContent  = 'Real-time flight tracking included.';
                         if (flightLabel)  flightLabel.textContent  = 'Flight Number';
                         if (flightHint)   flightHint.textContent   = '1 hour free waiting time after landing.';
                         if (signField)    signField.style.display  = 'block';
@@ -4458,45 +4820,15 @@
         const stripe = Stripe(etbAjax.stripe_pk);
         const elements = stripe.elements();
 
-        // ── 1. Montage du bouton Apple Pay / Google Pay (Payment Request) ──
-        const walletWrapper = payRoot.querySelector('#etb-wallet-payment-wrapper');
-        const initialAmount = parseMoneyValue(amountInput ? amountInput.value : 0);
-        const bookingIdVal  = payRoot.querySelector('#etb-pay-booking-id')?.value || '';
+                // NOTE (Modification #6) : le bloc de "Payment Request" historique a été
+        // supprimé car :
+        //   - il utilisait une variable non déclarée `paymentRequest` (ReferenceError en strict mode),
+        //   - il ciblait des sélecteurs inexistants (#etb-wallet-payment-wrapper, #etb-payment-request-button),
+        //   - il était redondant avec le moteur officiel Apple/Google Pay situé plus bas
+        //     (fonction `walletPaymentRequest.canMakePayment()` — voir plus bas dans le fichier).
+        // Le vrai moteur Wallet reste intact et fonctionnel.
 
-        if (walletWrapper && initialAmount > 0) {
-            paymentRequest = stripe.paymentRequest({
-                country: (countryEl && countryEl.value) ? countryEl.value : 'FR',
-                currency: 'eur',
-                total: {
-                    label: 'Booking #' + bookingIdVal,
-                    amount: Math.round(initialAmount * 100),
-                },
-                requestPayerName: true,
-                requestPayerEmail: true,
-            });
-
-            const isDark = document.documentElement.getAttribute('data-etb-theme') !== 'light' 
-                        && localStorage.getItem('etb_theme_mode') !== 'light';
-
-            const prButton = elements.create('paymentRequestButton', {
-                paymentRequest: paymentRequest,
-                style: {
-                    paymentRequestButton: {
-                        type: 'default',
-                        theme: isDark ? 'dark' : 'light',
-                        height: '46px',
-                    },
-                },
-            });
-
-            // Affichage conditionnel : uniquement si le wallet est supporté sur l'appareil
-            paymentRequest.canMakePayment().then(function (result) {
-                if (result) {
-                    prButton.mount('#etb-payment-request-button');
-                    walletWrapper.style.display = 'block';
-                }
-            });
-        }
+        // Style adaptatif Dark / Light
 
         // Style adaptatif Dark / Light
         const getElementStyle = () => {
@@ -4619,8 +4951,10 @@
                 intentData.append('currency', 'eur');
                 intentData.append('name', cardholderVal);
                 intentData.append('email', emailVal);
-                intentData.append('route', 'Settlement Mission ' + missionDisplayRef);
-
+                                intentData.append('route', 'Settlement Mission ' + missionDisplayRef);
+                intentData.append('booking_id', bookingIdVal);
+                intentData.append('tip_percentage', payRoot.querySelector('#etb-pay-tip-percent')?.value || '0');
+                intentData.append('tip_amount', payRoot.querySelector('#etb-pay-tip-amount')?.value || '0');
                 try {
                     const intentRes = await fetch(etbAjax.ajax_url, { method: 'POST', body: intentData }).then(r => r.json());
                     if (!intentRes.success) {
@@ -4743,6 +5077,9 @@
                     intentData.append('phone', payRoot.querySelector('#etb-pay-client-phone')?.value || '');
                     intentData.append('country', countryVal);
                     intentData.append('route', 'Online Settlement Mission ' + missionRef);
+                    intentData.append('booking_id', bookingIdVal);
+                    intentData.append('tip_percentage', payRoot.querySelector('#etb-pay-tip-percent')?.value || '0');
+                    intentData.append('tip_amount', payRoot.querySelector('#etb-pay-tip-amount')?.value || '0');
 
                     const intentRes = await fetch(etbAjax.ajax_url, { method: 'POST', body: intentData }).then(r => r.json());
 
@@ -4945,7 +5282,125 @@
     } else {
         startApp();
     }
+
+    // ==========================================================================
+    // MODULE LIGHTBOX : VISIONNEUSE PHOTO VIP (BENTO GALLERY)
+    // ==========================================================================
+    var lightbox = document.getElementById('etb-vip-lightbox');
+    if (lightbox) {
+        var lbImg     = lightbox.querySelector('.etb-lightbox-img');
+        var lbPrev    = lightbox.querySelector('.etb-lightbox-prev');
+        var lbNext    = lightbox.querySelector('.etb-lightbox-next');
+        var lbClose   = lightbox.querySelector('.etb-lightbox-close');
+        var lbCurrent = document.getElementById('etb-lb-current');
+        var lbTotal   = document.getElementById('etb-lb-total');
+        
+        var galleryImages = [];
+        var currentIndex = 0;
+
+        var galleryContainer = document.querySelector('.co-vip-bento-gallery');
+        if (galleryContainer) {
+            var rawGallery = galleryContainer.getAttribute('data-gallery');
+            if (rawGallery) {
+                try { 
+                    galleryImages = JSON.parse(rawGallery); 
+                } catch (e) {
+                    galleryImages = [];
+                }
+            }
+
+            if (galleryImages.length > 0) {
+                // Liaison directe sur les conteneurs Bento
+                var bentoItems = galleryContainer.querySelectorAll('.co-bento-item');
+                bentoItems.forEach(function(item, fallbackIdx) {
+                    item.style.cursor = 'pointer';
+                    item.addEventListener('click', function(e) {
+                        var idxAttr = item.getAttribute('data-index');
+                        var idx = (idxAttr !== null) ? parseInt(idxAttr, 10) : fallbackIdx;
+                        openLightbox(isNaN(idx) ? 0 : idx);
+                    });
+                });
+                
+                // Liaison sur le badge "Gallery"
+                var galleryBadge = galleryContainer.querySelector('.co-bento-badge');
+                if (galleryBadge) {
+                    galleryBadge.style.cursor = 'pointer';
+                    galleryBadge.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        var badgeIdxAttr = galleryBadge.getAttribute('data-index');
+                        var targetIdx = (badgeIdxAttr !== null) ? parseInt(badgeIdxAttr, 10) : (galleryImages.length > 3 ? 3 : 0);
+                        openLightbox(isNaN(targetIdx) ? 0 : targetIdx);
+                    });
+                }
+            }
+        }
+
+        function openLightbox(index) {
+            if (!galleryImages || galleryImages.length === 0) return;
+            if (index < 0) index = 0;
+            if (index >= galleryImages.length) index = galleryImages.length - 1;
+            currentIndex = index;
+            updateLightboxContent();
+            lightbox.classList.add('etb-lightbox-active');
+            document.body.style.overflow = 'hidden'; 
+        }
+
+        function closeLightbox() {
+            lightbox.classList.remove('etb-lightbox-active');
+            document.body.style.overflow = '';
+        }
+
+        function updateLightboxContent() {
+            if (!galleryImages[currentIndex]) return;
+            lbImg.style.opacity = '0';
+            setTimeout(function() {
+                lbImg.src = galleryImages[currentIndex];
+                lbImg.style.opacity = '1';
+            }, 120);
+            
+            if (lbCurrent) lbCurrent.textContent = currentIndex + 1;
+            if (lbTotal) lbTotal.textContent = galleryImages.length;
+            
+            if (lbPrev) lbPrev.style.display = (currentIndex === 0) ? 'none' : 'flex';
+            if (lbNext) lbNext.style.display = (currentIndex === galleryImages.length - 1) ? 'none' : 'flex';
+        }
+
+        if (lbClose) lbClose.addEventListener('click', closeLightbox);
+        if (lbNext) lbNext.addEventListener('click', function() { 
+            if (currentIndex < galleryImages.length - 1) { 
+                currentIndex++; 
+                updateLightboxContent(); 
+            } 
+        });
+        if (lbPrev) lbPrev.addEventListener('click', function() { 
+            if (currentIndex > 0) { 
+                currentIndex--; 
+                updateLightboxContent(); 
+            } 
+        });
+        
+        lightbox.addEventListener('click', function(e) {
+            if (e.target === lightbox) closeLightbox();
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (!lightbox.classList.contains('etb-lightbox-active')) return;
+            if (e.key === 'Escape') closeLightbox();
+            if (e.key === 'ArrowRight' && currentIndex < galleryImages.length - 1) { 
+                currentIndex++; 
+                updateLightboxContent(); 
+            }
+            if (e.key === 'ArrowLeft' && currentIndex > 0) { 
+                currentIndex--; 
+                updateLightboxContent(); 
+            }
+        });
+    }
 })();
+
+
+
+
 
 
 

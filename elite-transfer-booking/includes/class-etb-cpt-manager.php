@@ -7,6 +7,7 @@ class ETB_CPT_Manager {
         add_filter( 'manage_tour_booking_posts_columns', array( $this, 'set_booking_columns' ) );
         add_action( 'manage_tour_booking_posts_custom_column', array( $this, 'render_booking_columns' ), 10, 2 );
         add_action( 'admin_menu', array( $this, 'cleanup_admin_submenus' ), 999 );
+        add_action( 'admin_menu', array( $this, 'add_circuit_category_submenu' ), 100 );
     }
 
     public function register_all_cpts() {
@@ -176,5 +177,23 @@ class ETB_CPT_Manager {
 
     public function cleanup_admin_submenus() {
         remove_submenu_page( 'edit.php?post_type=tour_booking', 'post-new.php?post_type=tour_booking' );
+    }
+
+
+    /**
+     * Ajoute le sous-menu « Catégories » sous « Circuits & Tours ».
+     * Le CPT circuit est rattaché à tour_booking (show_in_menu), donc le parent
+     * est 'edit.php?post_type=tour_booking'.
+     */
+    public function add_circuit_category_submenu() {
+        add_submenu_page(
+            'edit.php?post_type=tour_booking',
+            __( 'Catégories de circuits', 'elite-transfer-booking' ),
+            __( 'Catégories', 'elite-transfer-booking' ),
+            'manage_categories',
+            'edit-tags.php?taxonomy=circuit_category&post_type=circuit',
+            '',
+            3 // Position : juste après « Circuits & Tours », avant « Véhicules »
+        );
     }
 }
