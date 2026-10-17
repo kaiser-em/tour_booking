@@ -801,8 +801,20 @@ class ETB_Meta_Manager {
             <span class="description">Collez l'URL de votre fichier GIF animé (téléversé dans Médias WP).</span>
         </p>
 
+                </p>
+
+        <!-- ⭐ Mise en avant du véhicule (badge Signature) -->
+        <p style="background: #fff8ec; border-left: 3px solid #ba6827; padding: 10px 12px; border-radius: 4px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
+                <input type="checkbox" name="etb_vehicle_featured" value="1" <?php checked( get_post_meta( $post->ID, '_etb_vehicle_featured', true ), '1' ); ?>>
+                <strong><span class="dashicons dashicons-star-filled" style="color: #ba6827; font-size: 16px; width: 16px; height: 16px; vertical-align: middle;"></span> Mettre ce véhicule en avant (badge « Signature »)</strong>
+            </label>
+            <span class="description" style="display: block; margin-top: 4px; font-size: 11px;">Le véhicule apparaîtra avec un badge distinctif dans la grille.</span>
+        </p>
+
+
         
-            <?php 
+                   <?php 
             // Vérification de l'application de dispatch active
             $gen_settings      = get_option( 'etb_general_settings', array() );
             $active_dispatcher = $gen_settings['active_dispatcher'] ?? 'none';
@@ -1346,6 +1358,7 @@ class ETB_Meta_Manager {
                 update_post_meta( $post_id, '_etb_max_pax', absint( $_POST['etb_max_pax'] ?? 0 ) );
                 update_post_meta( $post_id, '_etb_max_baggage', absint( $_POST['etb_max_bag'] ?? 0 ) );
                 update_post_meta( $post_id, '_etb_hover_image', esc_url_raw( $_POST['etb_hover_image'] ?? '' ) );
+                update_post_meta( $post_id, '_etb_vehicle_featured', isset( $_POST['etb_vehicle_featured'] ) ? '1' : '0' );
 
                 // Sauvegarde de l'ID LimoExpress
                 $limo_class_id = isset( $_POST['etb_limo_class_id'] ) ? sanitize_text_field( trim( $_POST['etb_limo_class_id'] ) ) : '';

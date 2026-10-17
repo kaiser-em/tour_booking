@@ -33,18 +33,8 @@ if ( ! $booking_id && ! empty( $_GET['booking_id'] ) ) {
 
 $has_valid_booking = ( $booking_id > 0 && 'tour_booking' === get_post_type( $booking_id ) );
 
-if ( isset( $_GET['debug'] ) && current_user_can( 'manage_options' ) ) {
-    echo '<div style="background:#000;color:#0f0;padding:20px;font-family:monospace;font-size:12px;z-index:99999;position:relative;">';
-    echo '=== DIAGNOSTIC WORDPRESS & LIMOEXPRESS ===<br>';
-    echo 'Booking ID WP : ' . esc_html( $booking_id ) . '<br>';
-    echo '_etb_total_price : ' . var_export( get_post_meta( $booking_id, '_etb_total_price', true ), true ) . '<br>';
-    echo '_etb_limo_booking_id : ' . var_export( get_post_meta( $booking_id, '_etb_limo_booking_id', true ), true ) . '<br>';
-    echo '_etb_limo_uuid : ' . var_export( get_post_meta( $booking_id, '_etb_limo_uuid', true ), true ) . '<br>';
-    echo '_etb_limo_raw_create_response : ' . esc_html( get_post_meta( $booking_id, '_etb_limo_raw_create_response', true ) ) . '<br>';
-    echo '</div>';
-}
-
-
+// #24 : bloc de debug retiré (exposait des métadonnées sensibles via ?debug=1).
+// Pour un diagnostic temporaire, utilisez WP-CLI ou les outils Local WP.
 
 // 2. Contrôle de sécurité cryptographique anti-falsification
 //$url_amount      = isset( $_GET['amount'] ) ? floatval( $_GET['amount'] ) : 0.0;
@@ -718,20 +708,6 @@ $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_s
                             </div>
                         </div>
 
-                        <!-- 3. VOLET GOOGLE PAY -->
-                        <div id="etb-panel-google-pay" class="etb-pay-panel" style="display: none; margin-bottom: 20px;">
-                            <div id="etb-google-pay-mount" style="min-height: 48px; display: none;"></div>
-                            <div id="etb-google-pay-fallback" style="display: block; padding: 22px 18px; border-radius: 10px; background: rgba(255,255,255,0.03); border: 1px solid var(--etb-border-light, rgba(255,255,255,0.08)); text-align: center;">
-                                <div style="font-size: 22px; font-weight: 800; margin-bottom: 8px; color: #4285F4; line-height: 1;">G Pay</div>
-                                <strong style="display: block; font-size: 14px; margin-bottom: 6px; color: var(--etb-text-primary, #ffffff);">Google Pay is not available on this device</strong>
-                                <p style="font-size: 12px; color: var(--etb-text-secondary, #94a3b8); margin: 0 0 16px 0; line-height: 1.5;">
-                                    Google Pay requires Google Chrome or an Android device linked with an active Google Wallet card.
-                                </p>
-                                <button type="button" class="etb-switch-to-card-btn" style="background: var(--etb-accent-gold, #fbac18); color: #000; border: none; padding: 10px 20px; border-radius: 6px; font-weight: 700; font-size: 12px; cursor: pointer;">
-                                    Pay with Credit Card instead ➔
-                                </button>
-                            </div>
-                        </div>
                         <!-- 4. DÉBUT DU VOLET CARTE BANCAIRE (Actif par défaut) -->
                         <div id="etb-panel-card" class="etb-pay-panel">
                         
@@ -904,11 +880,12 @@ $formatted_amount = number_format_i18n( $settled_amount, 2 ) . ' ' . $currency_s
                             </div>
 
 
-                            <!-- Émoji persistant sous les pilules (dynamique et interactif au survol) -->
+                             <!-- Émoji persistant sous les pilules (dynamique et interactif au survol) -->
                             <?php
-                            $noto_initial_codes = array( 10 => '1f64f', 15 => '1f929', 20 => '1f60d' );
-                            $initial_code       = $noto_initial_codes[ $saved_tip_percent ] ?? '';
+                            // Note (#15) : $noto_initial_codes et $initial_code sont déjà définis
+                            // plus haut dans le template (ligne ~147). Pas de redéfinition ici.
                             ?>
+                            
                             <div class="etb-tip-persistent-badge" style="display: <?php echo ( $saved_tip_percent > 0 && $initial_code ) ? 'flex' : 'none'; ?>; cursor: pointer;" title="Hover to animate">
                                 <img class="etb-tip-badge-img" src="<?php echo $initial_code ? esc_url( 'https://fonts.gstatic.com/s/e/notoemoji/latest/' . $initial_code . '/512.webp' ) : ''; ?>" alt="tip-emoji">
                             </div>

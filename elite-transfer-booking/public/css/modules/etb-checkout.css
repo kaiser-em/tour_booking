@@ -59,7 +59,7 @@
 .etb-checkout-layout {
     display: grid !important;
     grid-template-columns: 1.4fr 1fr !important;
-    gap: 35px !important;
+    gap: 15px !important;
     /* La grille s'étire naturellement sur la hauteur de la colonne gauche */
 }
 
@@ -573,6 +573,8 @@
     display: inline-flex !important;
     align-items: center !important;
     gap: 6px !important;
+    white-space: nowrap !important; /* 🔒 Empêche "3 Passengers" de se couper en 2 lignes */
+    flex-shrink: 0 !important;      /* 🔒 Empêche le flexbox de compresser la spec */
 }
 
 .etb-summary-spec-item svg {
@@ -1606,19 +1608,19 @@
 
 /* ── ÉTAT LIGHT MODE (Pastille à gauche) ── */
 [data-etb-theme="light"] .etb-switch-track {
-    background: #e2e8f0 !important;
-    border-color: #cbd5e1 !important;
+    background: #f8fafc !important;   /* Fond plus clair pour détacher la pastille or */
+    border-color: #94a3b8 !important; /* Bordure grise plus affirmée */
 }
 [data-etb-theme="light"] .etb-theme-switch:hover .etb-switch-track {
-    border-color: #94a3b8 !important;
+    border-color: #475569 !important;
 }
 [data-etb-theme="light"] .etb-switch-thumb {
     transform: translateX(0) !important; /* Coulisse à gauche */
-    background: #ffffff !important;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.15) !important;
+    background: #fbac18 !important;      /* Pastille OR (cohérence brand) */
+    box-shadow: 0 2px 6px rgba(251, 172, 24, 0.5) !important;
 }
 [data-etb-theme="light"] .etb-icon-sun { opacity: 0 !important; } /* Masqué sous la pastille */
-[data-etb-theme="light"] .etb-icon-moon { color: #64748b !important; }
+[data-etb-theme="light"] .etb-icon-moon { color: #0f172a !important; } /* Lune bien contrastée */
 
 
 [data-etb-theme="dark"] #etb-chk-tip-row,
@@ -1631,8 +1633,25 @@
 /* ==========================================================================
 
 
+/* ── BASCULE DES LABELS SPECS (Ride Summary) ──
+   Version longue "Passengers / Luggage" affichée par défaut.
+   Version courte "Pax / Bag" activée automatiquement sous 1100px
+   pour préserver la lisibilité de la carte sticky en tablette. */
+.etb-spec-short {
+    display: none !important;
+}
+
+@media (max-width: 1200px) {
+    .etb-spec-long {
+        display: none !important;
+    }
+    .etb-spec-short {
+        display: inline !important;
+    }
+}
+
 /* ── RESPONSIVE CHECKOUT ── */
-@media (max-width: 900px) {
+@media (max-width: 980px) {
     .etb-checkout-layout {
         grid-template-columns: 1fr !important;
         gap: 25px !important;
@@ -1645,6 +1664,9 @@
     .etb-chk-sticky-card {
         position: static !important;
     }
+
+
+
 }
 
 

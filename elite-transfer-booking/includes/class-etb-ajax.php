@@ -429,13 +429,25 @@ class ETB_Ajax {
             wp_send_json_error( array( 'message' => 'Trop de demandes de calcul de tarif. Veuillez patienter quelques instants avant de réessayer.' ) );
         }
         
-        $from_lat = floatval( $_POST['from_lat'] ?? 0 );
+                $from_lat = floatval( $_POST['from_lat'] ?? 0 );
         $from_lng = floatval( $_POST['from_lng'] ?? 0 );
         $to_lat   = floatval( $_POST['to_lat'] ?? 0 );
         $to_lng   = floatval( $_POST['to_lng'] ?? 0 );
 
         if ( empty( $from_lat ) || empty( $from_lng ) || empty( $to_lat ) || empty( $to_lng ) ) {
             wp_send_json_error( array( 'message' => 'Coordonnées GPS incomplètes pour calculer le trajet.' ) );
+        }
+
+        // (#23) Validation stricte de la plage lat/lng.
+        // Empêche l'envoi de valeurs aberrantes (ex: lat=9999) à l'API LimoExpress.
+        // Bornes standards : lat ∈ [-90, 90] et lng ∈ [-180, 180].
+        if (
+            $from_lat < -90.0  || $from_lat > 90.0  ||
+            $to_lat   < -90.0  || $to_lat   > 90.0  ||
+            $from_lng < -180.0 || $from_lng > 180.0 ||
+            $to_lng   < -180.0 || $to_lng   > 180.0
+        ) {
+            wp_send_json_error( array( 'message' => 'Coordonnées GPS invalides.' ) );
         }
 
         $settings = get_option( 'etb_general_settings', array() );
@@ -552,8 +564,17 @@ class ETB_Ajax {
         $tip_percentage     = max( 0, absint( $_POST['etb_driver_tip'] ?? 0 ) );
         $tip_amount         = max( 0.0, floatval( $_POST['etb_tip_amount'] ?? 0.0 ) );
         
-        // ── LECTURE DES DONNÉES SPÉCIFIQUES PAR TRAJET (Onglets du Checkout) ──
-        $legs_data_raw      = ! empty( $_POST['etb_legs_data'] ) ? json_decode( wp_unslash( $_POST['etb_legs_data'] ), true ) : array();
+                // ── LECTURE DES DONNÉES SPÉCIFIQUES PAR TRAJET (Onglets du Checkout) ──
+        // Validation stricte : on attend un tableau JSON. Toute valeur null, scalaire
+        // ou JSON invalide est remplacée par un tableau vide pour éviter les
+        // "Trying to access array offset on value of type null" en aval.
+        $legs_data_raw = array();
+        if ( ! empty( $_POST['etb_legs_data'] ) ) {
+            $decoded_legs = json_decode( wp_unslash( $_POST['etb_legs_data'] ), true );
+            if ( is_array( $decoded_legs ) ) {
+                $legs_data_raw = $decoded_legs;
+            }
+        }
 
         $full_name = trim( $first_name . ' ' . $last_name );
 
@@ -577,12 +598,16 @@ class ETB_Ajax {
             wp_send_json_error( array( 'message' => 'Date and time are required.' ) );
         }
 
-        // Contrôle anti-heure passée (Marge 3 minutes)
+                // Contrôle anti-heure passée (Marge 3 minutes)
+        // Note (Modif #8) : time() retourne un vrai Unix timestamp UTC,
+        // cohérent avec strtotime() sur un site WP (PHP forcé en UTC).
+        // current_time('timestamp') est dépréciée depuis WP 5.3 et retourne
+        // un faux timestamp (time() + offset local) — dangereux en comparaison.
         $pickup_ts = strtotime( $date . ' ' . trim( $time ) );
         if ( ! $pickup_ts ) {
             $pickup_ts = strtotime( $date . ' ' . substr( trim( $time ), 0, 5 ) . ':00' );
         }
-        if ( $pickup_ts && $pickup_ts < ( current_time( 'timestamp' ) - 180 ) ) {
+        if ( $pickup_ts && $pickup_ts < ( time() - 180 ) ) {
             wp_send_json_error( array( 'message' => 'The pickup date and time cannot be in the past.' ) );
         }
         if ( ! $vehicle_id || get_post_type( $vehicle_id ) !== 'tour_vehicle' ) {
@@ -762,7 +787,15 @@ class ETB_Ajax {
         $stripe_note_info = ! empty( $stripe_url ) ? "\n💳 PAIEMENT STRIPE : " . $stripe_url . "\n" : "";
 
         // 6. Préparation des données et génération systématique du jeton de paiement scellé
-        $pay_token = 'q_pay_' . substr( md5( uniqid( (string) wp_rand(), true ) ), 0, 8 );
+              // 16 octets (128 bits d'entropie) encodés en hexadécimal = 32 caractères.
+        // Le token de paiement a une durée de vie longue (14 jours) : l'entropie
+        // renforcée est indispensable pour prévenir toute énumération.
+        try {
+            $pay_token = 'q_pay_' . bin2hex( random_bytes( 16 ) );
+        } catch ( \Exception $e ) {
+            wp_send_json_error( array( 'message' => 'Server entropy unavailable. Please retry.' ) );
+            return;
+        }
         $pay_transient_data = array(
             'booking_id'   => $booking_id,
             'client_name'  => $full_name,
@@ -889,9 +922,54 @@ class ETB_Ajax {
         $limo_ids_list     = array();
         $limo_uuids_list   = array();
 
+        // Initialisation rétrocompatible : sera renseigné par la branche mono-trajet
+        // (ou laissé vide en multi-trajets, où $combined_limo_ref fait foi).
+        $limo_official_id = '';
+
         if ( $is_multi_trip_order && count( $order_trips ) > 1 ) {
             // ── MULTI-TRAJETS : ENVOI D'UNE RÉSERVATION PAR TRAJET DANS LIMOEXPRESS ──
             $total_legs = count( $order_trips );
+
+            // ─────────────────────────────────────────────────────────────────────
+            // Pré-construction des variables partagées par chaque sous-trajet.
+            // Évite les "Undefined variable" dans $leg_op_details et dans le
+            // dispatcher_alert construit plus bas.
+            // ─────────────────────────────────────────────────────────────────────
+
+            // 1. Détail textuel des sièges enfants (partagé pour toute la commande)
+            $seats_info = '';
+            if ( $baby_seat_count > 0 || $booster_seat_count > 0 ) {
+                $seats_parts = array();
+                if ( $baby_seat_count > 0 ) {
+                    $seats_parts[] = sprintf( '%d Siège(s) Bébé (0-2 ans)', $baby_seat_count );
+                }
+                if ( $booster_seat_count > 0 ) {
+                    $seats_parts[] = sprintf( '%d Rehausseur(s) / Booster (2-10 ans)', $booster_seat_count );
+                }
+                $seats_info = "👶 SIÈGES ENFANTS : " . implode( ' + ', $seats_parts ) . "\n";
+            }
+
+            // 2. Référence de facturation (Cost Center)
+            $ref_info = ! empty( $cost_center ) ? "🏢 RÉF : " . trim( $cost_center ) . "\n" : '';
+
+            // 3. Extras — Flux Checkout Blacklane : aucun extra par trajet
+            $extras_summary = '';
+
+            // 4. Bloc Stripe (lien direct vers la transaction dans le Dashboard)
+            $stripe_block = '';
+            if ( ! empty( $intent_id ) && ! empty( $stripe_url ) ) {
+                $stripe_block = sprintf(
+                    "═PAIEMENT STRIPE (EMPREINTE)═\n" .
+                    "💳 ID Transaction : %s\n" .
+                    "🔗 LIEN DIRECT STRIPE :\n%s\n" .
+                    "\n\n",
+                    $intent_id,
+                    $stripe_url
+                );
+            }
+
+            // 5. Info promo — Flux Checkout Blacklane : pas de code promo
+            $promo_info = '';
 
             foreach ( $order_trips as $leg_idx => $leg ) {
                 $leg_num = $leg_idx + 1;
@@ -1224,7 +1302,7 @@ class ETB_Ajax {
             // ─────────────────────────────────────────────────────────────
             // EMAIL 3: PAY LATER OPTION (PENDING PAYMENT)
             // ─────────────────────────────────────────────────────────────
-            $is_pay_later = ! empty( $_POST['etb_pay_later'] );
+           
 
             // Construction du tableau d'itinéraire (Multi-trajets exhaustif ou Mono-trajet)
             $itinerary_table_html = '';
@@ -1480,8 +1558,17 @@ class ETB_Ajax {
         $primary_trip = $sanitized_trips[0];
         $final_price  = $has_quote_in_cart ? 'Custom Quote' : (float) round( $total_cart_price, 2 );
 
-        // 4. Génération du jeton aléatoire unique cryptographique
-        $token = 'q_' . substr( md5( uniqid( (string) wp_rand(), true ) ), 0, 8 );
+                // 4. Génération du jeton aléatoire cryptographiquement sûr.
+        // 16 octets (128 bits d'entropie) encodés en hexadécimal = 32 caractères.
+        // Conforme OWASP pour les tokens anti-CSRF / anti-replay à usage unique.
+        try {
+            $token = 'q_' . bin2hex( random_bytes( 16 ) );
+        } catch ( \Exception $e ) {
+            // Fallback improbable si random_bytes indisponible (PHP < 7.0) :
+            // on abandonne la génération (mieux vaut refuser que servir un token faible).
+            wp_send_json_error( array( 'message' => 'Server entropy unavailable. Please retry.' ) );
+            return;
+        }
 
         // 5. Enregistrement du devis complet scellé dans la mémoire WordPress (Transient 30 minutes)
         $quote_data = array(
@@ -1502,7 +1589,8 @@ class ETB_Ajax {
             'pax'           => $primary_trip['pax'],
             'bag'           => $primary_trip['bag'],
             'price'         => $final_price,
-            'created_at'    => current_time( 'timestamp' ),
+            // Note (Modif #8) : time() = vrai Unix timestamp UTC (audit interne uniquement).
+            'created_at'    => time(),
         );
 
         set_transient( 'etb_quote_' . $token, $quote_data, 30 * MINUTE_IN_SECONDS );
@@ -1542,16 +1630,91 @@ class ETB_Ajax {
             require_once ETB_PATH . 'includes/class-etb-stripe.php';
         }
 
-       // 3. Récupération et assainissement des données de transaction
-        $name       = sanitize_text_field( $_POST['name'] ?? 'VIP Customer' );
-        $email      = sanitize_email( $_POST['email'] ?? '' );
-        $phone      = sanitize_text_field( $_POST['phone'] ?? '' );
-        $country    = sanitize_text_field( $_POST['country'] ?? 'FR' );
-        $amount     = max( 0.0, floatval( $_POST['amount'] ?? 0.0 ) );
-        $currency   = sanitize_text_field( $_POST['currency'] ?? 'eur' );
-        $route_info = sanitize_text_field( $_POST['route'] ?? 'VIP Ride' );
-        $car_name   = sanitize_text_field( $_POST['vehicle_name'] ?? 'Chauffeured Vehicle' );
+        // 3. Récupération et assainissement des données de transaction
+        $name           = sanitize_text_field( $_POST['name'] ?? 'VIP Customer' );
+        $email          = sanitize_email( $_POST['email'] ?? '' );
+        $phone          = sanitize_text_field( $_POST['phone'] ?? '' );
+        $country        = sanitize_text_field( $_POST['country'] ?? 'FR' );
+        $client_amount  = max( 0.0, floatval( $_POST['amount'] ?? 0.0 ) );
+        $currency       = sanitize_text_field( $_POST['currency'] ?? 'eur' );
+        $route_info     = sanitize_text_field( $_POST['route'] ?? 'VIP Ride' );
+        $car_name       = sanitize_text_field( $_POST['vehicle_name'] ?? 'Chauffeured Vehicle' );
+        $booking_id     = absint( $_POST['booking_id'] ?? 0 );
+        $tip_percentage = absint( $_POST['tip_percentage'] ?? 0 );
+        $client_tip     = max( 0.0, floatval( $_POST['tip_amount'] ?? 0.0 ) );
 
+        // ──────────────────────────────────────────────────────────────────────
+        // Sous-étape 1.2 : Calcul serveur du montant officiel (anti-fraude).
+        // Le montant envoyé par le client ($client_amount) est désormais
+        // considéré comme purement indicatif. Le montant réellement transmis à
+        // Stripe est recalculé depuis les données en base (source de vérité),
+        // en y ajoutant le pourboire volontaire du client.
+        // ──────────────────────────────────────────────────────────────────────
+        $amount = 0.0;
+
+        if ( $booking_id > 0 && get_post_type( $booking_id ) === 'tour_booking' ) {
+
+            // 1. Tarif de base (ou total de secours si base non ventilée)
+            $db_base_price  = floatval( get_post_meta( $booking_id, '_etb_base_price', true ) );
+            $db_total_price = floatval( get_post_meta( $booking_id, '_etb_total_price', true ) );
+            $child_seat_fee = floatval( get_post_meta( $booking_id, '_etb_child_seat_fee', true ) );
+
+            // Reproduction exacte de la logique de handle_settle_quote_payment()
+            $expected_base = ( $db_base_price > 0 )
+                ? ( $db_base_price + $child_seat_fee )
+                : $db_total_price;
+
+            if ( $expected_base <= 0 ) {
+                wp_send_json_error( array(
+                    'message' => 'Payment cannot be initialized: the booking amount is not set yet.',
+                ) );
+            }
+
+            // 2. Validation stricte du pourboire (whitelist des pourcentages autorisés)
+            $allowed_tip_percentages = array( 0, 10, 15, 20 );
+            if ( ! in_array( $tip_percentage, $allowed_tip_percentages, true ) ) {
+                $tip_percentage = 0;
+            }
+
+            // 3. Recalcul serveur du pourboire — on ne fait JAMAIS confiance au POST
+            $server_tip_amount = ( $tip_percentage > 0 )
+                ? (float) round( $db_base_price * ( $tip_percentage / 100 ), 2 )
+                : 0.0;
+
+            // 4. Montant officiel final
+            $amount = (float) round( $expected_base + $server_tip_amount, 2 );
+
+            // 5. Journalisation en cas d'écart significatif avec le client (> 1 centime)
+            //    Utile pour détecter les tentatives de manipulation en production.
+            if ( abs( $client_amount - $amount ) > 0.01 ) {
+                error_log( sprintf(
+                    '[ETB Security] PaymentIntent amount mismatch on booking #%d — client: %.2f, server: %.2f (tip: %d%%)',
+                    $booking_id,
+                    $client_amount,
+                    $amount,
+                    $tip_percentage
+                ) );
+            }
+
+        } elseif ( $booking_id > 0 ) {
+            // booking_id fourni mais le post n'est pas un tour_booking → rejet
+            wp_send_json_error( array( 'message' => 'Invalid booking reference.' ) );
+
+        } else {
+            // ── Rétrocompatibilité : appel legacy sans booking_id ──
+            // (vieux JS en cache, appel manuel, etc.) — on accepte le montant
+            // client pour ne rien casser, mais on log un avertissement.
+            $amount = $client_amount;
+
+            if ( $amount > 0 ) {
+                error_log( sprintf(
+                    '[ETB Legacy] PaymentIntent without booking_id — fallback to client amount %.2f',
+                    $client_amount
+                ) );
+            }
+        }
+
+        // Validation finale
         if ( $amount <= 0 ) {
             wp_send_json_error( array( 'message' => 'Invalid payment amount.' ) );
         }
@@ -1592,11 +1755,16 @@ class ETB_Ajax {
         }
 
         // 7. Transmission du client_secret au navigateur pour sécurisation 3D Secure
-        wp_send_json_success( array(
+               wp_send_json_success( array(
             'client_secret'     => $intent_res['client_secret'],
             'payment_intent_id' => $intent_res['id'],
             'customer_id'       => $customer_id,
             'capture_method'    => $capture_method,
+            // Diagnostics : montant recalculé côté serveur (identique à celui
+            // transmis à Stripe). Visible par le client, mais déjà connu de lui
+            // via l'interface Stripe.js. Utilisé principalement pour les tests.
+            'computed_amount'   => $amount,
+            'booking_id'        => $booking_id,
         ) );
     }
 
@@ -1649,12 +1817,46 @@ class ETB_Ajax {
 
         // Le montant total officiel = tarif base garanti en base + pourboire validé
         $official_grand_total = (float) round( $expected_base + $tip_amount, 2 );
-
         // 4. Définition des réglages généraux et devise
         $gen_settings   = get_option( 'etb_general_settings', array() );
         $stripe_enabled = ! empty( $gen_settings['stripe_enabled'] ) && '1' === $gen_settings['stripe_enabled'];
         $stripe_mode    = ( isset( $gen_settings['stripe_mode'] ) && 'live' === $gen_settings['stripe_mode'] ) ? 'live' : 'test';
         $currency_sym   = ! empty( $gen_settings['currency'] ) ? sanitize_text_field( $gen_settings['currency'] ) : '€';
+
+        // ─────────────────────────────────────────────────────────────────
+        // #14 : Recalcul de l'urgence à la confirmation finale.
+        // Le flag _etb_is_urgent peut avoir été défini à la création (ex: J+7),
+        // alors que le pickup est maintenant imminent (< 24h). On le met à jour
+        // pour refléter la réalité au moment du paiement et garantir l'intégrité
+        // des données (meta box admin, rapports, futurs traitements automatisés).
+        // ─────────────────────────────────────────────────────────────────
+        $booking_date_recalc = get_post_meta( $booking_id, '_etb_booking_date', true );
+        $booking_time_recalc = get_post_meta( $booking_id, '_etb_booking_time', true ) ?: '09:00';
+        $pickup_ts_recalc    = strtotime( $booking_date_recalc . ' ' . $booking_time_recalc );
+        if ( ! $pickup_ts_recalc ) {
+            $pickup_ts_recalc = strtotime( $booking_date_recalc . ' ' . substr( $booking_time_recalc, 0, 5 ) . ':00' );
+        }
+
+        $min_delay_recalc = ! empty( $gen_settings['min_delay'] ) ? absint( $gen_settings['min_delay'] ) : 24;
+        $now_ts_recalc    = time();
+        $is_urgent_now    = (
+            $pickup_ts_recalc
+            && ( $pickup_ts_recalc - $now_ts_recalc ) >= 0
+            && ( $pickup_ts_recalc - $now_ts_recalc ) < ( $min_delay_recalc * HOUR_IN_SECONDS )
+        );
+
+        $old_urgent_flag = (string) get_post_meta( $booking_id, '_etb_is_urgent', true );
+        $new_urgent_flag = $is_urgent_now ? '1' : '0';
+
+        if ( $old_urgent_flag !== $new_urgent_flag ) {
+            update_post_meta( $booking_id, '_etb_is_urgent', $new_urgent_flag );
+            error_log( sprintf(
+                '[ETB #14] Booking #%d — urgency recalculated at settle: %s -> %s',
+                $booking_id,
+                $old_urgent_flag !== '' ? $old_urgent_flag : '0',
+                $new_urgent_flag
+            ) );
+        }
 
         // 5. Contrôle d'intégrité Stripe serveur
         if ( $stripe_enabled ) {
@@ -1696,9 +1898,50 @@ class ETB_Ajax {
             // Comparaison obligatoire : le prélèvement Stripe réel vs le montant officiel serveur (et non $_POST['amount'] !)
             $stripe_cents = (int) ( $intent_check['amount'] ?? 0 );
 
-            // Si le montant POST était vide ou à 0, on synchronise obligatoirement sur le montant réel Stripe
+            // ─────────────────────────────────────────────────────────────────
+            // Sous-étape 1.3 : Vérification croisée du montant encaissé.
+            // On compare le montant réellement débité par Stripe avec le montant
+            // officiel recalculé en base (transport + sièges + pourboire validé).
+            // Toute différence > 1 centime bloque la confirmation de la mission
+            // et lève une alerte de sécurité pour investigation manuelle.
+            // ─────────────────────────────────────────────────────────────────
             if ( $stripe_cents > 0 ) {
-                $amount = (float) ( $stripe_cents / 100 );
+                $stripe_amount_decimal = (float) ( $stripe_cents / 100 );
+                $amount_delta          = abs( $stripe_amount_decimal - $official_grand_total );
+
+                // Tolérance = 1 centime (absorbe les arrondis flottants PHP/Stripe)
+                if ( $amount_delta > 0.01 ) {
+
+                    // 1. Marquage pour investigation manuelle
+                    update_post_meta( $booking_id, '_etb_security_alert', 'amount_mismatch' );
+                    update_post_meta( $booking_id, '_etb_security_alert_at', current_time( 'mysql' ) );
+                    update_post_meta( $booking_id, '_etb_security_alert_details', sprintf(
+                        'Stripe encaissé : %s %s | Attendu serveur : %s %s | Écart : %s %s',
+                        number_format_i18n( $stripe_amount_decimal, 2 ),
+                        $currency_sym,
+                        number_format_i18n( $official_grand_total, 2 ),
+                        $currency_sym,
+                        number_format_i18n( $amount_delta, 2 ),
+                        $currency_sym
+                    ) );
+
+                    // 2. Journalisation serveur (détection de patterns de fraude)
+                    error_log( sprintf(
+                        '[ETB Security] Settlement amount mismatch on booking #%d — stripe: %.2f, expected: %.2f, delta: %.2f',
+                        $booking_id,
+                        $stripe_amount_decimal,
+                        $official_grand_total,
+                        $amount_delta
+                    ) );
+
+                    // 3. Rejet — la mission n'est PAS confirmée dans WordPress ni dispatchée
+                    wp_send_json_error( array(
+                        'message' => 'Payment verification failed. The charged amount does not match the booking. Please contact support with your booking reference.',
+                    ) );
+                }
+
+                // Cohérence confirmée : on synchronise sur le montant réel Stripe
+                $amount = $stripe_amount_decimal;
             }
 
             // Récupération des détails de carte depuis l'objet Stripe
@@ -1970,7 +2213,7 @@ class ETB_Ajax {
             // Enregistrement du diagnostic uniquement dans les métadonnées WP (sans polluer debug.log)
             update_post_meta( $booking_id, '_etb_limo_debug_response', 'HTTP ' . $up_code . ' : ' . $up_body );
 
-            // ÉTAPE 2 : Déclenchement formel des statuts Payé et Confirmé (pour la course et ses sous-trajets)
+                       // ÉTAPE 2 : Déclenchement formel des statuts Payé et Confirmé (pour la course et ses sous-trajets)
             $all_uuids_to_confirm = array( (string) $target_uuid );
             $stored_child_uuids   = get_post_meta( $booking_id, '_etb_limo_uuids', true );
             if ( ! empty( $stored_child_uuids ) && is_array( $stored_child_uuids ) ) {
@@ -1981,28 +2224,49 @@ class ETB_Ajax {
                 }
             }
 
+            // Suivi granulaire du succès de chaque appel HTTP pour tous les UUIDs
+            $all_status_updates_ok = true;
+            $status_update_errors  = array();
+
             foreach ( $all_uuids_to_confirm as $uuid_item ) {
-                wp_remote_post( 'https://api.limoexpress.me/api/integration/mark-booking-as-paid', array(
+                // Appel 1 : mark-booking-as-paid
+                $paid_res = wp_remote_post( 'https://api.limoexpress.me/api/integration/mark-booking-as-paid', array(
                     'headers' => $headers,
                     'body'    => wp_json_encode( array( 'id' => $uuid_item ) ),
                     'timeout' => 15,
                 ) );
 
-                wp_remote_post( 'https://api.limoexpress.me/api/integration/mark-booking-as-confirmed', array(
+                $paid_code = is_wp_error( $paid_res ) ? 500 : wp_remote_retrieve_response_code( $paid_res );
+                if ( $paid_code < 200 || $paid_code >= 300 ) {
+                    $all_status_updates_ok = false;
+                    $status_update_errors[] = sprintf( 'mark-paid [%s] HTTP %d', $uuid_item, $paid_code );
+                }
+
+                // Appel 2 : mark-booking-as-confirmed
+                $confirmed_res  = wp_remote_post( 'https://api.limoexpress.me/api/integration/mark-booking-as-confirmed', array(
                     'headers' => $headers,
                     'body'    => wp_json_encode( array( 'id' => $uuid_item ) ),
                     'timeout' => 15,
                 ) );
+
+                $confirmed_code = is_wp_error( $confirmed_res ) ? 500 : wp_remote_retrieve_response_code( $confirmed_res );
+                if ( $confirmed_code < 200 || $confirmed_code >= 300 ) {
+                    $all_status_updates_ok = false;
+                    $status_update_errors[] = sprintf( 'mark-confirmed [%s] HTTP %d', $uuid_item, $confirmed_code );
+                }
             }
 
-            $paid_code = ! is_wp_error( $paid_res ) ? wp_remote_retrieve_response_code( $paid_res ) : 500;
-            if ( $up_code >= 200 && $up_code < 300 && $paid_code >= 200 && $paid_code < 300 ) {
+            // Décision finale : succès si la mise à jour du payload ET tous les changements de statut ont réussi
+            if ( $up_code >= 200 && $up_code < 300 && $all_status_updates_ok ) {
                 $limo_synced = true;
                 update_post_meta( $booking_id, '_etb_limo_status', 'synced' );
                 update_post_meta( $booking_id, '_etb_limo_paid_synced', '1' );
                 delete_post_meta( $booking_id, '_etb_limo_error' );
             } else {
                 $err_msg = ! is_wp_error( $update_res ) ? wp_remote_retrieve_body( $update_res ) : $update_res->get_error_message();
+                if ( ! empty( $status_update_errors ) ) {
+                    $err_msg .= ' | Statuts: ' . implode( ', ', $status_update_errors );
+                }
                 update_post_meta( $booking_id, '_etb_limo_status', 'failed' );
                 update_post_meta( $booking_id, '_etb_limo_error', 'LimoExpress update error: ' . $err_msg );
             }

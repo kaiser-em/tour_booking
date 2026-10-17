@@ -27,7 +27,7 @@ $tomorrow_display = sprintf( '%s %s %s', $d_day, $months[ $d_m_idx ] ?? 'Sep', $
 $now_time = '';
 ?>
 
-<div class="etb-quick-widget" id="etb-quick-widget-app" data-etb-theme="dark" style="position: relative;">
+<div class="etb-quick-widget" id="etb-quick-widget-app" style="position: relative;">
     
     <!-- BOUTON SWITCHER THÈME (PILULE COULISSANTE VIP) -->
         <button type="button" class="etb-theme-toggle-btn etb-theme-switch" aria-label="Basculer le thème">
@@ -266,7 +266,7 @@ $now_time = '';
                                 <svg viewBox="20 15 60 88" width="23" height="23" fill="currentColor" style="flex-shrink: 0;">
                                     <path d="M70.75,26.75H60.028l1.056,5.476c2.108-0.315,4.109,1.073,4.517,3.185l0.868,4.5c0.418,2.169-1.001,4.267-3.171,4.685 l-1.227,0.237c-2.169,0.418-4.268-1.001-4.686-3.17l-0.867-4.5c-0.408-2.113,0.936-4.146,3.01-4.637l-1.113-5.775H54.75v-14 c0-0.019-0.01-0.034-0.011-0.052c0.002-0.032,0.01-0.062,0.01-0.095c0-0.773-0.626-1.397-1.397-1.397h-6.705 c-0.771,0-1.397,0.624-1.397,1.397c0,0.034,0.008,0.065,0.01,0.098c0,0.017-0.01,0.031-0.01,0.049v14h-16c-2.209,0-4,1.791-4,4v59 c0,2.209,1.791,4,4,4h6V94c0,0.69,0.559,1.25,1.25,1.25c0.689,0,1.25-0.56,1.25-1.25v-0.25h24.5V94c0,0.69,0.559,1.25,1.25,1.25 c0.689,0,1.25-0.56,1.25-1.25v-0.25h6c2.209,0,4-1.791,4-4v-59C74.75,28.541,72.959,26.75,70.75,26.75z M47.75,14h4.5v12.75h-4.5V14 z M63.39,84.078h-26.78c-1.027,0-1.86-0.834-1.86-1.859c0-1.028,0.833-1.859,1.86-1.859h26.78c1.026,0,1.859,0.831,1.859,1.859 C65.249,83.244,64.416,84.078,63.39,84.078z"/>
                                 </svg>
-                                <span><?php echo esc_html( $max_bag ); ?> Luggage</span>
+                                <span><?php echo esc_html( $max_bag ); ?> <span class="etb-lbl-desktop">Luggage</span><span class="etb-lbl-mobile">Bag</span></span>
                             </span>
                         </div>
 
@@ -370,8 +370,8 @@ $now_time = '';
         </div>
         <div class='etb-notice-wrapper'>
         <!-- Bandeau de réservation urgente (< 24h) identique au Checkout -->
-        <div id="etb-quick-urgent-notice" style="display: block;background: rgb(145 11 11 / 84%);border: 1px solid rgb(255 24 79 / 91%);border-radius: 10px;padding: 12px 16px;margin: 18px 0px;font-size: 12px;color:#ffffff;line-height: 1.45;text-align: center; width: 60%;">
-            <strong style="color: #ffffff; display: block; margin-bottom: 2px;"><img draggable="false" role="img" class="emoji" alt="⏱️" src="https://s.w.org/images/core/emoji/17.0.2/svg/23f1.svg"> Short-Notice Pickup (&lt; 24h)</strong>
+         <div id="etb-quick-urgent-notice" style="display: none;background: rgb(145 11 11 / 84%);border: 1px solid rgb(255 24 79 / 91%);border-radius: 10px;padding: 12px 16px;margin: 18px 0px;font-size: 12px;color:#ffffff;line-height: 1.45;text-align: center; width: 60%;">            
+            <strong style="color: #ffffff; display: block; margin-bottom: 2px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align: -2px; margin-right: 5px;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>Short-Notice Pickup (&lt; 24h)</strong>
             For bookings scheduled within 24 hours, our dispatch team will confirm chauffeur availability before any payment is collected. You will receive a response within 1 hour during business hours (8:00 AM – 9:00 PM).
         </div>
         </div>

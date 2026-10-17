@@ -104,22 +104,9 @@
     color: #000000 !important;
 }
 
-/* ── ORGANISATION DE L'EN-TÊTE ET TOGGLE MULTI-BOOKING ── */
-.etb-quick-top-controls {
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    width: 100% !important;
-    margin-bottom: 16px !important;
-    position: relative !important;
-}
 
-.etb-quick-top-controls .etb-quick-mode-capsule {
-    margin: 0 !important;
-    position: absolute !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-}
+
+
 
 .etb-quick-top-spacer {
     width: 120px !important;
@@ -135,6 +122,10 @@
     z-index: 10 !important;
     user-select: none !important;
     margin-left: 20px !important;
+}
+
+.etb-multi-booking-checkbox-wrap  span{
+  display: none !important;
 }
 
 .etb-multi-booking-checkbox-wrap input {
@@ -696,6 +687,17 @@
     display: none !important;
 }
 
+/* 📱 Très petit écran (< 420px) : bascule vers les labels courts
+   pour éviter le wrap interne du "20 Passengers | 10 Luggage". */
+@media (max-width: 420px) {
+    .etb-lbl-desktop {
+        display: none !important;
+    }
+    .etb-lbl-mobile {
+        display: inline !important;
+    }
+}
+
 .etb-spec-item .dashicons {
     font-size: 16px !important;
     width: 16px !important;
@@ -1003,7 +1005,7 @@
     border-color: var(--etb-border-main, #232a3b) !important;
     transform: translateY(0) scale(1) !important;
     pointer-events: auto !important;
-    max-height: 220px !important;
+    max-height: 350px !important;
     justify-content: space-between !important;
     align-items: center !important;
     gap: 14px !important;
@@ -1118,6 +1120,19 @@
     letter-spacing: 0.05em !important;
 }
 
+/* Adaptation Light Mode du badge "Upon Request" (Custom Quote) */
+[data-etb-theme="light"] .etb-quick-quote-badge {
+    background: rgba(230, 90, 21, 0.12) !important;
+    color: #b45309 !important;
+    border: 1px solid rgba(230, 90, 21, 0.35) !important;
+}
+
+.etb-bar-route-info .etb-route-line strong{
+    color: var(--etb-text-secondary) !important;
+}
+.etb-bar-route-info .etb-route-line span{
+    overflow: hidden !important;
+}
 
 /* ── DUO CONTACT VIP (EMAIL & WHATSAPP) ── */
 .etb-quick-contact-duo {
@@ -1647,12 +1662,9 @@
 }
 
 
+@media (max-width: 990px) { 
 
-
-/* ── RESPONSIVE WIDGET ACCUEIL ── */
-/* Adaptation Responsive Mobile */
-@media (max-width: 900px) { 
-    .etb-quick-glass-bar {
+.etb-quick-glass-bar {
         flex-direction: column !important;
         align-items: stretch !important;
         gap: 16px !important;
@@ -1668,6 +1680,16 @@
         width: 100% !important;
         justify-content: center !important;
     }
+
+}
+
+
+
+
+/* ── RESPONSIVE WIDGET ACCUEIL ── */
+/* Adaptation Responsive Mobile */
+@media (max-width: 1200px) { 
+    
     .etb-quick-confirm-bar {
         flex-direction: column !important;
         gap: 14px !important;
@@ -1750,9 +1772,19 @@
 }
 
 
+@media (max-width: 400px) {
+
+.etb-quick-cars-grid {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
+    }
+   .etb-quick-car-item{
+        min-width: 200px !important;
+   }
+
+}
 
 
-/* 1. TABLETTE & ÉCRANS MOYENS (<= 992px) */
 
 /* Neutralisation du padding excessif du thème Gutenberg sur Mobile/Tablette */
 @media (max-width: 768px) {
@@ -1800,6 +1832,7 @@
     width: 100% !important;
    }
 
+   
 }
 
 /* ── BOUTON DORÉ FLOTTANT AU-DESSUS DE LA BARRE (VIP DARK & LIGHT) ── */
@@ -1972,6 +2005,26 @@
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+}
+
+/* Bullets d'itinéraire (barre de résumé) */
+.etb-bar-bullet {
+    display: inline-block !important;
+    width: 6px !important;
+    height: 6px !important;
+    border-radius: 50% !important;
+    flex-shrink: 0 !important;
+}
+.etb-bar-bullet-pickup {
+    background: #22c55e !important;
+}
+.etb-bar-bullet-dropoff {
+    background: var(--etb-accent-gold, #fbac18) !important;
+}
+
+/* Light Mode : vert plus soutenu pour rester lisible sur fond clair */
+[data-etb-theme="light"] .etb-bar-bullet-pickup {
+    background: #15803d !important;
 }
 
 .etb-route-date {
